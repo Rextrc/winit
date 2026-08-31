@@ -61,6 +61,20 @@ const config: Config = {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
+        "confetti-fall": {
+          "0%": { transform: "translateY(-10vh) rotate(0deg)", opacity: "0" },
+          "8%": { opacity: "1" },
+          "100%": { transform: "translateY(110vh) rotate(720deg)", opacity: "0.9" },
+        },
+        "banner-in": {
+          "0%": { transform: "scale(0.6) translateY(10px)", opacity: "0" },
+          "60%": { transform: "scale(1.05) translateY(0)", opacity: "1" },
+          "100%": { transform: "scale(1) translateY(0)", opacity: "1" },
+        },
+        "banner-out": {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "100%": { transform: "scale(0.9)", opacity: "0" },
+        },
       },
       animation: {
         "reel-spin": "reel-spin 0.28s linear infinite",
@@ -68,6 +82,9 @@ const config: Config = {
         "card-deal": "card-deal 0.35s ease-out",
         "float-up": "float-up 1.6s ease-out forwards",
         marquee: "marquee 26s linear infinite",
+        "confetti-fall": "confetti-fall linear forwards",
+        "banner-in": "banner-in 0.4s cubic-bezier(0.34,1.56,0.64,1)",
+        "banner-out": "banner-out 0.25s ease-in forwards",
       },
     },
   },

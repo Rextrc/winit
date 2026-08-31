@@ -169,6 +169,8 @@ export default function RouletteGame({ game }: { game: GameDef }) {
       placed.length > 0
         ? `${placed.length} chip${placed.length === 1 ? "" : "s"} on the felt · ${formatCents(totalStake)} at risk`
         : "Place chips on the layout to arm the spin.",
+    // Needs chips placed on the felt each round, not just a stake.
+    autoplay: false,
   });
 
   const Chip = ({ amount }: { amount: number }) =>

@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import BetSlipBar from "@/components/BetSlipBar";
 import LevelUpToast from "@/components/LevelUpToast";
+import WinCelebration from "@/components/WinCelebration";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -20,6 +21,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </main>
         <BetSlipBar />
         <LevelUpToast />
+        <WinCelebration />
       </div>
     </div>
   );

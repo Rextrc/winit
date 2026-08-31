@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_MAX_BET_CENTS, MIN_BET_CENTS, clampBet } from "@/lib/money";
 import { useWallet } from "@/components/WalletProvider";
 
@@ -20,6 +20,13 @@ export type BetSlipHook = {
   run: () => void;
   /** Optional extra line shown in the bar, e.g. "Hand in play". */
   note?: string;
+  /**
+   * Whether the bet slip's Autoplay control applies to this game. Default
+   * true. Turn-based games (blackjack) and games that need setup beyond the
+   * stake before a spin means anything (roulette's chips) opt out, since
+   * calling `run` repeatedly wouldn't place a fresh bet each time.
+   */
+  autoplay?: boolean;
 };
 
 export type BetResultFlash = {
@@ -28,6 +35,30 @@ export type BetResultFlash = {
   netCents: number;
   summary: string;
 } | null;
+
+export type WinTier = "NICE" | "BIG" | "HUGE" | "MEGA" | "EPIC";
+
+export type Celebration = {
+  id: number;
+  game: string;
+  tier: WinTier;
+  multiplier: number;
+  netCents: number;
+} | null;
+
+/** Multiplier (payout / stake) needed to reach each tier, richest first. */
+const TIER_FLOORS: [WinTier, number][] = [
+  ["EPIC", 300],
+  ["MEGA", 100],
+  ["HUGE", 50],
+  ["BIG", 25],
+  ["NICE", 10],
+];
+
+function tierFor(multiplier: number): WinTier | null {
+  for (const [tier, floor] of TIER_FLOORS) if (multiplier >= floor) return tier;
+  return null;
+}
 
 type BetContext = {
   betCents: number;
@@ -44,6 +75,8 @@ type BetContext = {
   setHook: (hook: BetSlipHook | null) => void;
   flash: BetResultFlash;
   pushFlash: (game: string, netCents: number, summary: string) => void;
+  celebration: Celebration;
+  dismissCelebration: () => void;
 };
 
 const Ctx = createContext<BetContext | null>(null);
@@ -56,6 +89,8 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
   const [hook, setHook] = useState<BetSlipHook | null>(null);
   const [flash, setFlash] = useState<BetResultFlash>(null);
   const [flashId, setFlashId] = useState(0);
+  const [celebration, setCelebration] = useState<Celebration>(null);
+  const celebrationId = useRef(0);
 
   // The player's personal table limit. Falls back to the base limit until the
   // session loads; the server revalidates every bet against the real one.
@@ -104,6 +139,8 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
   else if (betCents > maxBet) betError = "Above your table limit.";
   else if (balanceCents !== null && betCents > balanceCents) betError = "More than your balance.";
 
+  const dismissCelebration = useCallback(() => setCelebration(null), []);
+
   const pushFlash = useCallback(
     (game: string, netCents: number, summary: string) => {
       setFlashId((id) => {
@@ -111,8 +148,20 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
         setFlash({ id: next, game, netCents, summary });
         return next;
       });
+
+      // The stake can't change mid-bet — every game disables its controls
+      // while a bet is in flight — so the slip's current stake is exactly
+      // what this result was won or lost on.
+      if (netCents > 0 && effectiveBet > 0) {
+        const multiplier = (netCents + effectiveBet) / effectiveBet;
+        const tier = tierFor(multiplier);
+        if (tier) {
+          celebrationId.current += 1;
+          setCelebration({ id: celebrationId.current, game, tier, multiplier, netCents });
+        }
+      }
     },
-    [],
+    [effectiveBet],
   );
 
   const value = useMemo<BetContext>(
@@ -129,8 +178,24 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
       setHook,
       flash,
       pushFlash,
+      celebration,
+      dismissCelebration,
     }),
-    [betCents, maxBet, setBetCents, halve, double, max, effectiveBet, betError, hook, flash, pushFlash],
+    [
+      betCents,
+      maxBet,
+      setBetCents,
+      halve,
+      double,
+      max,
+      effectiveBet,
+      betError,
+      hook,
+      flash,
+      pushFlash,
+      celebration,
+      dismissCelebration,
+    ],
   );
 
   // `flashId` is only used to mint monotonic ids.
@@ -148,7 +213,7 @@ export function useBet(): BetContext {
 /** Games call this to take over the persistent control bar while mounted. */
 export function useBetSlipHook(hook: BetSlipHook | null) {
   const { setHook } = useBet();
-  const { slug, name, actionLabel, ready, busy, note } = hook ?? {};
+  const { slug, name, actionLabel, ready, busy, note, autoplay } = hook ?? {};
   const run = hook?.run;
 
   useEffect(() => {
@@ -156,7 +221,7 @@ export function useBetSlipHook(hook: BetSlipHook | null) {
       setHook(null);
       return;
     }
-    setHook({ slug, name, actionLabel, ready: !!ready, busy: !!busy, run, note });
+    setHook({ slug, name, actionLabel, ready: !!ready, busy: !!busy, run, note, autoplay });
     return () => setHook(null);
-  }, [slug, name, actionLabel, ready, busy, note, run, setHook]);
+  }, [slug, name, actionLabel, ready, busy, note, run, autoplay, setHook]);
 }

@@ -151,6 +151,8 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     busy,
     run: deal,
     note: inPlay ? "Hand in play — finish it with the table controls." : undefined,
+    // Turn-based: dealing again doesn't resolve a hand by itself.
+    autoplay: false,
   });
 
   const dealerTotalText = view
