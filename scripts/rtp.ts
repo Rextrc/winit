@@ -80,7 +80,7 @@ console.log(`  TOTAL         ${pct(slotsExact)}`);
 // The registry publishes exactRtp() itself rather than a copied constant, so
 // the advertised figure cannot drift from the paytable. What is worth asserting
 // is that the paytable still lands where the docs claim it does.
-const published = GAMES.find((g) => g.slug === "volt-reels")!.rtp!;
+const published = GAMES.find((g) => g.slug === "fruit-machine")!.rtp!;
 check("registry figure is the enumerated one", published, slotsExact, 1e-12);
 if (slotsExact < 0.94 || slotsExact > 0.96) {
   failures++;
@@ -104,11 +104,11 @@ if (PAYLINES.length !== LINE_COUNT) {
 }
 
 // Evaluator sanity: no pay on a broken line, wilds substitute, 5oak pays top.
-if (evaluateLine(["LEMON", "CLOVER", "BELL", "BAR", "SEVEN"], 0, 1) !== null) {
+if (evaluateLine(["LEMON", "CHERRY", "GRAPES", "PLUM", "SEVEN"], 0, 1) !== null) {
   failures++;
   console.log("  FAIL  a non-paying line returned a win");
 }
-if (evaluateLine(["SEVEN", "WILD", "SEVEN", "CLOVER", "BAR"], 0, 1)?.count !== 3) {
+if (evaluateLine(["SEVEN", "WILD", "SEVEN", "CHERRY", "PLUM"], 0, 1)?.count !== 3) {
   failures++;
   console.log("  FAIL  wild substitution did not extend a run");
 }

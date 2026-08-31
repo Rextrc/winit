@@ -37,17 +37,17 @@ export const SYMBOLS = [
   "WILD",
   "SCATTER",
   "SEVEN",
-  "DIAMOND",
-  "BELL",
-  "BAR",
-  "CHERRY",
+  "WATERMELON",
+  "GRAPES",
+  "PLUM",
+  "ORANGE",
   "LEMON",
-  "CLOVER",
+  "CHERRY",
 ] as const;
 export type Sym = (typeof SYMBOLS)[number];
 
 /** Symbols that can start and extend a payline win. */
-export const PAYING_SYMBOLS = ["SEVEN", "DIAMOND", "BELL", "BAR", "CHERRY", "LEMON", "CLOVER"] as const;
+export const PAYING_SYMBOLS = ["SEVEN", "WATERMELON", "GRAPES", "PLUM", "ORANGE", "LEMON", "CHERRY"] as const;
 export type PaySym = (typeof PAYING_SYMBOLS)[number];
 
 export const REELS = 5;
@@ -74,11 +74,11 @@ export const PAYLINES: number[][] = [
  * removes any "which symbol does an all-wild line pay as" ambiguity.
  */
 export const REEL_WEIGHTS: Record<Sym, number>[] = [
-  { WILD: 0, SCATTER: 2, SEVEN: 2, DIAMOND: 3, BELL: 4, BAR: 6, CHERRY: 8, LEMON: 11, CLOVER: 14 },
-  { WILD: 3, SCATTER: 2, SEVEN: 2, DIAMOND: 3, BELL: 4, BAR: 6, CHERRY: 7, LEMON: 10, CLOVER: 13 },
-  { WILD: 4, SCATTER: 2, SEVEN: 2, DIAMOND: 3, BELL: 4, BAR: 5, CHERRY: 7, LEMON: 10, CLOVER: 13 },
-  { WILD: 3, SCATTER: 2, SEVEN: 2, DIAMOND: 3, BELL: 4, BAR: 6, CHERRY: 7, LEMON: 10, CLOVER: 13 },
-  { WILD: 0, SCATTER: 2, SEVEN: 2, DIAMOND: 3, BELL: 4, BAR: 6, CHERRY: 8, LEMON: 11, CLOVER: 14 },
+  { WILD: 0, SCATTER: 2, SEVEN: 2, WATERMELON: 3, GRAPES: 4, PLUM: 6, ORANGE: 8, LEMON: 11, CHERRY: 14 },
+  { WILD: 3, SCATTER: 2, SEVEN: 2, WATERMELON: 3, GRAPES: 4, PLUM: 6, ORANGE: 7, LEMON: 10, CHERRY: 13 },
+  { WILD: 4, SCATTER: 2, SEVEN: 2, WATERMELON: 3, GRAPES: 4, PLUM: 5, ORANGE: 7, LEMON: 10, CHERRY: 13 },
+  { WILD: 3, SCATTER: 2, SEVEN: 2, WATERMELON: 3, GRAPES: 4, PLUM: 6, ORANGE: 7, LEMON: 10, CHERRY: 13 },
+  { WILD: 0, SCATTER: 2, SEVEN: 2, WATERMELON: 3, GRAPES: 4, PLUM: 6, ORANGE: 8, LEMON: 11, CHERRY: 14 },
 ];
 
 export const STRIP_LENGTHS = REEL_WEIGHTS.map((w) =>
@@ -93,12 +93,12 @@ export const REEL_STRIPS: Sym[][] = REEL_WEIGHTS.map((w) =>
 /** Line pays as a multiple of the LINE bet, indexed by match length 3/4/5. */
 export const LINE_PAYS: Record<PaySym, { 3: number; 4: number; 5: number }> = {
   SEVEN: { 3: 40, 4: 250, 5: 1500 },
-  DIAMOND: { 3: 25, 4: 100, 5: 550 },
-  BELL: { 3: 15, 4: 55, 5: 250 },
-  BAR: { 3: 10, 4: 32, 5: 145 },
-  CHERRY: { 3: 6, 4: 20, 5: 80 },
+  WATERMELON: { 3: 25, 4: 100, 5: 550 },
+  GRAPES: { 3: 15, 4: 55, 5: 250 },
+  PLUM: { 3: 10, 4: 32, 5: 145 },
+  ORANGE: { 3: 6, 4: 20, 5: 80 },
   LEMON: { 3: 3, 4: 12, 5: 45 },
-  CLOVER: { 3: 3, 4: 9, 5: 30 },
+  CHERRY: { 3: 3, 4: 9, 5: 30 },
 };
 
 /** Scatter pays as a multiple of the TOTAL bet, indexed by scatter count. */
@@ -121,28 +121,32 @@ export const SUPER_SPIN_COUNT = 20;
  */
 export const MAX_FREE_SPINS_PER_ROUND = 500;
 
+/**
+ * Text fallbacks. The reels render real artwork (see SlotSymbol.tsx); these
+ * are for anywhere a glyph has to live inside a string.
+ */
 export const SYMBOL_GLYPHS: Record<Sym, string> = {
   WILD: "W",
   SCATTER: "★",
   SEVEN: "7",
-  DIAMOND: "◆",
-  BELL: "▲",
-  BAR: "▬",
-  CHERRY: "●",
-  LEMON: "◐",
-  CLOVER: "✦",
+  WATERMELON: "◍",
+  GRAPES: "❉",
+  PLUM: "◕",
+  ORANGE: "◉",
+  LEMON: "◑",
+  CHERRY: "❀",
 };
 
 export const SYMBOL_NAMES: Record<Sym, string> = {
   WILD: "Wild",
   SCATTER: "Scatter",
   SEVEN: "Seven",
-  DIAMOND: "Diamond",
-  BELL: "Bell",
-  BAR: "Bar",
-  CHERRY: "Cherry",
+  WATERMELON: "Watermelon",
+  GRAPES: "Grapes",
+  PLUM: "Plum",
+  ORANGE: "Orange",
   LEMON: "Lemon",
-  CLOVER: "Clover",
+  CHERRY: "Cherry",
 };
 
 // ---------------------------------------------------------------------------

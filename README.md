@@ -108,7 +108,7 @@ the free-spins tail, so even a million rounds carries a ~0.39% standard error, a
 would false-alarm regularly. Roulette's variance is ~1, so it gets a band an order of magnitude
 tighter.
 
-### Volt Reels (slots) — RTP 94.9854%
+### Fruit Machine (slots) — RTP 94.9854%
 
 Five reels, three rows, ten fixed paylines, wilds, scatters, a free-spins round that retriggers,
 and two bonus buys.
@@ -120,15 +120,18 @@ than becoming a simulation estimate.
 **Line pays** (multiple of the *line* bet; the stake is split across all ten lines, so it is
 quantised down to a whole number of line bets and no payout is ever rounded):
 
-| Symbol | 3 | 4 | 5 |
-|---|---|---|---|
-| Seven | ×40 | ×250 | ×1500 |
-| Diamond | ×25 | ×100 | ×550 |
-| Bell | ×15 | ×55 | ×250 |
-| Bar | ×10 | ×32 | ×145 |
-| Cherry | ×6 | ×20 | ×80 |
-| Lemon | ×3 | ×12 | ×45 |
-| Clover | ×3 | ×9 | ×30 |
+| Symbol | Strip slots (reel 1) | 3 | 4 | 5 |
+|---|---|---|---|---|
+| Seven | 2 | ×40 | ×250 | ×1500 |
+| Watermelon | 3 | ×25 | ×100 | ×550 |
+| Grapes | 4 | ×15 | ×55 | ×250 |
+| Plum | 6 | ×10 | ×32 | ×145 |
+| Orange | 8 | ×6 | ×20 | ×80 |
+| Lemon | 11 | ×3 | ×12 | ×45 |
+| Cherry | 14 | ×3 | ×9 | ×30 |
+
+The symbols are drawn as original inline SVG (`src/components/games/SlotSymbol.tsx`) rather than
+loaded as image assets, so they stay crisp at any size and the app ships no artwork files.
 
 **Wilds** sit on reels 2–4 only and substitute for any paying symbol. Because a wild can never lead
 a line, there is no "which symbol does an all-wild line pay as" ambiguity to resolve.
@@ -172,7 +175,7 @@ history, or how long you have been losing.
 The game registry publishes `exactRtp()` itself rather than a copied constant, so the advertised
 figure cannot drift from the paytable.
 
-### Single Zero (roulette) — RTP 97.297% on every bet
+### European Roulette (roulette) — RTP 97.297% on every bet
 
 European layout: 37 pockets, one green zero, no double zero. The winning pocket is one
 `crypto.randomInt(37)` draw, taken *before* the wheel animation starts — the animation renders a
@@ -188,7 +191,7 @@ Every bet pays true odds for the pockets it covers, so all of them return exactl
 
 House edge 2.703%, created by the green pocket and nothing else. No en prison, no la partage.
 
-### Twenty-One (blackjack) — RTP ≈99.4% with basic strategy
+### Blackjack (blackjack) — RTP ≈99.4% with basic strategy
 
 - 6 decks, crypto Fisher-Yates shuffled before **every** hand (so card counting gains nothing)
 - Dealer stands on all 17, including soft 17

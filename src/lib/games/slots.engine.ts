@@ -22,7 +22,7 @@ import {
 } from "@/lib/games/slots";
 
 /**
- * The randomness half of Volt Reels — server only.
+ * The randomness half of Fruit Machine — server only.
  *
  * Kept apart from `slots.ts` so the paytable, the evaluator and the exact-RTP
  * maths can be imported by client components and by the game registry without

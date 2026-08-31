@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import BetControls from "@/components/BetControls";
+import SlotSymbol from "@/components/games/SlotSymbol";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
@@ -18,7 +19,6 @@ import {
   SCATTER_PAYS,
   SCATTER_SPINS,
   STRIP_LENGTHS,
-  SYMBOL_GLYPHS,
   SYMBOL_NAMES,
   paytableRows,
   quantiseStake,
@@ -35,16 +35,17 @@ type RoundResponse = {
   progress: import("@/lib/ledger").ProgressUpdate;
 };
 
+/** Label tint per symbol, matched to its artwork. */
 const SYMBOL_COLORS: Record<Sym, string> = {
   WILD: "text-volt",
   SCATTER: "text-fuchsia-300",
-  SEVEN: "text-volt",
-  DIAMOND: "text-cyan-300",
-  BELL: "text-amber-300",
-  BAR: "text-slate-200",
-  CHERRY: "text-loss",
+  SEVEN: "text-loss",
+  WATERMELON: "text-emerald-300",
+  GRAPES: "text-purple-300",
+  PLUM: "text-fuchsia-400",
+  ORANGE: "text-orange-300",
   LEMON: "text-yellow-200",
-  CLOVER: "text-emerald-300",
+  CHERRY: "text-red-400",
 };
 
 /** Reel-stop timings. Turbo collapses the whole sequence to a flicker. */
@@ -68,13 +69,17 @@ function blurStrip(reel: number): Sym[] {
 function Cell({ symbol, lit, dim }: { symbol: Sym | null; lit: boolean; dim: boolean }) {
   return (
     <div
-      className={`grid aspect-square place-items-center rounded-lg border text-2xl font-black transition-all duration-200 sm:text-3xl ${
+      className={`grid aspect-square place-items-center rounded-lg border p-1.5 transition-all duration-200 ${
         lit
           ? "border-volt bg-volt/10 shadow-volt scale-[1.04]"
           : "border-white/5 bg-base-900/70"
-      } ${symbol ? SYMBOL_COLORS[symbol] : "text-slate-700"} ${dim && !lit ? "opacity-35" : ""}`}
+      } ${dim && !lit ? "opacity-30" : ""}`}
     >
-      <span className={lit ? "animate-pop-in" : ""}>{symbol ? SYMBOL_GLYPHS[symbol] : "·"}</span>
+      {symbol ? (
+        <SlotSymbol symbol={symbol} className={`h-full w-full ${lit ? "animate-pop-in" : ""}`} />
+      ) : (
+        <span className="text-2xl font-black text-slate-700">·</span>
+      )}
     </div>
   );
 }
@@ -99,11 +104,8 @@ function Reel({
       <div className="relative overflow-hidden rounded-lg border border-white/5 bg-base-900/70">
         <div className="animate-reel-spin will-change-transform">
           {[...strip, ...strip].map((s, i) => (
-            <div
-              key={i}
-              className={`grid aspect-square place-items-center text-2xl font-black blur-[2px] sm:text-3xl ${SYMBOL_COLORS[s]}`}
-            >
-              {SYMBOL_GLYPHS[s]}
+            <div key={i} className="grid aspect-square place-items-center p-1.5 blur-[2px]">
+              <SlotSymbol symbol={s} className="h-full w-full" />
             </div>
           ))}
         </div>
@@ -460,9 +462,9 @@ export default function SlotsGame({ game }: { game: GameDef }) {
               key={row.symbol}
               className="flex items-center justify-between rounded-lg border border-white/5 px-2.5 py-1.5"
             >
-              <span className={`text-base font-black ${SYMBOL_COLORS[row.symbol]}`}>
-                {SYMBOL_GLYPHS[row.symbol]}
-                <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <span className="flex items-center gap-2">
+                <SlotSymbol symbol={row.symbol} className="h-6 w-6 shrink-0" />
+                <span className={`text-[10px] font-bold uppercase tracking-wide ${SYMBOL_COLORS[row.symbol]}`}>
                   {SYMBOL_NAMES[row.symbol]}
                 </span>
               </span>
@@ -477,9 +479,9 @@ export default function SlotsGame({ game }: { game: GameDef }) {
             </li>
           ))}
           <li className="flex items-center justify-between rounded-lg border border-fuchsia-400/20 bg-fuchsia-500/5 px-2.5 py-1.5">
-            <span className="text-base font-black text-fuchsia-300">
-              {SYMBOL_GLYPHS.SCATTER}
-              <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Scatter</span>
+            <span className="flex items-center gap-2">
+              <SlotSymbol symbol="SCATTER" className="h-6 w-6 shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-wide text-fuchsia-300">Scatter</span>
             </span>
             <span className="num flex items-baseline gap-2 text-[11px] text-slate-400">
               {[3, 4, 5].map((c) => (
@@ -491,9 +493,9 @@ export default function SlotsGame({ game }: { game: GameDef }) {
             </span>
           </li>
           <li className="flex items-center justify-between rounded-lg border border-white/5 px-2.5 py-1.5">
-            <span className="text-base font-black text-volt">
-              {SYMBOL_GLYPHS.WILD}
-              <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Wild</span>
+            <span className="flex items-center gap-2">
+              <SlotSymbol symbol="WILD" className="h-6 w-6 shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-wide text-volt">Wild</span>
             </span>
             <span className="text-[10px] text-slate-500">Substitutes · reels 2–4</span>
           </li>

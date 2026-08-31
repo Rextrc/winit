@@ -1,7 +1,7 @@
 import { randomInt } from "@/lib/rng";
 
 /**
- * WINIT ROULETTE — "Single Zero"
+ * WINIT ROULETTE — "European Roulette"
  * -------------------------------------------------------------------------
  * European layout: 37 pockets (0 plus 1–36), single zero, no "en prison" and
  * no "la partage". The winning pocket is one crypto.randomInt(37) draw.

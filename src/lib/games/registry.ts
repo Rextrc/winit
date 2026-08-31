@@ -33,9 +33,9 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 
 export const GAMES: GameDef[] = [
   {
-    slug: "volt-reels",
-    name: "Volt Reels",
-    tagline: "5×3, 10 lines, wilds, free spins and bonus buys",
+    slug: "fruit-machine",
+    name: "Fruit Machine",
+    tagline: "5×3 fruit reels — wilds, free spins and bonus buys",
     category: "slots",
     // Closed form, not simulated: see exactRtp() in src/lib/games/slots.ts.
     rtp: SLOTS_EXACT_RTP,
@@ -44,14 +44,14 @@ export const GAMES: GameDef[] = [
     playable: true,
     tags: ["Slots", "Free spins", "Bonus buy"],
     art: "from-volt-600/70 via-base-700 to-base-900",
-    glyph: "≡",
+    glyph: "🍒",
     popularity: 99,
     new: true,
   },
   {
-    slug: "single-zero",
-    name: "Single Zero",
-    tagline: "European roulette, true odds on every bet",
+    slug: "european-roulette",
+    name: "European Roulette",
+    tagline: "Single zero, true odds on every bet",
     category: "table",
     rtp: 36 / 37,
     rtpNote: "36/37 on every bet type — the only edge is the green pocket.",
@@ -62,8 +62,8 @@ export const GAMES: GameDef[] = [
     popularity: 94,
   },
   {
-    slug: "twenty-one",
-    name: "Twenty-One",
+    slug: "blackjack",
+    name: "Blackjack",
     tagline: "6 decks, S17, blackjack pays 3:2",
     category: "table",
     rtp: 0.994,
@@ -182,13 +182,13 @@ export const PLAYABLE = GAMES.filter((g) => g.playable);
 
 /** Maps a game slug to the engine key used in the transaction log. */
 export const ENGINE_KEY: Record<string, string> = {
-  "volt-reels": "slots",
-  "twenty-one": "blackjack",
-  "single-zero": "roulette",
+  "fruit-machine": "slots",
+  "blackjack": "blackjack",
+  "european-roulette": "roulette",
 };
 
 export const SLUG_FOR_ENGINE: Record<string, string> = {
-  slots: "volt-reels",
-  blackjack: "twenty-one",
-  roulette: "single-zero",
+  slots: "fruit-machine",
+  blackjack: "blackjack",
+  roulette: "european-roulette",
 };
