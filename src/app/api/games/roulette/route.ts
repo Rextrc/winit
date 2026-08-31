@@ -75,6 +75,7 @@ export async function POST(req: Request) {
       betCents: result.totalStakeCents,
       netCents: settled.netCents,
       balanceCents: settled.balanceCents,
+      progress: settled.progress,
     });
   } catch (err) {
     return handleError(err);

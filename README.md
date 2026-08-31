@@ -4,9 +4,8 @@ A fully simulated casino, built as a portfolio project.
 
 **Every balance in this app is fake.** There is no payment processing, no deposit path, no
 withdrawal path and no conversion to real money anywhere in the codebase. Credit enters an account
-in exactly four ways — the sign-up grant, the daily bonus, level-up rewards and the rebirth floor —
-and every one of them is a hard-coded constant the app mints for itself. No money ever enters from
-outside.
+in exactly two ways — the sign-up grant and the daily bonus — and both are hard-coded constants
+the app mints for itself. No money ever enters from outside.
 
 ---
 
@@ -244,8 +243,8 @@ deliberate: progression tracks how much you played, so it cannot be farmed by a 
 stalled by a cold one, and the house edge is never quietly adjusted to control your rate of climb.
 
 **Levels raise your table limit.** Level 1 starts at 1,000.00 a bet; each level adds 30% of that
-base, so level 50 sits at 15,700.00. Every level also pays out fake chips worth five times the new
-limit, and each level-up writes its own `LEVELUP` row so the ledger still reconciles from zero.
+base, so level 50 sits at 15,700.00. Leveling pays no currency of its own — see below for why —
+and each level-up still writes its own zero-value `LEVELUP` row so the history feed shows it.
 
 There are 11 life stages across the 50 levels, from *Broke Student* to *Ready to Rebirth*, and four
 unlocks along the way: turbo spins at 3, the Free Spins buy at 6, the Super Free Spins buy at 15,
@@ -255,10 +254,16 @@ and rebirth at 50.
 have, plus +50% XP so the climb back is faster. Anything unlocked in a past life stays unlocked. Up
 to 10 rebirths, which puts the ceiling at 15,700.00 × 3¹⁰ = 927,069,300.00 a bet.
 
-Your balance is never reduced by a rebirth. The fresh stake is granted as a *floor*, so a player who
-arrives rich keeps what they have — the cost of a rebirth is the level reset, not the money. Like
-every other credit here, that grant is fake currency the app mints for itself; it is still not a
-deposit, a purchase or a conversion.
+Your balance is never touched by a rebirth, win or lose — only the level and rebirth count reset.
+
+**Neither leveling nor rebirth pays any currency.** They didn't always: an earlier version granted
+chips on level-up and topped a rebirthing account's balance up to a floor. Both were a real exploit —
+XP is earned on *amount staked*, not on winning, so a player betting the table limit on repeat, at
+even the app's lowest house edge (blackjack's ~0.6%), came out net positive from leveling alone: the
+guaranteed loss climbing the whole ladder once is about $7,900, against roughly $2.08M in level-up
+rewards at the old rate. The rebirth floor was worse — deliberately losing everything before each of
+the 10 allowed rebirths could extract up to $88.5M in free chips, bounded only by the rebirth cap.
+Both credit paths are gone; the daily bonus is the only balance top-up in the app.
 
 ## Architecture notes
 

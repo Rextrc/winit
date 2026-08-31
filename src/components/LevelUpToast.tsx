@@ -8,7 +8,8 @@ import { UNLOCK_LABELS } from "@/lib/progression";
 
 /**
  * Fires when a settled bet pushed the player up one or more levels. Shows the
- * highest level reached, what it paid and anything it unlocked.
+ * highest level reached, the new table limit and anything it unlocked.
+ * Leveling pays no currency of its own — see src/lib/progression.ts.
  */
 export default function LevelUpToast() {
   const { levelUp, dismissLevelUp } = useWallet();
@@ -38,11 +39,7 @@ export default function LevelUpToast() {
             </p>
             <p className="text-[15px] font-black tracking-tight text-white">{top.stage.title}</p>
             <p className="mt-0.5 text-[11px] leading-snug text-slate-400">
-              Paid{" "}
-              <span className="num font-bold text-win">
-                {formatCents(levelUp.update.rewardCents)}
-              </span>{" "}
-              · table limit now{" "}
+              Table limit now{" "}
               <span className="num font-bold text-slate-200">{formatCents(top.maxBetCents)}</span>
             </p>
 

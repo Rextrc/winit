@@ -23,6 +23,7 @@ type SpinResponse = {
   };
   netCents: number;
   balanceCents: number;
+  progress: import("@/lib/ledger").ProgressUpdate;
 };
 
 /** Standard felt layout: top row is column 3, bottom row is column 1. */
@@ -51,7 +52,7 @@ function keyFor(type: BetType, n?: number) {
 
 export default function RouletteGame({ game }: { game: GameDef }) {
   const { effectiveBet, maxBetCents, betError, pushFlash } = useBet();
-  const { balanceCents, applyResult } = useWallet();
+  const { balanceCents, applyResult, applyProgress } = useWallet();
 
   const [placed, setPlaced] = useState<Placed[]>([]);
   const [busy, setBusy] = useState(false);
@@ -146,6 +147,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         setLast(payload);
         setRecent((r) => [payload.result.pocket, ...r].slice(0, 12));
         applyResult(payload.balanceCents, payload.netCents);
+        applyProgress(payload.progress);
         pushFlash(game.name, payload.netCents, payload.result.summary);
         setFeedVersion((v) => v + 1);
         setBusy(false);
@@ -154,7 +156,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
       setError("Network error — the bet was not placed.");
       setBusy(false);
     }
-  }, [busy, placed, applyResult, pushFlash, game.name]);
+  }, [busy, placed, applyResult, applyProgress, pushFlash, game.name]);
 
   useBetSlipHook({
     slug: game.slug,

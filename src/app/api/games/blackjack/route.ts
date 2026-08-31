@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet } from "@/lib/money";
-import { awardProgress, credit, debit, writeTransaction } from "@/lib/ledger";
+import { awardProgress, credit, debit, writeTransaction, type ProgressUpdate } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import {
   applyAction,
@@ -61,10 +61,11 @@ async function settleRound(
   });
 
   // Career XP is awarded on the hand's total stake, doubles and splits
-  // included, once the hand is actually settled.
+  // included, once the hand is actually settled. It never changes the
+  // balance, so the credited amount above is still the final figure.
   const progress = await awardProgress(tx, userId, stake, payout);
 
-  return progress.balanceCents;
+  return { balanceCents, progress };
 }
 
 /** Returns the caller's in-progress hand, if any, so a refresh doesn't lose it. */
@@ -124,11 +125,14 @@ export async function POST(req: Request) {
         });
 
         // A natural (either side) resolves before the player acts.
+        let progress: ProgressUpdate | null = null;
         if (state.phase === "DONE") {
-          balanceCents = await settleRound(tx, user.id, round.id, state);
+          const settled = await settleRound(tx, user.id, round.id, state);
+          balanceCents = settled.balanceCents;
+          progress = settled.progress;
         }
 
-        return { roundId: round.id, state, balanceCents };
+        return { roundId: round.id, state, balanceCents, progress };
       });
 
       return NextResponse.json({
@@ -136,6 +140,7 @@ export async function POST(req: Request) {
         roundId: result.roundId,
         view: toView(result.state),
         balanceCents: result.balanceCents,
+        progress: result.progress,
       });
     }
 
@@ -157,8 +162,11 @@ export async function POST(req: Request) {
         balanceCents = await debit(tx, user.id, extraStakeCents);
       }
 
+      let progress: ProgressUpdate | null = null;
       if (next.phase === "DONE") {
-        balanceCents = await settleRound(tx, user.id, round.id, next);
+        const settled = await settleRound(tx, user.id, round.id, next);
+        balanceCents = settled.balanceCents;
+        progress = settled.progress;
       } else {
         await tx.round.update({
           where: { id: round.id },
@@ -171,7 +179,7 @@ export async function POST(req: Request) {
         balanceCents = fromDb(fresh.balanceCents);
       }
 
-      return { state: next, balanceCents, roundId: round.id };
+      return { state: next, balanceCents, roundId: round.id, progress };
     });
 
     return NextResponse.json({
@@ -179,6 +187,7 @@ export async function POST(req: Request) {
       roundId: result.roundId,
       view: toView(result.state),
       balanceCents: result.balanceCents,
+      progress: result.progress,
     });
   } catch (err) {
     return handleError(err);

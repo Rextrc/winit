@@ -45,9 +45,7 @@ export default function LifePanel() {
         return;
       }
       setMessage(
-        `Rebirth ${data.rebirths} complete. Table limits are now ×${rebirthMultiplier(data.rebirths)}${
-          data.grantCents > 0 ? `, and your bankroll was topped up to ${formatCents(data.balanceCents)}.` : "."
-        }`,
+        `Rebirth ${data.rebirths} complete. Table limits are now ×${rebirthMultiplier(data.rebirths)}. Your balance is unchanged.`,
       );
       setConfirming(false);
       await refresh();
@@ -234,8 +232,8 @@ export default function LifePanel() {
               XP so the climb back is faster.
             </p>
             <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
-              Your balance is never reduced. The fresh stake is granted as a floor, so if you arrive
-              rich you keep what you have — the cost of a rebirth is the level reset, not the money.
+              Your balance is never touched, win or lose — only the level and rebirth count reset.
+              Rebirth pays no currency of its own; the daily bonus is still the only balance top-up.
             </p>
 
             <dl className="mt-3 space-y-1.5 border-t border-white/5 pt-3">

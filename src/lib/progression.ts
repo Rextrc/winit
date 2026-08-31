@@ -120,11 +120,6 @@ export function maxBetCents(level: number, rebirths: number): number {
   return Math.round(BASE_TABLE_LIMIT_CENTS * levelFactor * rebirthMultiplier(rebirths));
 }
 
-/** Fake chips paid out on reaching `level`. Scales with the new table limit. */
-export function levelUpRewardCents(level: number, rebirths: number): number {
-  return maxBetCents(level, rebirths) * 5;
-}
-
 /** Daily bonus scales with rebirth so it stays meaningful at high limits. */
 export function bonusScale(rebirths: number): number {
   return rebirthMultiplier(rebirths);
@@ -204,22 +199,27 @@ export function describeProgression(u: ProgressionSource): Progression {
 export type LevelUpEvent = {
   level: number;
   stage: Stage;
-  rewardCents: number;
   unlocked: Unlock[];
   maxBetCents: number;
 };
 
 /**
  * Applies an XP award, rolling the player up through as many levels as it
- * covers. Pure — the caller writes the result and pays the rewards.
+ * covers. Pure.
+ *
+ * Deliberately pays out no currency: XP is earned on amount staked regardless
+ * of win or loss, so any cash reward here would be free money bought with
+ * volume rather than luck — bet the table limit enough times at even the
+ * lowest house edge in the app and the reward would outrun the guaranteed
+ * losses many times over. Leveling raises the table limit and unlocks
+ * features; the daily bonus remains the only balance top-up.
  */
 export function applyXp(
   current: { level: number; xp: number; rebirths: number },
   gainedXp: number,
-): { level: number; xp: number; totalRewardCents: number; levelUps: LevelUpEvent[] } {
+): { level: number; xp: number; levelUps: LevelUpEvent[] } {
   let { level, xp } = current;
   const levelUps: LevelUpEvent[] = [];
-  let totalRewardCents = 0;
 
   xp += gainedXp;
 
@@ -228,12 +228,9 @@ export function applyXp(
     if (xp < need) break;
     xp -= need;
     level += 1;
-    const rewardCents = levelUpRewardCents(level, current.rebirths);
-    totalRewardCents += rewardCents;
     levelUps.push({
       level,
       stage: stageFor(level),
-      rewardCents,
       unlocked: unlocksAt(level),
       maxBetCents: maxBetCents(level, current.rebirths),
     });
@@ -242,5 +239,5 @@ export function applyXp(
   // At the ceiling XP stops accruing — the ladder is finished until rebirth.
   if (level >= MAX_LEVEL) xp = 0;
 
-  return { level, xp, totalRewardCents, levelUps };
+  return { level, xp, levelUps };
 }

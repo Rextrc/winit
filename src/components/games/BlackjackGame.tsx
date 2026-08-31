@@ -27,7 +27,7 @@ const OUTCOME_TEXT: Record<string, string> = {
 
 export default function BlackjackGame({ game }: { game: GameDef }) {
   const { effectiveBet, betError, pushFlash } = useBet();
-  const { applyResult } = useWallet();
+  const { applyResult, applyProgress } = useWallet();
 
   const [roundId, setRoundId] = useState<string | null>(null);
   const [view, setView] = useState<BlackjackView | null>(null);
@@ -101,13 +101,14 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
       setRoundId(data.roundId);
       setView(data.view);
       applyResult(data.balanceCents, data.view.phase === "DONE" ? data.view.payoutCents - data.view.totalStakeCents : undefined);
+      if (data.progress) applyProgress(data.progress);
       if (data.view.phase === "DONE") settle(data.view);
     } catch {
       setError("Network error — the hand was not dealt.");
     } finally {
       setBusy(false);
     }
-  }, [busy, inPlay, betError, effectiveBet, applyResult, settle]);
+  }, [busy, inPlay, betError, effectiveBet, applyResult, applyProgress, settle]);
 
   const act = useCallback(
     async (action: Action) => {
@@ -131,6 +132,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         setView(data.view);
         const done = data.view.phase === "DONE";
         applyResult(data.balanceCents, done ? data.view.payoutCents - data.view.totalStakeCents : undefined);
+        if (data.progress) applyProgress(data.progress);
         if (done) settle(data.view);
       } catch {
         setError("Network error — your move may not have been applied.");
@@ -138,7 +140,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         setBusy(false);
       }
     },
-    [busy, roundId, applyResult, settle],
+    [busy, roundId, applyResult, applyProgress, settle],
   );
 
   useBetSlipHook({

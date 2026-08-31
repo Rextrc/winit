@@ -96,9 +96,9 @@ export default async function SettingsPage() {
           WinIt is a portfolio project that simulates a casino end to end. Balances are integers in a
           local SQLite database and mean nothing outside this app. There is no payment processing, no
           deposit path, no withdrawal path and no conversion to real money anywhere in the codebase.
-          Credit enters an account in exactly four ways — the sign-up grant, the daily bonus,
-          level-up rewards and the rebirth floor — and every one of them is a hard-coded constant
-          the app mints for itself.
+          Credit enters an account in exactly two ways — the sign-up grant and the daily bonus —
+          and both are hard-coded constants the app mints for itself. Leveling and rebirth raise
+          your table limit and unlock features, but pay no currency of their own.
         </p>
         <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-slate-400">
           If real gambling is causing you or someone you know harm, support is available — in the US,

@@ -105,22 +105,21 @@ export async function writeTransaction(tx: Tx, input: LogInput) {
 export type ProgressUpdate = {
   xpGained: number;
   levelUps: LevelUpEvent[];
-  /** Fake chips paid out by level-ups in this settlement. */
-  rewardCents: number;
-  /** Balance after the level-up rewards were paid. */
-  balanceCents: number;
   progression: Progression;
 };
 
 /**
  * Awards career XP for a settled wager and rolls the player up through any
- * levels it covers, paying each level's reward and logging it.
+ * levels it covers, recording each one it passes.
  *
  * XP is a function of the AMOUNT STAKED only — never of the result — so
  * progression can't be farmed by a lucky streak or stalled by a cold one.
- *
- * Must be called after the payout has been credited so the balances written on
- * the level-up rows follow the bet row in the ledger.
+ * Leveling and rebirth pay no currency of their own: with XP earned on
+ * volume alone, any cash reward here would be free money bought by betting
+ * enough times rather than won — betting the table limit repeatedly at even
+ * the app's lowest house edge nets more from a reward like that than the
+ * guaranteed losses cost, many times over. Progression raises the table
+ * limit and unlocks features; the daily bonus is still the only top-up.
  */
 export async function awardProgress(
   tx: Tx,
@@ -159,18 +158,18 @@ export async function awardProgress(
     },
   });
 
-  let balanceCents = fromDb(before.balanceCents);
+  const balanceCents = fromDb(before.balanceCents);
 
   for (const up of rolled.levelUps) {
-    balanceCents = await credit(tx, userId, up.rewardCents);
+    // Zero-value row: recorded for the history feed, not a balance change.
     await writeTransaction(tx, {
       userId,
       game: "life",
       kind: "LEVELUP",
       betCents: 0,
-      payoutCents: up.rewardCents,
+      payoutCents: 0,
       outcome: "CREDIT",
-      summary: `Level ${up.level} — ${up.stage.title}. Table limit ${formatCents(up.maxBetCents)}.`,
+      summary: `Level ${up.level} — ${up.stage.title}. Table limit now ${formatCents(up.maxBetCents)}.`,
       balanceAfterCents: balanceCents,
       detail: { level: up.level, unlocked: up.unlocked, maxBetCents: up.maxBetCents },
     });
@@ -192,8 +191,6 @@ export async function awardProgress(
   return {
     xpGained,
     levelUps: rolled.levelUps,
-    rewardCents: rolled.totalRewardCents,
-    balanceCents,
     progression: describeProgression({
       level: after.level,
       xp: after.xp,
@@ -245,7 +242,7 @@ export async function settleOneShotBet(args: {
     const progress = await awardProgress(tx, args.userId, args.betCents, args.payoutCents);
 
     return {
-      balanceCents: progress.balanceCents,
+      balanceCents,
       transactionId: row.id,
       netCents: args.payoutCents - args.betCents,
       progress,
