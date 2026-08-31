@@ -34,6 +34,33 @@ npm run rtp               # verifies the published RTP of all three games
 npm run build             # production build
 ```
 
+## Deploying
+
+`npm start` runs `prisma db push` before `next start`, so a fresh container
+provisions its own schema on boot. That step is idempotent — on a restart with
+an existing database it reports "already in sync" and leaves the data alone.
+The Prisma CLI is a runtime dependency for exactly this reason: platforms that
+prune devDependencies for production installs would otherwise fail to start.
+
+Two environment variables are **required** in production, and the app 500s on
+every route without them:
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | e.g. `file:/data/winit.db` — see the persistence note below |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | your public URL; optional on platforms that set it for you |
+
+`GET /api/health` is a dependency-free liveness probe — point your platform's
+healthcheck at it rather than `/`, so a healthy process still reports healthy
+while a dependency is degraded.
+
+> **SQLite persistence.** The container filesystem on most hosts is ephemeral,
+> so a `DATABASE_URL` pointing inside the project directory means every redeploy
+> wipes all accounts and balances. Mount a persistent volume and point
+> `DATABASE_URL` at a path on it (e.g. `file:/data/winit.db`), or move the
+> datasource to Postgres.
+
 ---
 
 ## The games, and their real odds
