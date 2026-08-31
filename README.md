@@ -55,11 +55,23 @@ every route without them:
 healthcheck at it rather than `/`, so a healthy process still reports healthy
 while a dependency is degraded.
 
-> **SQLite persistence.** The container filesystem on most hosts is ephemeral,
-> so a `DATABASE_URL` pointing inside the project directory means every redeploy
-> wipes all accounts and balances. Mount a persistent volume and point
-> `DATABASE_URL` at a path on it (e.g. `file:/data/winit.db`), or move the
-> datasource to Postgres.
+> **SQLite persistence — read this before deploying.** The container filesystem
+> on most hosts is ephemeral, so a `DATABASE_URL` pointing inside the project
+> directory (`file:./dev.db`) means **every redeploy wipes all accounts and
+> balances**. The database must live on a mounted volume.
+
+On Railway specifically:
+
+1. Add a **Volume** to the service and set its mount path to `/data`.
+2. Set `DATABASE_URL=file:/data/winit.db` (an absolute path on the volume, not
+   a relative one).
+3. Set `NEXTAUTH_SECRET`.
+4. Point the healthcheck at `/api/health`.
+
+On boot the start script creates the schema on the volume if it isn't there and
+no-ops if it is, so the first deploy provisions itself and later ones leave the
+data alone. Verified: an account and its transaction history survive a redeploy
+with the balance intact.
 
 ---
 
