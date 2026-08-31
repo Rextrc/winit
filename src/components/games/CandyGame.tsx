@@ -185,54 +185,91 @@ export default function CandyGame({ game }: { game: GameDef }) {
 
   const currentMultiplier = stepPay?.multiplier ?? 1;
 
+  /** A peppermint-swirl pillar flanking the machine — pure CSS, no assets. */
+  const swirlPillar = (side: "left" | "right") => (
+    <div
+      className={`absolute top-3 bottom-3 hidden w-6 rounded-full border-2 border-white/40 shadow-[inset_0_0_6px_rgba(0,0,0,0.35)] sm:block ${
+        side === "left" ? "left-1" : "right-1"
+      }`}
+      style={{
+        background:
+          "repeating-linear-gradient(135deg, #ff6b9d 0 10px, #fff 10px 20px)",
+      }}
+    />
+  );
+
   const canvas = (
     <div className="mx-auto w-full max-w-2xl">
-      {/* candy-machine backdrop, scoped to this canvas only */}
-      <div className="relative overflow-hidden rounded-3xl border-4 border-[#ffe1f2]/20 bg-gradient-to-b from-[#3a1d5c] via-[#241238] to-[#150c22] p-3 shadow-[0_0_40px_-10px_rgba(232,68,164,0.45)] sm:p-4">
-        {/* icing drip along the top */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-5 bg-[radial-gradient(circle_at_10px_-4px,#fff_8px,transparent_9px),radial-gradient(circle_at_34px_-4px,#fff_8px,transparent_9px),radial-gradient(circle_at_58px_-4px,#fff_8px,transparent_9px)] bg-repeat-x opacity-90 [background-size:24px_16px]" />
-
-        <div className="mb-2.5 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.16em]">
-          <span className="text-fuchsia-200/80">
-            {COLS}×{ROWS} cluster pays
-          </span>
-          {bonusBadge ? (
-            <span className="animate-pop-in rounded-full bg-fuchsia-400 px-3 py-1 text-[10px] font-black text-[#2a1140] shadow">
-              BONUS {bonusBadge.index} · {bonusBadge.remaining} left
-            </span>
-          ) : (
-            <span className="num rounded-full bg-white/10 px-2.5 py-1 text-white/70">
-              ×{currentMultiplier} trail
-            </span>
-          )}
-        </div>
-
+      {/* candy-machine chrome, scoped to this canvas only */}
+      <div
+        className="relative overflow-hidden rounded-[2rem] p-[3px] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)]"
+        style={{ background: "linear-gradient(155deg, #ffd4ec 0%, #d68ae8 35%, #6f3aa8 75%, #401f68 100%)" }}
+      >
+        {/* candy-cane striped awning along the very top edge */}
         <div
-          className="grid gap-1 sm:gap-1.5"
-          style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))` }}
-        >
-          {Array.from({ length: COLS }, (_, c) =>
-            Array.from({ length: ROWS }, (_, r) => {
-              const key = `${c}-${r}`;
-              const sym = grid[c]?.[r] ?? null;
-              const lit = litCells.has(key);
-              const isClearing = clearing.has(key);
-              return (
-                <div
-                  key={key}
-                  className={`relative aspect-square rounded-lg border p-1 transition-all duration-200 ${
-                    lit
-                      ? "border-fuchsia-300 bg-fuchsia-400/20 shadow-[0_0_16px_2px_rgba(240,110,220,0.55)] scale-[1.08]"
-                      : "border-white/10 bg-white/[0.04]"
-                  } ${isClearing ? "opacity-0 scale-50" : "opacity-100"} ${
-                    litCells.size > 0 && !lit ? "opacity-40" : ""
-                  }`}
-                >
-                  {sym && <CandySymbol symbol={sym} className="h-full w-full drop-shadow" />}
-                </div>
-              );
-            }),
-          )}
+          className="h-3.5 w-full"
+          style={{
+            background:
+              "repeating-linear-gradient(-45deg, #ff5c8a 0 10px, #fff 10px 20px)",
+          }}
+        />
+
+        <div className="relative overflow-hidden bg-gradient-to-b from-[#3a1d5c] via-[#241238] to-[#150c22] px-4 pb-3 pt-4 sm:px-9 sm:pb-4">
+          {/* scalloped icing dripping from the awning */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-[radial-gradient(circle_at_12px_-6px,#fff_9px,transparent_10px)] bg-repeat-x opacity-95 [background-size:24px_16px]" />
+          {/* soft drifting candy shapes for depth, purely decorative */}
+          <div className="pointer-events-none absolute -left-6 top-10 h-20 w-20 rounded-full bg-fuchsia-400/20 blur-2xl" />
+          <div className="pointer-events-none absolute -right-4 bottom-6 h-24 w-24 rounded-full bg-cyan-300/15 blur-2xl" />
+
+          {swirlPillar("left")}
+          {swirlPillar("right")}
+
+          <div className="mb-2.5 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.16em]">
+            <span className="text-fuchsia-200/80">
+              {COLS}×{ROWS} cluster pays
+            </span>
+            {bonusBadge ? (
+              <span className="animate-pop-in rounded-full bg-fuchsia-400 px-3 py-1 text-[10px] font-black text-[#2a1140] shadow">
+                BONUS {bonusBadge.index} · {bonusBadge.remaining} left
+              </span>
+            ) : (
+              <span className="num rounded-full bg-white/10 px-2.5 py-1 text-white/70">
+                ×{currentMultiplier} trail
+              </span>
+            )}
+          </div>
+
+          <div
+            className="relative rounded-2xl border-[3px] border-[#ffe1f2]/25 bg-[#1c0f30]/70 p-2 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] sm:p-2.5"
+          >
+            <div
+              className="grid gap-1 sm:gap-1.5"
+              style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))` }}
+            >
+              {Array.from({ length: COLS }, (_, c) =>
+                Array.from({ length: ROWS }, (_, r) => {
+                  const key = `${c}-${r}`;
+                  const sym = grid[c]?.[r] ?? null;
+                  const lit = litCells.has(key);
+                  const isClearing = clearing.has(key);
+                  return (
+                    <div
+                      key={key}
+                      className={`relative aspect-square overflow-hidden rounded-xl border p-1 transition-all duration-200 ${
+                        lit
+                          ? "border-fuchsia-300 bg-fuchsia-400/25 shadow-[0_0_18px_3px_rgba(240,110,220,0.6)] scale-[1.08]"
+                          : "border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02]"
+                      } ${isClearing ? "opacity-0 scale-50" : "opacity-100"} ${
+                        litCells.size > 0 && !lit ? "opacity-40" : ""
+                      }`}
+                    >
+                      {sym && <CandySymbol symbol={sym} className="h-full w-full drop-shadow" />}
+                    </div>
+                  );
+                }),
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
