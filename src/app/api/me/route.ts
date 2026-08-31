@@ -5,7 +5,7 @@ import { bonusStatus } from "@/lib/bonus";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Lightweight poll target for the header balance and bonus timer. */
+/** Poll target for the header balance, bonus timer and career bar. */
 export async function GET() {
   const { user, response } = await requireUser();
   if (!user) return response;
@@ -13,6 +13,7 @@ export async function GET() {
   return NextResponse.json({
     username: user.username,
     balanceCents: user.balanceCents,
-    bonus: bonusStatus(user.lastBonusAt, user.bonusStreak),
+    bonus: bonusStatus(user.lastBonusAt, user.bonusStreak, undefined, user.rebirths),
+    progression: user.progression,
   });
 }

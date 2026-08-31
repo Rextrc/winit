@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet } from "@/lib/money";
-import { credit, debit, writeTransaction } from "@/lib/ledger";
+import { awardProgress, credit, debit, writeTransaction } from "@/lib/ledger";
+import { fromDb } from "@/lib/bigmoney";
 import {
   applyAction,
   deal,
@@ -59,7 +60,11 @@ async function settleRound(
     },
   });
 
-  return balanceCents;
+  // Career XP is awarded on the hand's total stake, doubles and splits
+  // included, once the hand is actually settled.
+  const progress = await awardProgress(tx, userId, stake, payout);
+
+  return progress.balanceCents;
 }
 
 /** Returns the caller's in-progress hand, if any, so a refresh doesn't lose it. */
@@ -96,7 +101,7 @@ export async function POST(req: Request) {
 
   try {
     if (parsed.data.action === "deal") {
-      const bet = validateBet(parsed.data.betCents, user.balanceCents);
+      const bet = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
       if (!bet.ok) return jsonError(bet.error, 409);
 
       const existing = await prisma.round.findFirst({
@@ -163,7 +168,7 @@ export async function POST(req: Request) {
           where: { id: user.id },
           select: { balanceCents: true },
         });
-        balanceCents = fresh.balanceCents;
+        balanceCents = fromDb(fresh.balanceCents);
       }
 
       return { state: next, balanceCents, roundId: round.id };

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleError, jsonError, requireUser } from "@/lib/api";
-import { MAX_BET_CENTS, MIN_BET_CENTS, formatCents } from "@/lib/money";
+import { MIN_BET_CENTS, formatCents } from "@/lib/money";
 import { spin, type RouletteBet } from "@/lib/games/roulette";
 import { settleOneShotBet } from "@/lib/ledger";
 
@@ -46,9 +46,12 @@ export async function POST(req: Request) {
     }
   }
 
+  // The table limit is the player's own, derived from their persisted level
+  // and rebirth count — never from anything the client sent.
+  const limit = user.progression.maxBetCents;
   const totalStake = bets.reduce((sum, b) => sum + b.amountCents, 0);
-  if (totalStake > MAX_BET_CENTS) {
-    return jsonError(`Table limit is ${formatCents(MAX_BET_CENTS)} total per spin.`, 409);
+  if (totalStake > limit) {
+    return jsonError(`Your table limit is ${formatCents(limit)} total per spin. Level up to raise it.`, 409);
   }
   if (totalStake > user.balanceCents) {
     return jsonError("Not enough balance for those chips.", 409);

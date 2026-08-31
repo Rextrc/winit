@@ -12,6 +12,7 @@ import {
   IconHome,
   IconLive,
   IconOriginals,
+  IconLife,
   IconRewards,
   IconSettings,
   IconSlots,
@@ -34,6 +35,7 @@ const CATEGORIES: NavItem[] = [
 ];
 
 const ACCOUNT: NavItem[] = [
+  { href: "/life", label: "Life", Icon: IconLife },
   { href: "/rewards", label: "Rewards", Icon: IconRewards },
   { href: "/history", label: "History", Icon: IconHistory },
 ];

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { currentUserId } from "@/lib/auth";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { fromDb } from "@/lib/bigmoney";
 import HistoryTable from "@/components/HistoryTable";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +23,9 @@ export default async function HistoryPage() {
     }),
   ]);
 
-  const staked = aggregate._sum.betCents ?? 0;
-  const returned = aggregate._sum.payoutCents ?? 0;
-  const net = aggregate._sum.netCents ?? 0;
+  const staked = fromDb(aggregate._sum.betCents ?? BigInt(0));
+  const returned = fromDb(aggregate._sum.payoutCents ?? BigInt(0));
+  const net = fromDb(aggregate._sum.netCents ?? BigInt(0));
   const actualRtp = staked > 0 ? returned / staked : null;
 
   const stats = [
@@ -66,12 +67,12 @@ export default async function HistoryPage() {
           id: t.id,
           game: t.game,
           kind: t.kind,
-          betCents: t.betCents,
-          payoutCents: t.payoutCents,
-          netCents: t.netCents,
+          betCents: fromDb(t.betCents),
+          payoutCents: fromDb(t.payoutCents),
+          netCents: fromDb(t.netCents),
           outcome: t.outcome,
           summary: t.summary,
-          balanceAfterCents: t.balanceAfterCents,
+          balanceAfterCents: fromDb(t.balanceAfterCents),
           createdAt: t.createdAt.toISOString(),
         }))}
       />

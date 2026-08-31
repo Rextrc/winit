@@ -4,6 +4,7 @@ import {
   BONUS_STREAK_WINDOW_MS,
   DAILY_BONUS_CENTS,
   MAX_BONUS_STREAK,
+  scaledBonusCents,
 } from "@/lib/money";
 
 /**
@@ -21,9 +22,14 @@ export type BonusStatus = {
   streak: number;
 };
 
-export function bonusAmountForStreak(streak: number): number {
+/**
+ * The grant scales with the rebirth ladder, because table limits do too — a
+ * flat bonus would stop being worth claiming after the first rebirth.
+ */
+export function bonusAmountForStreak(streak: number, rebirths = 0): number {
   const capped = Math.min(Math.max(streak, 1), MAX_BONUS_STREAK);
-  return DAILY_BONUS_CENTS + (capped - 1) * BONUS_STREAK_BONUS_CENTS;
+  const base = DAILY_BONUS_CENTS + (capped - 1) * BONUS_STREAK_BONUS_CENTS;
+  return scaledBonusCents(base, rebirths);
 }
 
 export function nextStreak(lastBonusAt: Date | null, streak: number, now: Date): number {
@@ -34,7 +40,12 @@ export function nextStreak(lastBonusAt: Date | null, streak: number, now: Date):
   return Math.min(streak + 1, MAX_BONUS_STREAK);
 }
 
-export function bonusStatus(lastBonusAt: Date | null, streak: number, now = new Date()): BonusStatus {
+export function bonusStatus(
+  lastBonusAt: Date | null,
+  streak: number,
+  now: Date = new Date(),
+  rebirths = 0,
+): BonusStatus {
   const elapsed = lastBonusAt ? now.getTime() - lastBonusAt.getTime() : Infinity;
   const claimable = elapsed >= BONUS_COOLDOWN_MS;
   const upcoming = nextStreak(lastBonusAt, streak, now);
@@ -43,7 +54,7 @@ export function bonusStatus(lastBonusAt: Date | null, streak: number, now = new 
     claimable,
     msRemaining: claimable ? 0 : Math.max(0, BONUS_COOLDOWN_MS - elapsed),
     nextStreak: upcoming,
-    amountCents: bonusAmountForStreak(upcoming),
+    amountCents: bonusAmountForStreak(upcoming, rebirths),
     streak,
   };
 }

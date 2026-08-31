@@ -10,12 +10,22 @@
  */
 
 import {
-  computeExactRtp,
-  computeExactVariance,
-  spin as spinSlots,
+  BONUS_BUYS,
+  LINE_COUNT,
+  LINE_PAYS,
+  PAYING_SYMBOLS,
+  PAYLINES,
+  REELS,
+  ROWS,
+  SYMBOLS,
   evaluateLine,
-  REEL_STRIP,
+  exactRtp as slotsExactRtp,
+  quantiseStake,
+  scatterCountDistribution,
+  spinMaths,
+  type SlotsMode,
 } from "../src/lib/games/slots";
+import { playRound } from "../src/lib/games/slots.engine";
 import { exactRtp as rouletteRtp, spin as spinRoulette, coverageCount, type BetType } from "../src/lib/games/roulette";
 import {
   applyAction,
@@ -59,30 +69,145 @@ function sigmaBand(variance: number, samples: number, sigmas = 5): number {
 // ---------------------------------------------------------------- slots
 console.log("\nVOLT REELS (slots)");
 
-const slotsExact = computeExactRtp();
-console.log(`  Enumerated ${(REEL_STRIP.length ** 3).toLocaleString()} combinations -> ${pct(slotsExact)}`);
+const m = spinMaths();
+const slotsExact = slotsExactRtp();
 
+console.log(`  Line pay      ${pct(m.lineRtp)}   (exhaustive over ${SYMBOLS.length}^${REELS} = ${(SYMBOLS.length ** REELS).toLocaleString()} symbol tuples)`);
+console.log(`  Scatter pay   ${pct(m.scatterRtp)}   (convolution of ${REELS} Binomial(${ROWS}, q) reels)`);
+console.log(`  Free spins    trigger 1 in ${(1 / m.triggerProbability).toFixed(1)}, retrigger rate ${(5 * m.triggerProbability).toFixed(4)} < 1 so the series converges`);
+console.log(`  TOTAL         ${pct(slotsExact)}`);
+
+// The registry publishes exactRtp() itself rather than a copied constant, so
+// the advertised figure cannot drift from the paytable. What is worth asserting
+// is that the paytable still lands where the docs claim it does.
 const published = GAMES.find((g) => g.slug === "volt-reels")!.rtp!;
-check("published figure matches enumeration", slotsExact, published, 1e-9);
+check("registry figure is the enumerated one", published, slotsExact, 1e-12);
+if (slotsExact < 0.94 || slotsExact > 0.96) {
+  failures++;
+  console.log(`  FAIL  RTP ${pct(slotsExact)} has drifted outside the documented 94-96% band`);
+}
 
-const slotsVariance = computeExactVariance();
-let slotsReturned = 0;
-for (let i = 0; i < SPINS; i++) slotsReturned += spinSlots(BET).payoutCents;
+// The scatter distribution must be a distribution.
+const dist = scatterCountDistribution();
+check("scatter count distribution sums to 1", dist.reduce((a, b) => a + b, 0), 1, 1e-12);
+
+// Paylines must be well formed: one cell per reel, every row in range.
+for (const [i, line] of PAYLINES.entries()) {
+  if (line.length !== REELS || line.some((r) => r < 0 || r >= ROWS)) {
+    failures++;
+    console.log(`  FAIL  payline ${i} is malformed`);
+  }
+}
+if (PAYLINES.length !== LINE_COUNT) {
+  failures++;
+  console.log("  FAIL  payline count does not match LINE_COUNT");
+}
+
+// Evaluator sanity: no pay on a broken line, wilds substitute, 5oak pays top.
+if (evaluateLine(["LEMON", "CLOVER", "BELL", "BAR", "SEVEN"], 0, 1) !== null) {
+  failures++;
+  console.log("  FAIL  a non-paying line returned a win");
+}
+if (evaluateLine(["SEVEN", "WILD", "SEVEN", "CLOVER", "BAR"], 0, 1)?.count !== 3) {
+  failures++;
+  console.log("  FAIL  wild substitution did not extend a run");
+}
+if (evaluateLine(["SEVEN", "SEVEN", "SEVEN", "SEVEN", "SEVEN"], 0, 1)?.multiplier !== LINE_PAYS.SEVEN[5]) {
+  failures++;
+  console.log("  FAIL  five of a kind did not pay the paytable's five-of-a-kind prize");
+}
+// Pays must be monotonic in run length, and the top symbol must be the richest.
+for (const sym of PAYING_SYMBOLS) {
+  const row = LINE_PAYS[sym];
+  if (!(row[3] <= row[4] && row[4] <= row[5])) {
+    failures++;
+    console.log(`  FAIL  ${sym} pays are not monotonic in run length`);
+  }
+  if (sym !== "SEVEN" && row[5] > LINE_PAYS.SEVEN[5]) {
+    failures++;
+    console.log(`  FAIL  ${sym} out-pays the top symbol`);
+  }
+}
+// A scatter can never start a paying line.
+if (evaluateLine(["SCATTER", "SCATTER", "SCATTER", "SCATTER", "SCATTER"], 0, 1) !== null) {
+  failures++;
+  console.log("  FAIL  scatters paid as a payline");
+}
+
+/**
+ * Monte-Carlo the whole round — base spin, triggered free spins, retriggers —
+ * through the exact function the API calls. The tolerance is derived from the
+ * variance measured in the same sample: free-spin rounds make the payout
+ * distribution far too heavy-tailed for a fixed percentage band to be
+ * meaningful.
+ */
+function simulate(mode: SlotsMode, rounds: number, stakeCents: number) {
+  let sum = 0;
+  let sumSquares = 0;
+  let biggest = 0;
+  let freeSpins = 0;
+  for (let i = 0; i < rounds; i++) {
+    const r = playRound(mode, stakeCents);
+    const x = r.payoutCents / r.chargeCents;
+    sum += x;
+    sumSquares += x * x;
+    freeSpins += r.freeSpinsPlayed;
+    if (x > biggest) biggest = x;
+  }
+  const mean = sum / rounds;
+  const variance = sumSquares / rounds - mean * mean;
+  return { mean, variance, biggest, freeSpinsPerRound: freeSpins / rounds };
+}
+
+const STAKE = 1_000; // 10.00 — 100 cents a line, so every pay stays an integer
+const sim = simulate("SPIN", SPINS, STAKE);
+
 console.log(
-  `  Payout SD per spin ${Math.sqrt(slotsVariance).toFixed(2)}× stake -> standard error over ${SPINS.toLocaleString()} spins is ${pct(Math.sqrt(slotsVariance / SPINS))}`,
+  `  Payout SD per round ${Math.sqrt(sim.variance).toFixed(2)}x stake -> standard error over ${SPINS.toLocaleString()} rounds is ${pct(Math.sqrt(sim.variance / SPINS))}`,
 );
 check(
-  `${SPINS.toLocaleString()} simulated spins`,
-  slotsReturned / (SPINS * BET),
+  `${SPINS.toLocaleString()} simulated rounds`,
+  sim.mean,
   slotsExact,
-  sigmaBand(slotsVariance, SPINS),
+  sigmaBand(sim.variance, SPINS),
 );
 
-// Sanity: the paytable evaluator must never pay for a plain losing line.
-const losing = evaluateLine(["LEMON", "CLOVER", "BELL"]);
-if (losing.multiplier !== 0) {
-  failures++;
-  console.log("  FAIL  a non-paying line returned a multiplier");
+// The retrigger series is the easiest thing here to get wrong, so check the
+// realised free-spin count against the closed-form expectation directly.
+const expectedFreePerRound = m.expectedAward / (1 - 5 * m.triggerProbability);
+check(
+  "free spins per round vs geometric series",
+  sim.freeSpinsPerRound,
+  expectedFreePerRound,
+  5 * Math.sqrt(expectedFreePerRound / SPINS) + 0.002,
+);
+console.log(`  Biggest round seen ${sim.biggest.toFixed(1)}x stake`);
+
+// Stake quantisation must never invent or destroy money.
+for (const raw of [10, 15, 99, 1_000, 12_345]) {
+  const q = quantiseStake(raw);
+  if (q.lineBetCents * LINE_COUNT !== q.stakeCents || q.stakeCents > raw) {
+    failures++;
+    console.log(`  FAIL  quantiseStake(${raw}) produced an inconsistent stake`);
+  }
+}
+
+// Bonus buys: each must return its own published RTP, and be priced honestly
+// against the base game rather than being a trap or a free edge.
+const BUY_ROUNDS = 300_000;
+for (const buy of BONUS_BUYS) {
+  const s = simulate(buy.key, BUY_ROUNDS, STAKE);
+  check(
+    `${buy.label} (${buy.priceMultiplier}x stake)`,
+    s.mean,
+    buy.rtp,
+    sigmaBand(s.variance, BUY_ROUNDS),
+  );
+  const gap = Math.abs(buy.rtp - slotsExact);
+  if (gap > 0.01) {
+    failures++;
+    console.log(`  FAIL  ${buy.label} RTP is ${pct(gap)} away from the base game`);
+  }
 }
 
 // -------------------------------------------------------------- roulette

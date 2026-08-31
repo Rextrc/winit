@@ -4,6 +4,7 @@ import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import BetSlipBar from "@/components/BetSlipBar";
+import LevelUpToast from "@/components/LevelUpToast";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -18,6 +19,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
         <BetSlipBar />
+        <LevelUpToast />
       </div>
     </div>
   );

@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import SignOutButton from "@/components/SignOutButton";
 import { PLAYABLE } from "@/lib/games/registry";
 import {
-  MAX_BET_CENTS,
+  BASE_TABLE_LIMIT_CENTS,
   MIN_BET_CENTS,
   STARTING_BALANCE_CENTS,
   formatCents,
 } from "@/lib/money";
+import { fromDb } from "@/lib/bigmoney";
+import { MAX_LEVEL, MAX_REBIRTHS, maxBetCents } from "@/lib/progression";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,7 @@ export default async function SettingsPage() {
     ["Username", user.username],
     ["Email", user.email ?? "not set"],
     ["Member since", user.createdAt.toLocaleDateString()],
-    ["Balance", `${formatCents(user.balanceCents)} play credits`],
+    ["Balance", `${formatCents(fromDb(user.balanceCents))} play credits`],
     ["Bets placed", betCount.toLocaleString()],
     ["Bonus streak", `${user.bonusStreak} day${user.bonusStreak === 1 ? "" : "s"}`],
   ];
@@ -57,7 +59,9 @@ export default async function SettingsPage() {
             {[
               ["Starting balance", formatCents(STARTING_BALANCE_CENTS)],
               ["Minimum bet", formatCents(MIN_BET_CENTS)],
-              ["Table limit", `${formatCents(MAX_BET_CENTS)} per bet`],
+              ["Base table limit", `${formatCents(BASE_TABLE_LIMIT_CENTS)} per bet`],
+              ["Your table limit", `${formatCents(maxBetCents(user.level, user.rebirths))} per bet`],
+              ["Ceiling at max rebirth", `${formatCents(maxBetCents(MAX_LEVEL, MAX_REBIRTHS))} per bet`],
               ["Randomness", "Node crypto CSPRNG"],
             ].map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-4 border-b border-white/5 pb-2.5">
@@ -91,9 +95,10 @@ export default async function SettingsPage() {
         <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-slate-400">
           WinIt is a portfolio project that simulates a casino end to end. Balances are integers in a
           local SQLite database and mean nothing outside this app. There is no payment processing, no
-          deposit path, no withdrawal path and no conversion to real money anywhere in the codebase —
-          the sign-up grant and the daily bonus are the only two sources of credit, and both are
-          hard-coded constants.
+          deposit path, no withdrawal path and no conversion to real money anywhere in the codebase.
+          Credit enters an account in exactly four ways — the sign-up grant, the daily bonus,
+          level-up rewards and the rebirth floor — and every one of them is a hard-coded constant
+          the app mints for itself.
         </p>
         <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-slate-400">
           If real gambling is causing you or someone you know harm, support is available — in the US,

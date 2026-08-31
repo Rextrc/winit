@@ -7,7 +7,7 @@ import RouletteWheel from "@/components/games/RouletteWheel";
 import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
-import { MAX_BET_CENTS, formatCents, formatSignedCents } from "@/lib/money";
+import { formatCents, formatSignedCents } from "@/lib/money";
 import { betLabel, betOdds, colorOf, coverageCount, type BetType, type RouletteBet } from "@/lib/games/roulette";
 
 type Placed = RouletteBet & { key: string };
@@ -50,7 +50,7 @@ function keyFor(type: BetType, n?: number) {
 }
 
 export default function RouletteGame({ game }: { game: GameDef }) {
-  const { effectiveBet, betError, pushFlash } = useBet();
+  const { effectiveBet, maxBetCents, betError, pushFlash } = useBet();
   const { balanceCents, applyResult } = useWallet();
 
   const [placed, setPlaced] = useState<Placed[]>([]);
@@ -80,8 +80,8 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
       setPlaced((prev) => {
         const nextTotal = prev.reduce((s, b) => s + b.amountCents, 0) + chip;
-        if (nextTotal > MAX_BET_CENTS) {
-          setError(`Table limit is ${formatCents(MAX_BET_CENTS)} total per spin.`);
+        if (nextTotal > maxBetCents) {
+          setError(`Your table limit is ${formatCents(maxBetCents)} total per spin.`);
           return prev;
         }
         if (balanceCents !== null && nextTotal > balanceCents) {
@@ -97,7 +97,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         return [...prev, { key, type, number: n, amountCents: chip }];
       });
     },
-    [busy, chip, balanceCents],
+    [busy, chip, balanceCents, maxBetCents],
   );
 
   const clearBets = useCallback(() => {

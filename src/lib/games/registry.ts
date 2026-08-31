@@ -1,4 +1,8 @@
+import { exactRtp as slotsExactRtp } from "@/lib/games/slots";
+
 /** The game catalogue that drives the sidebar, home rows and hero carousel. */
+
+const SLOTS_EXACT_RTP = slotsExactRtp();
 
 export type Category = "slots" | "table" | "live" | "originals";
 
@@ -31,13 +35,14 @@ export const GAMES: GameDef[] = [
   {
     slug: "volt-reels",
     name: "Volt Reels",
-    tagline: "3-reel, single line, 2500× top prize",
+    tagline: "5×3, 10 lines, wilds, free spins and bonus buys",
     category: "slots",
-    // Exact: 105,039 paying combinations out of 48^3 = 110,592.
-    rtp: 105039 / 110592,
-    rtpNote: "Exact — enumerated over all 110,592 reel combinations (94.9788%).",
+    // Closed form, not simulated: see exactRtp() in src/lib/games/slots.ts.
+    rtp: SLOTS_EXACT_RTP,
+    rtpNote:
+      "Exact — 9^5 line enumeration, binomial scatter counts and the retrigger series, not a simulation.",
     playable: true,
-    tags: ["Slots", "High volatility"],
+    tags: ["Slots", "Free spins", "Bonus buy"],
     art: "from-volt-600/70 via-base-700 to-base-900",
     glyph: "≡",
     popularity: 99,

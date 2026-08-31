@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useBet } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
-import { MAX_BET_CENTS, MIN_BET_CENTS, formatCents, parseAmountToCents } from "@/lib/money";
+import { MIN_BET_CENTS, formatCents, parseAmountToCents } from "@/lib/money";
 
 /**
  * Stake input plus the standard sizing shortcuts. Bound to the shared bet slip
@@ -16,7 +16,7 @@ export default function BetControls({
   disabled?: boolean;
   compact?: boolean;
 }) {
-  const { betCents, setBetCents, halve, double, max, betError } = useBet();
+  const { betCents, maxBetCents, setBetCents, halve, double, max, betError } = useBet();
   const { balanceCents } = useWallet();
   const [text, setText] = useState(() => (betCents / 100).toFixed(2));
   const [editing, setEditing] = useState(false);
@@ -26,7 +26,7 @@ export default function BetControls({
     if (!editing) setText((betCents / 100).toFixed(2));
   }, [betCents, editing]);
 
-  const atMax = balanceCents !== null && betCents >= Math.min(MAX_BET_CENTS, balanceCents);
+  const atMax = balanceCents !== null && betCents >= Math.min(maxBetCents, balanceCents);
 
   return (
     <div className={compact ? "" : "space-y-2"}>
@@ -36,7 +36,7 @@ export default function BetControls({
             Bet amount
           </label>
           <span className="num text-[11px] text-slate-500">
-            {formatCents(MIN_BET_CENTS)} – {formatCents(MAX_BET_CENTS)}
+            {formatCents(MIN_BET_CENTS)} – {formatCents(maxBetCents)}
           </span>
         </div>
       )}
@@ -58,7 +58,7 @@ export default function BetControls({
               setEditing(false);
               const cents = parseAmountToCents(text);
               const next = cents === null ? MIN_BET_CENTS : Math.max(MIN_BET_CENTS, cents);
-              setBetCents(Math.min(next, MAX_BET_CENTS));
+              setBetCents(Math.min(next, maxBetCents));
             }}
             className={`field num pr-2 font-bold ${betError ? "!border-loss/60" : ""}`}
             aria-label="Bet amount"

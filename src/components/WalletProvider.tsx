@@ -3,16 +3,25 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { BonusStatus } from "@/lib/bonus";
+import type { Progression } from "@/lib/progression";
+import type { ProgressUpdate } from "@/lib/ledger";
 
 type LastDelta = { id: number; netCents: number } | null;
+
+export type LevelUpToast = { id: number; update: ProgressUpdate } | null;
 
 type Wallet = {
   balanceCents: number | null;
   bonus: BonusStatus | null;
+  progression: Progression | null;
   loading: boolean;
   lastDelta: LastDelta;
   /** Applies a balance returned by a game endpoint, with an optional flash. */
   applyResult: (balanceCents: number, netCents?: number) => void;
+  /** Applies the progression returned by a settled bet, raising a toast on a level-up. */
+  applyProgress: (update: ProgressUpdate) => void;
+  levelUp: LevelUpToast;
+  dismissLevelUp: () => void;
   refresh: () => Promise<void>;
   claimBonus: () => Promise<{ ok: boolean; error?: string; amountCents?: number }>;
   claiming: boolean;
@@ -24,6 +33,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [bonus, setBonus] = useState<BonusStatus | null>(null);
+  const [progression, setProgression] = useState<Progression | null>(null);
+  const [levelUp, setLevelUp] = useState<LevelUpToast>(null);
+  const levelUpId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [lastDelta, setLastDelta] = useState<LastDelta>(null);
@@ -35,11 +47,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         setBalanceCents(null);
         setBonus(null);
+        setProgression(null);
         return;
       }
       const data = await res.json();
       setBalanceCents(data.balanceCents);
       setBonus(data.bonus);
+      setProgression(data.progression ?? null);
     } catch {
       /* offline — keep the last known balance rather than blanking the header */
     } finally {
@@ -55,6 +69,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (status === "unauthenticated") {
       setBalanceCents(null);
       setBonus(null);
+      setProgression(null);
       setLoading(false);
       return;
     }
@@ -82,6 +97,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const applyProgress = useCallback((update: ProgressUpdate) => {
+    setProgression(update.progression);
+    if (update.levelUps.length > 0) {
+      levelUpId.current += 1;
+      setLevelUp({ id: levelUpId.current, update });
+    }
+  }, []);
+
+  const dismissLevelUp = useCallback(() => setLevelUp(null), []);
+
   const claimBonus = useCallback(async () => {
     setClaiming(true);
     try {
@@ -101,8 +126,34 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Wallet>(
-    () => ({ balanceCents, bonus, loading, lastDelta, applyResult, refresh, claimBonus, claiming }),
-    [balanceCents, bonus, loading, lastDelta, applyResult, refresh, claimBonus, claiming],
+    () => ({
+      balanceCents,
+      bonus,
+      progression,
+      loading,
+      lastDelta,
+      applyResult,
+      applyProgress,
+      levelUp,
+      dismissLevelUp,
+      refresh,
+      claimBonus,
+      claiming,
+    }),
+    [
+      balanceCents,
+      bonus,
+      progression,
+      loading,
+      lastDelta,
+      applyResult,
+      applyProgress,
+      levelUp,
+      dismissLevelUp,
+      refresh,
+      claimBonus,
+      claiming,
+    ],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

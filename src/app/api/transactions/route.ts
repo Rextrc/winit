@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/api";
+import { fromDb } from "@/lib/bigmoney";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,12 +31,12 @@ export async function GET(req: Request) {
       id: t.id,
       game: t.game,
       kind: t.kind,
-      betCents: t.betCents,
-      payoutCents: t.payoutCents,
-      netCents: t.netCents,
+      betCents: fromDb(t.betCents),
+      payoutCents: fromDb(t.payoutCents),
+      netCents: fromDb(t.netCents),
       outcome: t.outcome,
       summary: t.summary,
-      balanceAfterCents: t.balanceAfterCents,
+      balanceAfterCents: fromDb(t.balanceAfterCents),
       createdAt: t.createdAt.toISOString(),
     })),
     nextCursor: hasMore ? page[page.length - 1].id : null,

@@ -3,8 +3,10 @@
 A fully simulated casino, built as a portfolio project.
 
 **Every balance in this app is fake.** There is no payment processing, no deposit path, no
-withdrawal path and no conversion to real money anywhere in the codebase. The only two sources of
-credit are the sign-up grant and the daily bonus, and both are hard-coded constants.
+withdrawal path and no conversion to real money anywhere in the codebase. Credit enters an account
+in exactly four ways — the sign-up grant, the daily bonus, level-up rewards and the rebirth floor —
+and every one of them is a hard-coded constant the app mints for itself. No money ever enters from
+outside.
 
 ---
 
@@ -83,30 +85,74 @@ functions the API calls — and exits non-zero if a paytable is edited without u
 figure.
 
 The simulation tolerances are derived from each game's true variance (five standard errors), not
-guessed. That matters: the slots payout has a standard deviation of 9.76× the stake because of the
-1-in-110,592 jackpot, so even a million spins carries a ~0.98% standard error, and a fixed ±1% band
-would false-alarm about a third of the time. Roulette's variance is ~1, so it gets a band an order
-of magnitude tighter.
+guessed. That matters: a slots round has a payout standard deviation of ~3.9× the stake because of
+the free-spins tail, so even a million rounds carries a ~0.39% standard error, and a fixed ±1% band
+would false-alarm regularly. Roulette's variance is ~1, so it gets a band an order of magnitude
+tighter.
 
-### Volt Reels (slots) — RTP 94.9788%
+### Volt Reels (slots) — RTP 94.9854%
 
-Three reels, one payline. Each reel independently draws one stop from the same 48-position virtual
-strip via `crypto.randomInt(48)`, giving 48³ = 110,592 equally likely outcomes.
+Five reels, three rows, ten fixed paylines, wilds, scatters, a free-spins round that retriggers,
+and two bonus buys.
 
-| Symbol | Strip slots | Three of a kind |
+Every one of the 15 visible cells is drawn independently from its own reel's 50-stop virtual strip
+via `crypto.randomInt(50)`. That independence is the whole reason the RTP stays closed-form rather
+than becoming a simulation estimate.
+
+**Line pays** (multiple of the *line* bet; the stake is split across all ten lines, so it is
+quantised down to a whole number of line bets and no payout is ever rounded):
+
+| Symbol | 3 | 4 | 5 |
+|---|---|---|---|
+| Seven | ×40 | ×250 | ×1500 |
+| Diamond | ×25 | ×100 | ×550 |
+| Bell | ×15 | ×55 | ×250 |
+| Bar | ×10 | ×32 | ×145 |
+| Cherry | ×6 | ×20 | ×80 |
+| Lemon | ×3 | ×12 | ×45 |
+| Clover | ×3 | ×9 | ×30 |
+
+**Wilds** sit on reels 2–4 only and substitute for any paying symbol. Because a wild can never lead
+a line, there is no "which symbol does an all-wild line pay as" ambiguity to resolve.
+
+**Scatters** pay on count anywhere in the grid, as a multiple of the *total* bet, and award free
+spins at a ×2 multiplier. Three more scatters during the round adds five spins.
+
+| Scatters | Pays | Free spins |
 |---|---|---|
-| Seven | 1 | ×2500 |
-| Diamond | 2 | ×450 |
-| Bell | 4 | ×150 |
-| Bar | 6 | ×54 |
-| Cherry | 8 | ×25 |
-| Lemon | 12 | ×10 |
-| Clover | 15 | ×5 |
-| *any two cherries* | — | ×4 |
+| 3 | ×2 | 10 |
+| 4 | ×10 | 15 |
+| 5 | ×50 | 20 |
 
-The RTP is not an estimate. `computeExactRtp()` enumerates all 110,592 combinations and sums the
-payouts: **105,039 / 110,592 = 94.9788%**. There is no near-miss weighting, no held state between
-spins, and no adjustment based on your balance or history.
+**Bonus buys** are priced from their own exact expected value divided by the base game's RTP, then
+rounded to a whole multiple of the stake — so buying the feature returns essentially the same
+percentage as spinning for it. Free Spins costs 15× the stake, Super Free Spins (20 spins at ×3)
+costs 45×, and both return 95.15% against the base game's 94.99%. The residual is published on the
+button rather than hidden: a bonus buy is a shortcut, not an edge, in either direction.
+
+#### Why the RTP is exact and not simulated
+
+`exactRtp()` composes three closed-form pieces:
+
+1. **Line pays.** A payline takes one cell from each reel, so a line is five independent draws, and
+   its pay depends only on the five *symbol classes*. Enumerating all 9⁵ = 59,049 class tuples,
+   weighted by their true probabilities, gives the exact expected line pay — 57.2243% per unit
+   staked. All ten lines share a distribution and the stake is ten line bets, so that figure *is*
+   the line RTP.
+2. **Scatter pays.** With independent cells the scatter count is a sum of five Binomial(3, q)
+   reels, computed exactly by convolution — 6.8958%.
+3. **Free spins.** Each free spin independently retriggers with probability p, so the expected
+   number of spins is the geometric series `N / (1 - 5p)`. The retrigger rate here is 0.1015, well
+   under 1, so the series converges.
+
+Total: **94.9854%**. `npm run rtp` re-derives all three, checks the scatter distribution sums to 1,
+checks the paylines are well formed and the paytable monotonic, then Monte-Carlos a million full
+rounds through the same `playRound()` the API calls — including a direct check of the realised
+free-spins-per-round against the geometric series. Nothing is weighted by your balance, your
+history, or how long you have been losing.
+
+The game registry publishes `exactRtp()` itself rather than a copied constant, so the advertised
+figure cannot drift from the paytable.
 
 ### Single Zero (roulette) — RTP 97.297% on every bet
 
@@ -142,13 +188,42 @@ to see; the dealer's hole card genuinely is not sent until the dealer plays.
 
 ---
 
+## Life, levels and rebirth
+
+Layered over the casino is a career ladder. It changes what you can bet, not what you win.
+
+**XP comes from the amount staked, never from the amount won** — one XP per 1.00 wagered. That is
+deliberate: progression tracks how much you played, so it cannot be farmed by a hot streak or
+stalled by a cold one, and the house edge is never quietly adjusted to control your rate of climb.
+
+**Levels raise your table limit.** Level 1 starts at 1,000.00 a bet; each level adds 30% of that
+base, so level 50 sits at 15,700.00. Every level also pays out fake chips worth five times the new
+limit, and each level-up writes its own `LEVELUP` row so the ledger still reconciles from zero.
+
+There are 11 life stages across the 50 levels, from *Broke Student* to *Ready to Rebirth*, and four
+unlocks along the way: turbo spins at 3, the Free Spins buy at 6, the Super Free Spins buy at 15,
+and rebirth at 50.
+
+**Rebirth** hands back your level in exchange for a permanent ×3 on every table limit you will ever
+have, plus +50% XP so the climb back is faster. Anything unlocked in a past life stays unlocked. Up
+to 10 rebirths, which puts the ceiling at 15,700.00 × 3¹⁰ = 927,069,300.00 a bet.
+
+Your balance is never reduced by a rebirth. The fresh stake is granted as a *floor*, so a player who
+arrives rich keeps what they have — the cost of a rebirth is the level reset, not the money. Like
+every other credit here, that grant is fake currency the app mints for itself; it is still not a
+deposit, a purchase or a conversion.
+
 ## Architecture notes
 
 ```
 src/lib/rng.ts            crypto CSPRNG helpers (rejection-sampled, no modulo bias)
-src/lib/money.ts          integer-cent money, table limits, bet validation
+src/lib/money.ts          integer-cent money, bet validation
+src/lib/bigmoney.ts       the BigInt <-> number boundary, and the only place it happens
+src/lib/progression.ts    XP curve, life stages, table limits, unlocks, rebirth rules
 src/lib/ledger.ts         the only place balance moves; atomic, conditional SQL updates
 src/lib/bonus.ts          daily bonus cooldown + streak maths
+src/lib/games/slots.ts    paytable, evaluator and exact RTP — pure, safe to import client-side
+src/lib/games/*.engine.ts the randomness half, server only
 src/lib/games/*.ts        pure game engines — no I/O, directly testable
 src/app/api/games/*       thin routes: validate -> run engine -> settle -> log
 scripts/rtp.ts            RTP verification harness
@@ -157,8 +232,15 @@ scripts/rtp.ts            RTP verification harness
 **Money is integer cents.** No floating point anywhere in the ledger, so no drift can create or
 destroy credits.
 
+**Money columns are `BigInt`.** Prisma's `Int` is hard-capped at 2³¹ on SQLite — about 21.4M in
+cents — which a rebirthed account would overflow, and Prisma fails the write rather than truncating.
+The database therefore stores `BigInt`, while every layer above works in plain JS `number` cents
+(exact to 2⁵³, roughly 90 trillion). `src/lib/bigmoney.ts` is the only conversion point, and it
+throws rather than silently losing precision.
+
 **The client is never trusted.** Bet amounts are revalidated server-side against the live balance
-and the table limits on every request; game outcomes are computed on the server; blackjack actions
+and against the player's own table limit — recomputed from the persisted level and rebirth count,
+never taken from the request — on every request; bonus buys recheck their unlock server-side too; game outcomes are computed on the server; blackjack actions
 are checked against the server's own list of legal moves for that hand.
 
 **Balance changes are atomic.** Debits are conditional updates (`WHERE balanceCents >= ?`), so two
@@ -170,7 +252,9 @@ sign-up grant forward.
 ## Out of scope, deliberately
 
 No payment processing. No real-money conversion. No multiplayer or leaderboard tied to anything
-external. The "Live" category is styled tables that stream nowhere.
+external. The "Live" category is styled tables that stream nowhere. Levels, rebirths and bonus buys are all
+priced in the same fake currency as everything else — a bonus buy spends play chips, and there is no
+code path anywhere that accepts real value for any of it.
 
 If real gambling is causing harm to you or someone you know, support is available — in the US, the
 National Problem Gambling Helpline is 1-800-522-4700.

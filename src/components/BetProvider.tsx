@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { MAX_BET_CENTS, MIN_BET_CENTS, clampBet } from "@/lib/money";
+import { DEFAULT_MAX_BET_CENTS, MIN_BET_CENTS, clampBet } from "@/lib/money";
 import { useWallet } from "@/components/WalletProvider";
 
 /**
@@ -31,6 +31,8 @@ export type BetResultFlash = {
 
 type BetContext = {
   betCents: number;
+  /** The player's personal table limit, in cents. */
+  maxBetCents: number;
   setBetCents: (cents: number) => void;
   halve: () => void;
   double: () => void;
@@ -49,11 +51,15 @@ const STORAGE_KEY = "winit.bet";
 const DEFAULT_BET = 1_000; // 10.00
 
 export function BetProvider({ children }: { children: React.ReactNode }) {
-  const { balanceCents } = useWallet();
+  const { balanceCents, progression } = useWallet();
   const [betCents, setBetRaw] = useState(DEFAULT_BET);
   const [hook, setHook] = useState<BetSlipHook | null>(null);
   const [flash, setFlash] = useState<BetResultFlash>(null);
   const [flashId, setFlashId] = useState(0);
+
+  // The player's personal table limit. Falls back to the base limit until the
+  // session loads; the server revalidates every bet against the real one.
+  const maxBet = progression?.maxBetCents ?? DEFAULT_MAX_BET_CENTS;
 
   // Remember the stake between visits — a convenience only, the server still
   // revalidates every bet against the live balance.
@@ -62,7 +68,7 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const n = Number(saved);
-        if (Number.isInteger(n) && n >= MIN_BET_CENTS && n <= MAX_BET_CENTS) setBetRaw(n);
+        if (Number.isInteger(n) && n >= MIN_BET_CENTS) setBetRaw(n);
       }
     } catch {
       /* storage blocked — the default stake is fine */
@@ -70,7 +76,7 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setBetCents = useCallback((cents: number) => {
-    const next = Math.min(Math.max(Math.round(cents), 0), MAX_BET_CENTS);
+    const next = Math.max(Math.round(cents), 0);
     setBetRaw(next);
     try {
       window.localStorage.setItem(STORAGE_KEY, String(next));
@@ -79,7 +85,7 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const ceiling = Math.min(MAX_BET_CENTS, balanceCents ?? MAX_BET_CENTS);
+  const ceiling = Math.min(maxBet, balanceCents ?? maxBet);
 
   const halve = useCallback(
     () => setBetCents(Math.max(MIN_BET_CENTS, Math.floor(betCents / 2))),
@@ -91,11 +97,11 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
   );
   const max = useCallback(() => setBetCents(ceiling), [ceiling, setBetCents]);
 
-  const effectiveBet = clampBet(betCents, balanceCents ?? 0);
+  const effectiveBet = clampBet(betCents, balanceCents ?? 0, maxBet);
 
   let betError: string | null = null;
   if (betCents < MIN_BET_CENTS) betError = "Below the minimum stake.";
-  else if (betCents > MAX_BET_CENTS) betError = "Above the table limit.";
+  else if (betCents > maxBet) betError = "Above your table limit.";
   else if (balanceCents !== null && betCents > balanceCents) betError = "More than your balance.";
 
   const pushFlash = useCallback(
@@ -112,6 +118,7 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<BetContext>(
     () => ({
       betCents,
+      maxBetCents: maxBet,
       setBetCents,
       halve,
       double,
@@ -123,7 +130,7 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
       flash,
       pushFlash,
     }),
-    [betCents, setBetCents, halve, double, max, effectiveBet, betError, hook, flash, pushFlash],
+    [betCents, maxBet, setBetCents, halve, double, max, effectiveBet, betError, hook, flash, pushFlash],
   );
 
   // `flashId` is only used to mint monotonic ids.

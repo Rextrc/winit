@@ -16,7 +16,7 @@ function hueFor(name: string): number {
 
 export default function AvatarMenu() {
   const { data: session } = useSession();
-  const { balanceCents } = useWallet();
+  const { balanceCents, progression } = useWallet();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -52,6 +52,27 @@ export default function AvatarMenu() {
               {balanceCents === null ? "—" : formatCents(balanceCents)} play credits
             </p>
           </div>
+          {progression && (
+            <div className="border-t border-white/5 px-3 py-2 sm:hidden">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-[11px] font-bold text-slate-200">
+                  Level {progression.level} · {progression.stage.title}
+                </span>
+                {progression.rebirths > 0 && (
+                  <span className="num shrink-0 rounded bg-fuchsia-400/15 px-1 text-[9px] font-black text-fuchsia-300">
+                    R{progression.rebirths}
+                  </span>
+                )}
+              </div>
+              <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-white/10">
+                <span
+                  className="block h-full rounded-full bg-volt"
+                  style={{ width: `${Math.round(progression.progress * 100)}%` }}
+                />
+              </span>
+            </div>
+          )}
+
           <div className="my-1 border-t border-white/5" />
           {[
             { href: "/rewards", label: "Rewards", Icon: IconRewards },

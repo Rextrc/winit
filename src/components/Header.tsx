@@ -6,6 +6,7 @@ import BalanceDisplay from "@/components/BalanceDisplay";
 import ClaimBonusButton from "@/components/ClaimBonusButton";
 import SearchBox from "@/components/SearchBox";
 import AvatarMenu from "@/components/AvatarMenu";
+import LevelBar from "@/components/LevelBar";
 import Link from "next/link";
 
 export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
@@ -29,7 +30,8 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <SearchBox />
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2.5">
+          <LevelBar />
           <BalanceDisplay />
           <ClaimBonusButton />
           <AvatarMenu />

@@ -2,6 +2,12 @@
 // "cents" so no floating point drift can ever create or destroy money.
 // There is no payment provider, no deposit path and no cash-out path anywhere
 // in this schema by design.
+//
+// Money columns are BigInt rather than Int: the rebirth system scales table
+// limits geometrically, and SQLite's Prisma `Int` is hard-capped at 2^31 cents
+// (~21.4M), which a rebirthed player would overflow. Application code keeps
+// working in JS `number` (exact to 2^53 cents = ~90 trillion) and converts at
+// the Prisma boundary only — see src/lib/bigmoney.ts.
 
 generator client {
   provider = "prisma-client-js"
@@ -18,10 +24,26 @@ model User {
   email        String?  @unique
   passwordHash String
   // Fake currency only. Seeded with 100,000.00 on sign-up.
-  balanceCents Int      @default(10000000)
+  balanceCents BigInt   @default(10000000)
   lastBonusAt  DateTime?
   bonusStreak  Int      @default(0)
   createdAt    DateTime @default(now())
+
+  // --- Life progression ---------------------------------------------------
+  // Career XP earned since the last rebirth. Levels raise the table limit and
+  // unlock features; a rebirth resets level/xp and permanently multiplies the
+  // ceiling. See src/lib/progression.ts for the curve.
+  xp       Int @default(0)
+  level    Int @default(1)
+  rebirths Int @default(0)
+
+  // Career totals, kept across rebirths. BigInt because a long-lived account
+  // can wager far past 2^31 cents.
+  lifetimeWageredCents BigInt @default(0)
+  lifetimeWonCents     BigInt @default(0)
+  biggestWinCents      BigInt @default(0)
+  // Best payout multiplier ever hit, stored x100 so it stays an integer.
+  bestMultiplierX100   Int    @default(0)
 
   transactions Transaction[]
   rounds       Round[]
@@ -32,23 +54,23 @@ model Transaction {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // "slots" | "blackjack" | "roulette" | "bonus" | "signup"
+  // "slots" | "blackjack" | "roulette" | "bonus" | "signup" | "rebirth"
   game String
-  // "BET" | "BONUS" | "SIGNUP"
+  // "BET" | "BONUS" | "SIGNUP" | "REBIRTH"
   kind String
 
-  betCents    Int
-  payoutCents Int
+  betCents    BigInt
+  payoutCents BigInt
   // payoutCents - betCents. Positive on a win, negative on a loss.
-  netCents    Int
+  netCents    BigInt
 
   // "WIN" | "LOSS" | "PUSH" | "CREDIT"
   outcome String
-  // Short human readable result, e.g. "BAR / BAR / BAR ×60" or "21 vs 19".
+  // Short human readable result, e.g. "BAR / BAR / BAR x60" or "21 vs 19".
   summary String
 
   // Running balance after this row was applied.
-  balanceAfterCents Int
+  balanceAfterCents BigInt
 
   // JSON blob with the full game result (reels, cards, wheel pocket, ...)
   detail String?
@@ -68,7 +90,7 @@ model Round {
   game     String
   // "ACTIVE" | "SETTLED"
   status   String @default("ACTIVE")
-  betCents Int
+  betCents BigInt
   state    String
 
   createdAt DateTime @default(now())
