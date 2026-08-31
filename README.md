@@ -70,6 +70,24 @@ On Railway specifically:
 3. Set `NEXTAUTH_SECRET`.
 4. Point the healthcheck at `/api/health`.
 
+### A note on `--accept-data-loss` in the start script
+
+`npm start` runs `prisma db push --accept-data-loss` before booting, so a fresh volume
+self-provisions and an existing one picks up schema changes without a manual step.
+
+That flag is load-bearing right now: the money columns moved from `Int` to `BigInt`, and without it
+`db push` refuses to run on a volume that already holds rows, which means the container never
+starts. The cast itself is a widening one and is non-destructive — verified against a database
+seeded on the old schema: balances, streaks and every transaction row survived intact, and the new
+progression columns backfilled to level 1 / 0 XP / 0 rebirths.
+
+The flag is not free, though. It suppresses the warning for genuinely destructive changes too, so a
+future schema edit that drops or narrows a column would take the data with it silently. If this ever
+carries data worth keeping, move to real migrations: generate them with `prisma migrate dev`, switch
+the start script to `prisma migrate deploy`, and baseline the existing deployment first with
+`prisma migrate resolve --applied <initial-migration>` (a database created by `db push` has no
+`_prisma_migrations` table, so `migrate deploy` would otherwise fail with P3005).
+
 On boot the start script creates the schema on the volume if it isn't there and
 no-ops if it is, so the first deploy provisions itself and later ones leave the
 data alone. Verified: an account and its transaction history survive a redeploy
