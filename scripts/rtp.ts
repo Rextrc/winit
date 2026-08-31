@@ -37,6 +37,7 @@ import {
   type BlackjackState,
 } from "../src/lib/games/blackjack";
 import { GAMES } from "../src/lib/games/registry";
+import * as Orig from "../src/lib/games/originals";
 
 const SPINS = 1_000_000;
 const HANDS = 200_000;
@@ -67,7 +68,7 @@ function sigmaBand(variance: number, samples: number, sigmas = 5): number {
 }
 
 // ---------------------------------------------------------------- slots
-console.log("\nVOLT REELS (slots)");
+console.log("\nFRUIT MACHINE (slots)");
 
 const m = spinMaths();
 const slotsExact = slotsExactRtp();
@@ -211,7 +212,7 @@ for (const buy of BONUS_BUYS) {
 }
 
 // -------------------------------------------------------------- roulette
-console.log("\nSINGLE ZERO (roulette)");
+console.log("\nEUROPEAN ROULETTE (roulette)");
 
 const TYPES: BetType[] = ["straight", "red", "black", "odd", "even", "low", "high", "dozen1", "col1"];
 for (const type of TYPES) {
@@ -234,7 +235,7 @@ check(
 );
 
 // ------------------------------------------------------------- blackjack
-console.log("\nTWENTY-ONE (blackjack)");
+console.log("\nBLACKJACK");
 
 /**
  * A compact basic strategy for these exact rules (6D, S17, DAS n/a, no
@@ -309,6 +310,130 @@ console.log(`  ${HANDS.toLocaleString()} hands played to basic strategy -> ${pct
 // blackjack, a dealer that hits 17, a broken push — not to certify the third
 // decimal place.
 check("basic-strategy return", bjRtp, 0.994, 0.012);
+
+
+// ---------------------------------------------------------------- originals
+console.log("\nORIGINALS (dice, limbo, coinflip, wheel, plinko, keno)");
+
+// Dice: sweep a wide range of targets in both directions and check the exact
+// formula lands on 99% for every one, not just a couple of hand-picked spots.
+// Multipliers are rounded to 4dp before they are paid (see roundMultiplier),
+// so the exact RTP is TARGET_RTP plus a small rounding residual, not exactly
+// TARGET_RTP. The tolerance here is that residual's true ceiling: rounding a
+// multiplier to the nearest 1e-4 moves it by at most 5e-5, and the RTP moves
+// by at most P(win) times that, which is under 5e-5 for every target.
+const DICE_ROUNDING_TOLERANCE = 5e-5;
+for (const [direction, target] of [
+  ["over", 200], ["over", 5000], ["over", 9700],
+  ["under", 300], ["under", 5000], ["under", 9800],
+] as const) {
+  check(`dice ${direction} ${(target / 100).toFixed(2)}`, Orig.diceExactRtp(direction, target), Orig.TARGET_RTP, DICE_ROUNDING_TOLERANCE);
+}
+if (Orig.diceValidTarget("over", 9990) || Orig.diceValidTarget("under", 50)) {
+  failures++;
+  console.log("  FAIL  dice accepted a target outside the 2%-98% chance band");
+}
+
+// Limbo: same sweep, using the closed-form P(result >= M) = TARGET_RTP / M.
+for (const target of [1.01, 1.5, 2, 10, 100, 5000, 10000]) {
+  check(`limbo target ${target}x`, Orig.limboExactRtp(target), Orig.TARGET_RTP, 1e-9);
+}
+// The uniform-to-multiplier map must actually realise that law empirically.
+{
+  const N = 300_000;
+  let sum = 0, sum2 = 0;
+  for (let i = 0; i < N; i++) {
+    const u = 1 - Math.random(); // Math.random is fine here: this is a maths
+                                  // self-check of the formula, not a paid bet.
+    const r = Orig.limboResultFromUniform(u);
+    sum += r; sum2 += r * r;
+  }
+  // E[1/u] for u ~ U(0,1] diverges, so instead check the win-rate law directly:
+  // P(result >= target) should match TARGET_RTP / target for a few targets.
+  for (const target of [2, 10, 100]) {
+    let wins = 0;
+    for (let i = 0; i < N; i++) {
+      const u = 1 - Math.random();
+      if (Orig.limboResultFromUniform(u) >= target) wins++;
+    }
+    const p = wins / N;
+    const expected = Orig.limboChance(target);
+    const se = Math.sqrt(expected * (1 - expected) / N);
+    check(`limbo P(result >= ${target}x) empirically`, p, expected, 5 * se);
+  }
+  void sum; void sum2;
+}
+
+// Coinflip: trivially exact, but assert the multiplier is the fair price.
+check("coinflip", Orig.coinflipExactRtp(), Orig.TARGET_RTP, 1e-9);
+if (Orig.COINFLIP_MULTIPLIER !== Orig.fairMultiplier(0.5)) {
+  failures++;
+  console.log("  FAIL  coinflip multiplier is not the fair price for 50%");
+}
+
+// Wheel: every risk level must average to TARGET_RTP over its equally-likely
+// segments, and every table needs exactly 10 segments (the model's assumption
+// baked into the code above).
+for (const risk of ["low", "medium", "high"] as const) {
+  check(`wheel ${risk}`, Orig.wheelExactRtp(risk), Orig.TARGET_RTP, 1e-9);
+  if (Orig.WHEEL_SEGMENTS[risk].length !== 10) {
+    failures++;
+    console.log(`  FAIL  wheel ${risk} does not have 10 segments`);
+  }
+}
+
+// Plinko: the bucket distribution must be a real distribution, and the exact
+// RTP (weighted by the true binomial, not assumed) is what gets published —
+// verify it against a Monte-Carlo of the same binomial process.
+for (const risk of ["low", "medium", "high"] as const) {
+  for (const rows of Orig.PLINKO_ROWS) {
+    const probs = Orig.plinkoBucketProbabilities(rows);
+    check(`plinko ${risk} ${rows} bucket probabilities sum to 1`, probs.reduce((a, b) => a + b, 0), 1, 1e-9);
+    if (Orig.PLINKO_TABLES[risk][rows].length !== rows + 1) {
+      failures++;
+      console.log(`  FAIL  plinko ${risk} ${rows} table has the wrong bucket count`);
+    }
+    const exact = Orig.plinkoExactRtp(risk, rows);
+    if (exact < 0.9 || exact > 1.15) {
+      failures++;
+      console.log(`  FAIL  plinko ${risk} ${rows} RTP ${pct(exact)} is out of a sane 90-115% band`);
+    }
+  }
+}
+const PLINKO_SIM = 400_000;
+{
+  const risk = "medium" as const, rows = 12 as const;
+  const probs = Orig.plinkoBucketProbabilities(rows);
+  const table = Orig.PLINKO_TABLES[risk][rows];
+  let sum = 0, sum2 = 0;
+  for (let i = 0; i < PLINKO_SIM; i++) {
+    let bucket = 0;
+    for (let r = 0; r < rows; r++) if (Math.random() < 0.5) bucket++;
+    const m = table[bucket];
+    sum += m; sum2 += m * m;
+  }
+  const mean = sum / PLINKO_SIM;
+  const variance = sum2 / PLINKO_SIM - mean * mean;
+  check(
+    `plinko ${risk} ${rows} simulated bounce process`,
+    mean,
+    table.reduce((s, m, k) => s + m * probs[k], 0),
+    sigmaBand(variance, PLINKO_SIM),
+  );
+}
+
+// Keno: the paytable must be derived to hit 99% for every pick count, and the
+// hypergeometric probabilities themselves must sum to 1.
+// Same rounding residual as dice: the paytable is scaled to hit exactly
+// TARGET_RTP and then every entry is rounded to 4dp, so the realised RTP sits
+// within a few multiplier-rounding-widths of TARGET_RTP, not exactly on it.
+const KENO_ROUNDING_TOLERANCE = 5e-5;
+for (const picks of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+  check(`keno ${picks} picks`, Orig.kenoExactRtp(picks), Orig.TARGET_RTP, KENO_ROUNDING_TOLERANCE);
+  let sum = 0;
+  for (let h = 0; h <= picks; h++) sum += Orig.kenoHitProbability(picks, h);
+  check(`keno ${picks} picks hit-probabilities sum to 1`, sum, 1, 1e-9);
+}
 
 // ----------------------------------------------------------------- done
 console.log(

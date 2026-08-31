@@ -8,8 +8,15 @@ const GAME_LABELS: Record<string, string> = {
   slots: "Fruit Machine",
   blackjack: "Blackjack",
   roulette: "European Roulette",
+  dice: "Dice",
+  limbo: "Limbo",
+  coinflip: "Coinflip",
+  wheel: "Wheel",
+  plinko: "Plinko",
+  keno: "Keno",
   bonus: "Daily bonus",
   signup: "Welcome grant",
+  life: "Life",
 };
 
 const FILTERS = [
@@ -17,7 +24,14 @@ const FILTERS = [
   { key: "slots", label: "Fruit Machine" },
   { key: "blackjack", label: "Blackjack" },
   { key: "roulette", label: "European Roulette" },
+  { key: "dice", label: "Dice" },
+  { key: "limbo", label: "Limbo" },
+  { key: "coinflip", label: "Coinflip" },
+  { key: "wheel", label: "Wheel" },
+  { key: "plinko", label: "Plinko" },
+  { key: "keno", label: "Keno" },
   { key: "bonus", label: "Credits" },
+  { key: "life", label: "Life" },
 ];
 
 export default function HistoryTable({ rows }: { rows: TxRow[] }) {

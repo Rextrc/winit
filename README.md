@@ -209,6 +209,32 @@ to see; the dealer's hole card genuinely is not sent until the dealer plays.
 
 ---
 
+## Originals — Dice, Limbo, Coinflip, Wheel, Plinko, Keno
+
+Six instant-settle games built on one shared formula rather than six separate paytables:
+
+```
+multiplier = (1 - HOUSE_EDGE) / P(win)      HOUSE_EDGE = 0.01
+```
+
+Pick any target, any risk level, any number of Keno picks — the return is 99% by construction,
+not by tuning. Multipliers are rounded to 4 decimal places before they are paid, and every
+game's published RTP is recomputed from those rounded numbers, so the figure on the page is the
+one the code actually pays, not the idealised formula.
+
+| Game | How the odds are set | Exact RTP |
+|---|---|---|
+| **Dice** | Roll 00.00–99.99 (`crypto.randomInt(10000)`), bet over/under a target you choose. Win chance is restricted to 2%–98%. | 99.00% for every valid target |
+| **Limbo** | A crash multiplier is drawn as `0.99 / u` for u uniform on (0,1], which has the exact property `P(result ≥ M) = 0.99 / M`. | 99.00% for every target |
+| **Coinflip** | One `crypto.randomInt(2)` draw; the fairest possible statement of the formula. | 99.00% |
+| **Wheel** | 10 equally-likely segments per risk level, multipliers summing to 9.9 — the mean is exactly 0.99 whichever risk you pick; risk only reshapes the distribution. | 99.00% at every risk level |
+| **Plinko** | The ball takes 8/12/16 independent left-right bounces, so its bucket is Binomial(rows, ½). Bucket tables are fixed, but the RTP is computed by weighting each bucket by its true binomial probability — never assumed. | Exact per board, published in-game |
+| **Keno** | 10 of 40 numbers drawn by an unbiased Fisher-Yates shuffle. The paytable for each pick count is *derived*: pays rise geometrically from the minimum paying hit count, then the row is scaled so the exact hypergeometric expectation lands on 99%. | 99.00% for any pick count |
+
+`npm run rtp` checks every one of these exactly (closed-form probability sums, hit-probability and
+bucket-probability distributions summing to 1) and empirically (a Monte-Carlo of the actual bounce
+and draw processes for Plinko and Limbo).
+
 ## Life, levels and rebirth
 
 Layered over the casino is a career ladder. It changes what you can bet, not what you win.
@@ -245,6 +271,7 @@ src/lib/ledger.ts         the only place balance moves; atomic, conditional SQL 
 src/lib/bonus.ts          daily bonus cooldown + streak maths
 src/lib/games/slots.ts    paytable, evaluator and exact RTP — pure, safe to import client-side
 src/lib/games/*.engine.ts the randomness half, server only
+src/lib/games/originals.ts shared fair-multiplier maths for Dice/Limbo/Coinflip/Wheel/Plinko/Keno
 src/lib/games/*.ts        pure game engines — no I/O, directly testable
 src/app/api/games/*       thin routes: validate -> run engine -> settle -> log
 scripts/rtp.ts            RTP verification harness

@@ -20,8 +20,15 @@ const GAME_LABELS: Record<string, string> = {
   slots: "Fruit Machine",
   blackjack: "Blackjack",
   roulette: "European Roulette",
+  dice: "Dice",
+  limbo: "Limbo",
+  coinflip: "Coinflip",
+  wheel: "Wheel",
+  plinko: "Plinko",
+  keno: "Keno",
   bonus: "Daily bonus",
   signup: "Welcome grant",
+  life: "Life",
 };
 
 function timeOf(iso: string): string {
