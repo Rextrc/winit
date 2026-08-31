@@ -5,7 +5,7 @@ import type { TxRow } from "@/components/BetFeed";
 import { formatCents, formatSignedCents } from "@/lib/money";
 
 const GAME_LABELS: Record<string, string> = {
-  slots: "Fruit Machine",
+  slots: "Candy Cascade",
   blackjack: "Blackjack",
   roulette: "European Roulette",
   dice: "Dice",
@@ -21,7 +21,7 @@ const GAME_LABELS: Record<string, string> = {
 
 const FILTERS = [
   { key: "all", label: "All" },
-  { key: "slots", label: "Fruit Machine" },
+  { key: "slots", label: "Candy Cascade" },
   { key: "blackjack", label: "Blackjack" },
   { key: "roulette", label: "European Roulette" },
   { key: "dice", label: "Dice" },

@@ -31,7 +31,7 @@ npm run dev               # http://localhost:3000
 Create an account at `/signup` and you start with **100,000.00** play credits.
 
 ```bash
-npm run rtp               # verifies the published RTP of all three games
+npm run rtp               # verifies the published RTP of every game
 npm run build             # production build
 ```
 
@@ -102,77 +102,46 @@ functions the API calls — and exits non-zero if a paytable is edited without u
 figure.
 
 The simulation tolerances are derived from each game's true variance (five standard errors), not
-guessed. That matters: a slots round has a payout standard deviation of ~3.9× the stake because of
-the free-spins tail, so even a million rounds carries a ~0.39% standard error, and a fixed ±1% band
-would false-alarm regularly. Roulette's variance is ~1, so it gets a band an order of magnitude
-tighter.
+guessed. That matters: Roulette's variance is ~1, so a naive fixed ±1% band would be needlessly
+loose for it, while Candy Cascade's cluster/cascade payouts are heavy-tailed enough that its check
+uses a sanity band around the design target instead of a point estimate — see below for why that
+game's RTP can't be pinned down any tighter than that in the first place.
 
-### Fruit Machine (slots) — RTP 94.9854%
+### Candy Cascade (slots) — RTP ~96% (simulated)
 
-Five reels, three rows, ten fixed paylines, wilds, scatters, a free-spins round that retriggers,
-and two bonus buys.
+A 7×7 grid, cluster pays instead of paylines: groups of 5 or more orthogonally adjacent matching
+candies pay, the winners vanish, everything above falls to fill the gap, and fresh candies drop in
+from the top — repeating until nothing new lines up. Every one of the 49 cells is drawn
+independently via `crypto.randomInt`, including every refill after a tumble.
 
-Every one of the 15 visible cells is drawn independently from its own reel's 50-stop virtual strip
-via `crypto.randomInt(50)`. That independence is the whole reason the RTP stays closed-form rather
-than becoming a simulation estimate.
+There is deliberately no wild in this game — clusters are pure same-symbol groups, so which cells
+a cluster covers is never ambiguous.
 
-**Line pays** (multiple of the *line* bet; the stake is split across all ten lines, so it is
-quantised down to a whole number of line bets and no payout is ever rounded):
+Each cascade within a spin raises a shared multiplier along a fixed trail (1, 2, 3, 4, 5, 6, 8, 10,
+12, 15, 20, 25, 50, 100×), and during the bonus round that multiplier keeps climbing across the
+whole feature instead of resetting between spins. Landing 4+ lollipop scatters anywhere across a
+spin's drops triggers 10–20 bonus spins; 3+ scatters during the bonus adds more.
 
-| Symbol | Strip slots (reel 1) | 3 | 4 | 5 |
-|---|---|---|---|---|
-| Seven | 2 | ×40 | ×250 | ×1500 |
-| Watermelon | 3 | ×25 | ×100 | ×550 |
-| Grapes | 4 | ×15 | ×55 | ×250 |
-| Plum | 6 | ×10 | ×32 | ×145 |
-| Orange | 8 | ×6 | ×20 | ×80 |
-| Lemon | 11 | ×3 | ×12 | ×45 |
-| Cherry | 14 | ×3 | ×9 | ×30 |
+**Buy Feature** skips straight to the bonus round for 11× the stake. Like the bonus
+buys before it, the price is derived from the feature's own simulated expected value divided by the
+base game's RTP, so buying it returns essentially the same percentage as triggering it naturally —
+a shortcut, not an edge.
 
-The symbols are drawn as original inline SVG (`src/components/games/SlotSymbol.tsx`) rather than
-loaded as image assets, so they stay crisp at any size and the app ships no artwork files.
+#### Why this RTP is measured, not exact
 
-**Wilds** sit on reels 2–4 only and substitute for any paying symbol. Because a wild can never lead
-a line, there is no "which symbol does an all-wild line pay as" ambiguity to resolve.
+Every other game in WinIt publishes a closed-form RTP because its outcome space reduces to
+something enumerable: a 9⁵ line-pay sum, a Binomial bucket count, a hypergeometric draw. A cluster
+grid that can re-draw itself after every match — arbitrarily many times, each time raising the
+stakes — has no such reduction. The outcome space is effectively unbounded, and there is no known
+closed form for it. This isn't unique to WinIt: every real cluster-pays slot in the industry
+publishes a *simulated* RTP (typically over billions of rounds), not an enumerated one.
 
-**Scatters** pay on count anywhere in the grid, as a multiple of the *total* bet, and award free
-spins at a ×2 multiplier. Three more scatters during the round adds five spins.
-
-| Scatters | Pays | Free spins |
-|---|---|---|
-| 3 | ×2 | 10 |
-| 4 | ×10 | 15 |
-| 5 | ×50 | 20 |
-
-**Bonus buys** are priced from their own exact expected value divided by the base game's RTP, then
-rounded to a whole multiple of the stake — so buying the feature returns essentially the same
-percentage as spinning for it. Free Spins costs 15× the stake, Super Free Spins (20 spins at ×3)
-costs 45×, and both return 95.15% against the base game's 94.99%. The residual is published on the
-button rather than hidden: a bonus buy is a shortcut, not an edge, in either direction.
-
-#### Why the RTP is exact and not simulated
-
-`exactRtp()` composes three closed-form pieces:
-
-1. **Line pays.** A payline takes one cell from each reel, so a line is five independent draws, and
-   its pay depends only on the five *symbol classes*. Enumerating all 9⁵ = 59,049 class tuples,
-   weighted by their true probabilities, gives the exact expected line pay — 57.2243% per unit
-   staked. All ten lines share a distribution and the stake is ten line bets, so that figure *is*
-   the line RTP.
-2. **Scatter pays.** With independent cells the scatter count is a sum of five Binomial(3, q)
-   reels, computed exactly by convolution — 6.8958%.
-3. **Free spins.** Each free spin independently retriggers with probability p, so the expected
-   number of spins is the geometric series `N / (1 - 5p)`. The retrigger rate here is 0.1015, well
-   under 1, so the series converges.
-
-Total: **94.9854%**. `npm run rtp` re-derives all three, checks the scatter distribution sums to 1,
-checks the paylines are well formed and the paytable monotonic, then Monte-Carlos a million full
-rounds through the same `playRound()` the API calls — including a direct check of the realised
-free-spins-per-round against the geometric series. Nothing is weighted by your balance, your
-history, or how long you have been losing.
-
-The game registry publishes `exactRtp()` itself rather than a copied constant, so the advertised
-figure cannot drift from the paytable.
+WinIt does the same, just honestly labelled: `npm run rtp` runs `playRound()` — the exact function
+the API calls — across 40,000+ full rounds (base spins, every cascade they trigger, and any bonus
+round that follows) and reports the measured return with its confidence interval, checked against a
+sanity band rather than a false-precision point value. It also checks the cluster evaluator
+directly and independent of any RNG: a fully-matching grid resolves to one whole-board cluster, a
+checkerboard never clusters, and a group below the minimum size never pays.
 
 ### European Roulette (roulette) — RTP 97.297% on every bet
 
@@ -274,7 +243,7 @@ src/lib/bigmoney.ts       the BigInt <-> number boundary, and the only place it 
 src/lib/progression.ts    XP curve, life stages, table limits, unlocks, rebirth rules
 src/lib/ledger.ts         the only place balance moves; atomic, conditional SQL updates
 src/lib/bonus.ts          daily bonus cooldown + streak maths
-src/lib/games/slots.ts    paytable, evaluator and exact RTP — pure, safe to import client-side
+src/lib/games/candy.ts    Candy Cascade's paytable, cluster evaluator and pay maths — pure
 src/lib/games/*.engine.ts the randomness half, server only
 src/lib/games/originals.ts shared fair-multiplier maths for Dice/Limbo/Coinflip/Wheel/Plinko/Keno
 src/lib/games/*.ts        pure game engines — no I/O, directly testable

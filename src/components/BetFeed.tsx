@@ -17,7 +17,7 @@ export type TxRow = {
 };
 
 const GAME_LABELS: Record<string, string> = {
-  slots: "Fruit Machine",
+  slots: "Candy Cascade",
   blackjack: "Blackjack",
   roulette: "European Roulette",
   dice: "Dice",

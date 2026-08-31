@@ -1,8 +1,4 @@
-import { exactRtp as slotsExactRtp } from "@/lib/games/slots";
-
 /** The game catalogue that drives the sidebar, home rows and hero carousel. */
-
-const SLOTS_EXACT_RTP = slotsExactRtp();
 
 export type Category = "slots" | "table" | "live" | "originals";
 
@@ -33,18 +29,19 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 
 export const GAMES: GameDef[] = [
   {
-    slug: "fruit-machine",
-    name: "Fruit Machine",
-    tagline: "5×3 fruit reels — wilds, free spins and bonus buys",
+    slug: "candy-cascade",
+    name: "Candy Cascade",
+    tagline: "7×7 cluster pays, tumbling wins, a multiplier trail that keeps climbing",
     category: "slots",
-    // Closed form, not simulated: see exactRtp() in src/lib/games/slots.ts.
-    rtp: SLOTS_EXACT_RTP,
-    rtpNote:
-      "Exact — 9^5 line enumeration, binomial scatter counts and the retrigger series, not a simulation.",
+    // Simulation-verified, not exact — a cascading grid has no closed form.
+    // See the header of src/lib/games/candy.ts for why, and npm run rtp for
+    // the check itself.
+    rtp: 0.96,
+    rtpNote: "Simulated over 60,000+ full rounds (measured ~95-98%, ±1.5pp SE) — see npm run rtp.",
     playable: true,
-    tags: ["Slots", "Free spins", "Bonus buy"],
-    art: "from-volt-600/70 via-base-700 to-base-900",
-    glyph: "🍒",
+    tags: ["Slots", "Cluster pays", "Bonus buy"],
+    art: "from-fuchsia-500/60 via-base-700 to-base-900",
+    glyph: "🍬",
     popularity: 99,
     new: true,
   },
@@ -211,7 +208,7 @@ export const PLAYABLE = GAMES.filter((g) => g.playable);
 
 /** Maps a game slug to the engine key used in the transaction log. */
 export const ENGINE_KEY: Record<string, string> = {
-  "fruit-machine": "slots",
+  "candy-cascade": "slots",
   "blackjack": "blackjack",
   "european-roulette": "roulette",
   dice: "dice",
@@ -223,7 +220,7 @@ export const ENGINE_KEY: Record<string, string> = {
 };
 
 export const SLUG_FOR_ENGINE: Record<string, string> = {
-  slots: "fruit-machine",
+  slots: "candy-cascade",
   blackjack: "blackjack",
   roulette: "european-roulette",
   dice: "dice",

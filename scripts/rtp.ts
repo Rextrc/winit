@@ -10,22 +10,14 @@
  */
 
 import {
-  BONUS_BUYS,
-  LINE_COUNT,
-  LINE_PAYS,
-  PAYING_SYMBOLS,
-  PAYLINES,
-  REELS,
-  ROWS,
-  SYMBOLS,
-  evaluateLine,
-  exactRtp as slotsExactRtp,
-  quantiseStake,
-  scatterCountDistribution,
-  spinMaths,
-  type SlotsMode,
-} from "../src/lib/games/slots";
-import { playRound } from "../src/lib/games/slots.engine";
+  BUY_FEATURE_PRICE_MULTIPLIER,
+  COLS,
+  MIN_CLUSTER,
+  ROWS as CANDY_ROWS,
+  findClusters,
+  type CandyMode,
+} from "../src/lib/games/candy";
+import { drawGrid, playRound as playCandyRound } from "../src/lib/games/candy.engine";
 import { exactRtp as rouletteRtp, spin as spinRoulette, coverageCount, type BetType } from "../src/lib/games/roulette";
 import {
   applyAction,
@@ -68,146 +60,108 @@ function sigmaBand(variance: number, samples: number, sigmas = 5): number {
 }
 
 // ---------------------------------------------------------------- slots
-console.log("\nFRUIT MACHINE (slots)");
+console.log("\nCANDY CASCADE (slots)");
+console.log(
+  "  This game has no closed-form RTP: a cascading grid can re-draw itself an\n" +
+  "  unbounded number of times, so unlike every other game here the figure\n" +
+  "  below is a MEASURED return with a confidence interval, not an enumerated\n" +
+  "  one. That is also how real cluster-pays slots publish their numbers.",
+);
 
-const m = spinMaths();
-const slotsExact = slotsExactRtp();
+const CANDY_SPINS = 40_000;
+const CANDY_BET = 1000; // 10.00
 
-console.log(`  Line pay      ${pct(m.lineRtp)}   (exhaustive over ${SYMBOLS.length}^${REELS} = ${(SYMBOLS.length ** REELS).toLocaleString()} symbol tuples)`);
-console.log(`  Scatter pay   ${pct(m.scatterRtp)}   (convolution of ${REELS} Binomial(${ROWS}, q) reels)`);
-console.log(`  Free spins    trigger 1 in ${(1 / m.triggerProbability).toFixed(1)}, retrigger rate ${(5 * m.triggerProbability).toFixed(4)} < 1 so the series converges`);
-console.log(`  TOTAL         ${pct(slotsExact)}`);
-
-// The registry publishes exactRtp() itself rather than a copied constant, so
-// the advertised figure cannot drift from the paytable. What is worth asserting
-// is that the paytable still lands where the docs claim it does.
-const published = GAMES.find((g) => g.slug === "fruit-machine")!.rtp!;
-check("registry figure is the enumerated one", published, slotsExact, 1e-12);
-if (slotsExact < 0.94 || slotsExact > 0.96) {
-  failures++;
-  console.log(`  FAIL  RTP ${pct(slotsExact)} has drifted outside the documented 94-96% band`);
-}
-
-// The scatter distribution must be a distribution.
-const dist = scatterCountDistribution();
-check("scatter count distribution sums to 1", dist.reduce((a, b) => a + b, 0), 1, 1e-12);
-
-// Paylines must be well formed: one cell per reel, every row in range.
-for (const [i, line] of PAYLINES.entries()) {
-  if (line.length !== REELS || line.some((r) => r < 0 || r >= ROWS)) {
-    failures++;
-    console.log(`  FAIL  payline ${i} is malformed`);
-  }
-}
-if (PAYLINES.length !== LINE_COUNT) {
-  failures++;
-  console.log("  FAIL  payline count does not match LINE_COUNT");
-}
-
-// Evaluator sanity: no pay on a broken line, wilds substitute, 5oak pays top.
-if (evaluateLine(["LEMON", "CHERRY", "GRAPES", "PLUM", "SEVEN"], 0, 1) !== null) {
-  failures++;
-  console.log("  FAIL  a non-paying line returned a win");
-}
-if (evaluateLine(["SEVEN", "WILD", "SEVEN", "CHERRY", "PLUM"], 0, 1)?.count !== 3) {
-  failures++;
-  console.log("  FAIL  wild substitution did not extend a run");
-}
-if (evaluateLine(["SEVEN", "SEVEN", "SEVEN", "SEVEN", "SEVEN"], 0, 1)?.multiplier !== LINE_PAYS.SEVEN[5]) {
-  failures++;
-  console.log("  FAIL  five of a kind did not pay the paytable's five-of-a-kind prize");
-}
-// Pays must be monotonic in run length, and the top symbol must be the richest.
-for (const sym of PAYING_SYMBOLS) {
-  const row = LINE_PAYS[sym];
-  if (!(row[3] <= row[4] && row[4] <= row[5])) {
-    failures++;
-    console.log(`  FAIL  ${sym} pays are not monotonic in run length`);
-  }
-  if (sym !== "SEVEN" && row[5] > LINE_PAYS.SEVEN[5]) {
-    failures++;
-    console.log(`  FAIL  ${sym} out-pays the top symbol`);
-  }
-}
-// A scatter can never start a paying line.
-if (evaluateLine(["SCATTER", "SCATTER", "SCATTER", "SCATTER", "SCATTER"], 0, 1) !== null) {
-  failures++;
-  console.log("  FAIL  scatters paid as a payline");
-}
-
-/**
- * Monte-Carlo the whole round — base spin, triggered free spins, retriggers —
- * through the exact function the API calls. The tolerance is derived from the
- * variance measured in the same sample: free-spin rounds make the payout
- * distribution far too heavy-tailed for a fixed percentage band to be
- * meaningful.
- */
-function simulate(mode: SlotsMode, rounds: number, stakeCents: number) {
+function simulateCandy(mode: CandyMode, rounds: number) {
   let sum = 0;
-  let sumSquares = 0;
+  let sum2 = 0;
+  let bonusTriggers = 0;
   let biggest = 0;
-  let freeSpins = 0;
   for (let i = 0; i < rounds; i++) {
-    const r = playRound(mode, stakeCents);
+    const r = playCandyRound(mode, CANDY_BET);
     const x = r.payoutCents / r.chargeCents;
     sum += x;
-    sumSquares += x * x;
-    freeSpins += r.freeSpinsPlayed;
+    sum2 += x * x;
+    if (r.bonusTriggered) bonusTriggers++;
     if (x > biggest) biggest = x;
   }
   const mean = sum / rounds;
-  const variance = sumSquares / rounds - mean * mean;
-  return { mean, variance, biggest, freeSpinsPerRound: freeSpins / rounds };
+  const variance = sum2 / rounds - mean * mean;
+  return { mean, variance, bonusTriggers, biggest };
 }
 
-const STAKE = 1_000; // 10.00 — 100 cents a line, so every pay stays an integer
-const sim = simulate("SPIN", SPINS, STAKE);
-
+const candySim = simulateCandy("SPIN", CANDY_SPINS);
+const candySE = Math.sqrt(candySim.variance / CANDY_SPINS);
 console.log(
-  `  Payout SD per round ${Math.sqrt(sim.variance).toFixed(2)}x stake -> standard error over ${SPINS.toLocaleString()} rounds is ${pct(Math.sqrt(sim.variance / SPINS))}`,
+  `  Measured over ${CANDY_SPINS.toLocaleString()} rounds: ${pct(candySim.mean)} ± ${pct(5 * candySE)} (5 SE)`,
 );
+console.log(`  Bonus trigger rate: 1 in ${(CANDY_SPINS / candySim.bonusTriggers).toFixed(1)}`);
+console.log(`  Biggest single round seen: ${candySim.biggest.toFixed(1)}x stake`);
+
+// Sanity band rather than a point check, since the true value can only be
+// estimated, not computed. 90-98% covers the intended design; well outside it
+// means the paytable drifted, not that the sample got unlucky.
+const registryRtp = GAMES.find((g) => g.slug === "candy-cascade")!.rtp!;
+check("measured RTP is within the documented design band", candySim.mean, (0.9 + 0.98) / 2, (0.98 - 0.9) / 2);
+check("registry figure sits inside the same band", registryRtp, (0.9 + 0.98) / 2, (0.98 - 0.9) / 2);
+
+// The buy feature is priced from a separate simulation of its own EV; check
+// it still returns close to the base game rather than being a trap or a
+// free edge, using a tolerance derived from ITS OWN measured variance.
+const BUY_SPINS = 15_000;
+const buySim = simulateCandy("BUY_FEATURE", BUY_SPINS);
+const buySE = Math.sqrt(buySim.variance / BUY_SPINS);
 check(
-  `${SPINS.toLocaleString()} simulated rounds`,
-  sim.mean,
-  slotsExact,
-  sigmaBand(sim.variance, SPINS),
+  `Buy Feature (${BUY_FEATURE_PRICE_MULTIPLIER}x stake) tracks the base game`,
+  buySim.mean,
+  candySim.mean,
+  5 * buySE + 5 * candySE,
 );
 
-// The retrigger series is the easiest thing here to get wrong, so check the
-// realised free-spin count against the closed-form expectation directly.
-const expectedFreePerRound = m.expectedAward / (1 - 5 * m.triggerProbability);
-check(
-  "free spins per round vs geometric series",
-  sim.freeSpinsPerRound,
-  expectedFreePerRound,
-  5 * Math.sqrt(expectedFreePerRound / SPINS) + 0.002,
-);
-console.log(`  Biggest round seen ${sim.biggest.toFixed(1)}x stake`);
-
-// Stake quantisation must never invent or destroy money.
-for (const raw of [10, 15, 99, 1_000, 12_345]) {
-  const q = quantiseStake(raw);
-  if (q.lineBetCents * LINE_COUNT !== q.stakeCents || q.stakeCents > raw) {
+// Structural checks, independent of any RNG: the cluster evaluator itself.
+{
+  // A single mono-color 7x7 grid must resolve to exactly one cluster
+  // covering the whole board.
+  const mono = Array.from({ length: COLS }, () => Array(CANDY_ROWS).fill("STAR"));
+  const clusters = findClusters(mono as never);
+  if (clusters.length !== 1 || clusters[0].size !== COLS * CANDY_ROWS) {
     failures++;
-    console.log(`  FAIL  quantiseStake(${raw}) produced an inconsistent stake`);
+    console.log("  FAIL  a fully-matching grid did not resolve to one whole-board cluster");
+  }
+
+  // A checkerboard of two symbols must never cluster (no two same-symbol
+  // cells are ever orthogonally adjacent).
+  const checker = Array.from({ length: COLS }, (_, c) =>
+    Array.from({ length: CANDY_ROWS }, (_, r) => ((c + r) % 2 === 0 ? "STAR" : "GEM")),
+  );
+  if (findClusters(checker as never).length !== 0) {
+    failures++;
+    console.log("  FAIL  a checkerboard grid produced a cluster");
+  }
+
+  // Below MIN_CLUSTER, a small isolated group must not pay.
+  const sparse = Array.from({ length: COLS }, () => Array(CANDY_ROWS).fill("GEM"));
+  sparse[0][0] = "STAR";
+  sparse[1][0] = "STAR";
+  sparse[0][1] = "STAR"; // an isolated 3-cell L-shape, below MIN_CLUSTER
+  const rest = findClusters(sparse as never).find((c) => c.symbol === "STAR");
+  if (rest) {
+    failures++;
+    console.log(`  FAIL  a ${MIN_CLUSTER - 1 < 3 ? "" : "3-cell"} cluster below MIN_CLUSTER still paid`);
   }
 }
 
-// Bonus buys: each must return its own published RTP, and be priced honestly
-// against the base game rather than being a trap or a free edge.
-const BUY_ROUNDS = 300_000;
-for (const buy of BONUS_BUYS) {
-  const s = simulate(buy.key, BUY_ROUNDS, STAKE);
-  check(
-    `${buy.label} (${buy.priceMultiplier}x stake)`,
-    s.mean,
-    buy.rtp,
-    sigmaBand(s.variance, BUY_ROUNDS),
-  );
-  const gap = Math.abs(buy.rtp - slotsExact);
-  if (gap > 0.01) {
+// The draw itself must actually be able to produce every symbol — a weight
+// typo that zeroes one out would silently break the paytable and the
+// "every symbol is reachable" assumption everywhere else in the game.
+{
+  const seen = new Set<string>();
+  for (let i = 0; i < 2000 && seen.size < 7; i++) {
+    const g = drawGrid();
+    for (const col of g) for (const s of col) seen.add(s);
+  }
+  if (seen.size < 7) {
     failures++;
-    console.log(`  FAIL  ${buy.label} RTP is ${pct(gap)} away from the base game`);
+    console.log(`  FAIL  only ${seen.size}/7 symbols appeared in 2000 draws — a weight is likely zero`);
   }
 }
 

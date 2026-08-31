@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
-import { buyFor, quantiseStake, type SlotsMode } from "@/lib/games/slots";
-import { playRound } from "@/lib/games/slots.engine";
+import { BUY_FEATURE_PRICE_MULTIPLIER, type CandyMode } from "@/lib/games/candy";
+import { playRound } from "@/lib/games/candy.engine";
 import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
 import { isUnlocked, UNLOCK_LEVELS } from "@/lib/progression";
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 const schema = z.object({
   betCents: z.number().int(),
-  mode: z.enum(["SPIN", "BUY_FREE", "BUY_SUPER"]).default("SPIN"),
+  mode: z.enum(["SPIN", "BUY_FEATURE"]).default("SPIN"),
 });
 
 export async function POST(req: Request) {
@@ -29,29 +29,23 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return jsonError("Invalid bet.");
 
-  const mode = parsed.data.mode as SlotsMode;
+  const mode = parsed.data.mode as CandyMode;
 
-  // The stake is always checked against the player's own table limit, which is
-  // derived from the persisted level and rebirth count — never from the client.
   const bet = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
   if (!bet.ok) return jsonError(bet.error, 409);
 
-  const { stakeCents } = quantiseStake(bet.cents);
-  if (stakeCents <= 0) return jsonError("Stake must cover all ten paylines.", 409);
-
-  const buy = buyFor(mode);
-  if (buy) {
-    if (!isUnlocked(buy.key, user.level, user.rebirths)) {
-      return jsonError(`${buy.label} unlocks at level ${UNLOCK_LEVELS[buy.key]}.`, 403);
+  if (mode === "BUY_FEATURE") {
+    if (!isUnlocked("BUY_FREE", user.level, user.rebirths)) {
+      return jsonError(`Buy Feature unlocks at level ${UNLOCK_LEVELS.BUY_FREE}.`, 403);
     }
-    const price = buy.priceMultiplier * stakeCents;
+    const price = BUY_FEATURE_PRICE_MULTIPLIER * bet.cents;
     if (price > user.balanceCents) {
-      return jsonError(`${buy.label} costs ${formatCents(price)} at that stake.`, 409);
+      return jsonError(`Buy Feature costs ${formatCents(price)} at that stake.`, 409);
     }
   }
 
   try {
-    const round = playRound(mode, stakeCents);
+    const round = playRound(mode, bet.cents);
     const settled = await settleOneShotBet({
       userId: user.id,
       game: "slots",
@@ -61,10 +55,9 @@ export async function POST(req: Request) {
       summary: round.summary,
       detail: {
         mode,
-        stakeCents: round.stakeCents,
-        freeSpinsPlayed: round.freeSpinsPlayed,
+        bonusTriggered: round.bonusTriggered,
+        blockCount: round.blocks.length,
         multiplier: Number(round.roundMultiplier.toFixed(4)),
-        finalGrid: round.spins[round.spins.length - 1]?.grid,
       },
     });
 
@@ -74,7 +67,7 @@ export async function POST(req: Request) {
       netCents: settled.netCents,
       balanceCents: settled.balanceCents,
       progress: settled.progress,
-      bonus: bonusStatus(user.lastBonusAt, user.bonusStreak),
+      bonus: bonusStatus(user.lastBonusAt, user.bonusStreak, undefined, user.rebirths),
     });
   } catch (err) {
     return handleError(err);
