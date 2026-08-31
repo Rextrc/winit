@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-base-900 text-slate-200 antialiased;
+  background-image:
+    radial-gradient(900px 500px at 15% -10%, rgba(182, 255, 46, 0.07), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(120, 90, 255, 0.08), transparent 55%);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-white/5 bg-base-800/80 backdrop-blur;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply btn bg-volt text-base-900 hover:bg-volt-300 active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 active:scale-[0.98];
+  }
+
+  .btn-chip {
+    @apply rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold uppercase
+           tracking-wide text-slate-300 transition hover:border-volt/40 hover:text-volt
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-white/10 bg-base-900/80 px-3.5 py-2.5 text-sm text-slate-100
+           outline-none transition placeholder:text-slate-500 focus:border-volt/60
+           focus:ring-2 focus:ring-volt/20;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400;
+  }
+
+  .num {
+    @apply font-display tabular-nums tracking-tight;
+  }
+
+  /* High-contrast win/loss numerals. */
+  .num-win {
+    @apply num font-bold text-win;
+    text-shadow: 0 0 24px rgba(62, 232, 143, 0.35);
+  }
+
+  .num-loss {
+    @apply num font-bold text-loss;
+  }
+
+  .rail {
+    @apply flex gap-3 overflow-x-auto scroll-smooth pb-3;
+    scrollbar-width: thin;
+  }
+
+  .rail::-webkit-scrollbar {
+    height: 6px;
+  }
+  .rail::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-white/10;
+  }
+  .rail::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Respect reduced motion for every spin/deal animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

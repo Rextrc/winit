@@ -1,0 +1,78 @@
+// WinIt — simulated casino. All balances are fake currency stored as integer
+// "cents" so no floating point drift can ever create or destroy money.
+// There is no payment provider, no deposit path and no cash-out path anywhere
+// in this schema by design.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  email        String?  @unique
+  passwordHash String
+  // Fake currency only. Seeded with 100,000.00 on sign-up.
+  balanceCents Int      @default(10000000)
+  lastBonusAt  DateTime?
+  bonusStreak  Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  transactions Transaction[]
+  rounds       Round[]
+}
+
+model Transaction {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // "slots" | "blackjack" | "roulette" | "bonus" | "signup"
+  game String
+  // "BET" | "BONUS" | "SIGNUP"
+  kind String
+
+  betCents    Int
+  payoutCents Int
+  // payoutCents - betCents. Positive on a win, negative on a loss.
+  netCents    Int
+
+  // "WIN" | "LOSS" | "PUSH" | "CREDIT"
+  outcome String
+  // Short human readable result, e.g. "BAR / BAR / BAR ×60" or "21 vs 19".
+  summary String
+
+  // Running balance after this row was applied.
+  balanceAfterCents Int
+
+  // JSON blob with the full game result (reels, cards, wheel pocket, ...)
+  detail String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Multi-step game state (blackjack hands live here between actions so the
+// client can never tell the server what it drew).
+model Round {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  game     String
+  // "ACTIVE" | "SETTLED"
+  status   String @default("ACTIVE")
+  betCents Int
+  state    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+}
