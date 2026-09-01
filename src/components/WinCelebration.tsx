@@ -8,14 +8,14 @@ const TIER_STYLE: Record<
   string,
   { label: string; from: string; to: string; glow: string; duration: number; pieces: number }
 > = {
-  NICE: { label: "Nice Win", from: "#3ee88f", to: "#1fae66", glow: "rgba(62,232,143,0.5)", duration: 2200, pieces: 0 },
+  NICE: { label: "Nice Win", from: "#2ee6b8", to: "#12a98a", glow: "rgba(46,230,184,0.5)", duration: 2200, pieces: 0 },
   BIG: { label: "Big Win", from: "#7fd8ff", to: "#2f9fe0", glow: "rgba(127,216,255,0.55)", duration: 2800, pieces: 24 },
   HUGE: { label: "Huge Win", from: "#c98bff", to: "#9a3fe8", glow: "rgba(201,139,255,0.6)", duration: 3400, pieces: 40 },
   MEGA: { label: "Mega Win", from: "#ffcf5c", to: "#f2a51e", glow: "rgba(255,207,92,0.65)", duration: 4000, pieces: 60 },
   EPIC: { label: "Epic Win", from: "#ff8ad4", to: "#e8449f", glow: "rgba(255,138,212,0.7)", duration: 4800, pieces: 90 },
 };
 
-const CONFETTI_COLORS = ["#b6ff2e", "#ff8ad4", "#7fd8ff", "#ffcf5c", "#c98bff", "#3ee88f"];
+const CONFETTI_COLORS = ["#2e8bff", "#7fd8ff", "#2ee6b8", "#ffcf5c", "#c98bff", "#a3ceff"];
 
 /**
  * A tier-scaled celebration for outsized wins, triggered from anywhere a game

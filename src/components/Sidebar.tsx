@@ -99,7 +99,7 @@ export default function Sidebar({
                 className={[
                   "group flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-semibold transition",
                   active
-                    ? "bg-volt/12 text-volt shadow-[inset_0_0_0_1px_rgba(182,255,46,0.22)]"
+                    ? "bg-volt/12 text-volt shadow-[inset_0_0_0_1px_rgba(46,139,255,0.28)]"
                     : "text-slate-400 hover:bg-white/5 hover:text-slate-100",
                   collapsed ? "justify-center" : "",
                 ].join(" ")}

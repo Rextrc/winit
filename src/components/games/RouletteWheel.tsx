@@ -30,7 +30,7 @@ function sectorPath(index: number): string {
   return `M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${INNER} ${INNER} 0 0 0 ${x4} ${y4} Z`;
 }
 
-const FILL = { red: "#d4183d", black: "#14151c", green: "#0e8a4f" } as const;
+const FILL = { red: "#d4183d", black: "#14151c", zero: "#1668d8" } as const;
 const EASE = "cubic-bezier(0.12, 0.7, 0.16, 1)";
 
 /**
@@ -94,7 +94,7 @@ export default function RouletteWheel({
 
         {/* Outer gold rim + fixed ball track */}
         <circle cx="100" cy="100" r="99" fill="url(#rim-gold)" />
-        <circle cx="100" cy="100" r="93" fill="#0d1020" stroke="rgba(255,255,255,0.08)" />
+        <circle cx="100" cy="100" r="93" fill="#070c1a" stroke="rgba(255,255,255,0.08)" />
 
         {/* Ball, orbiting the fixed track independently of the wheel */}
         <g

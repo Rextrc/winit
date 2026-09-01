@@ -82,7 +82,7 @@ export const GAMES: GameDef[] = [
     rtpNote: "Exactly 99% for every valid target: multiplier = 0.99 / P(win), computed live.",
     playable: true,
     tags: ["Original", "Provably fair maths"],
-    art: "from-emerald-700/50 via-base-700 to-base-900",
+    art: "from-sky-700/50 via-base-700 to-base-900",
     glyph: "🎲",
     popularity: 88,
     new: true,

@@ -29,7 +29,7 @@ export default function PlayingCard({
           className="h-full w-full rounded-xl opacity-40"
           style={{
             backgroundImage:
-              "repeating-linear-gradient(45deg, rgba(182,255,46,0.35) 0 3px, transparent 3px 8px)",
+              "repeating-linear-gradient(45deg, rgba(46,139,255,0.40) 0 3px, transparent 3px 8px)",
           }}
         />
       </div>

@@ -9,6 +9,8 @@ import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import {
+  POCKETS,
+  betCovers,
   betLabel,
   betOdds,
   colorOf,
@@ -24,7 +26,7 @@ type Placed = RouletteBet & { key: string };
 type SpinResponse = {
   result: {
     pocket: number;
-    color: "red" | "black" | "green";
+    color: "red" | "black" | "zero";
     bets: { type: BetType; number?: number; label: string; amountCents: number; won: boolean; returnedCents: number }[];
     totalStakeCents: number;
     payoutCents: number;
@@ -80,8 +82,39 @@ export default function RouletteGame({ game }: { game: GameDef }) {
   const [feedVersion, setFeedVersion] = useState(0);
   const [recent, setRecent] = useState<number[]>([]);
 
+  /**
+   * Which bet the felt is currently explaining. Hovering a region previews it;
+   * clicking one leaves it lit so you can see exactly which numbers the chip
+   * you just placed needs. Purely a display concern — it never touches a bet.
+   */
+  const [hovered, setHovered] = useState<{ type: BetType; number?: number } | null>(null);
+  const [focused, setFocused] = useState<{ type: BetType; number?: number } | null>(null);
+
   const totalStake = useMemo(() => placed.reduce((s, b) => s + b.amountCents, 0), [placed]);
   const chip = effectiveBet;
+
+  /** The set of pockets the previewed bet would win on, or null for none. */
+  const explained = hovered ?? focused;
+  const explainedSet = useMemo(() => {
+    if (!explained) return null;
+    const s = new Set<number>();
+    for (let n = 0; n < POCKETS; n++) {
+      if (betCovers({ ...explained, amountCents: 0 }, n)) s.add(n);
+    }
+    return s;
+  }, [explained]);
+
+  /**
+   * Once a pocket has landed, every region on the felt that covers it lights
+   * up — not just the ones you backed — so the layout shows you what the spin
+   * was worth everywhere.
+   */
+  const landed = last?.result.pocket ?? null;
+  const landedOn = useCallback(
+    (type: BetType, n?: number) =>
+      landed !== null && betCovers({ type, number: n, amountCents: 0 }, landed),
+    [landed],
+  );
 
   const stakeOn = useCallback(
     (type: BetType, n?: number) => placed.find((b) => b.key === keyFor(type, n))?.amountCents ?? 0,
@@ -115,6 +148,9 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         }
         return [...prev, { key, type, number: n, amountCents: chip }];
       });
+
+      // Leave the numbers this chip needs lit up after the click.
+      setFocused({ type, number: n });
     },
     [busy, chip, balanceCents, maxBetCents],
   );
@@ -140,6 +176,8 @@ export default function RouletteGame({ game }: { game: GameDef }) {
     setError(null);
     setLast(null);
     setPocket(null);
+    setHovered(null);
+    setFocused(null);
 
     try {
       const res = await fetch("/api/games/roulette", {
@@ -193,24 +231,39 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
   const Chip = ({ amount }: { amount: number }) =>
     amount > 0 ? (
-      <span className="num absolute -right-1.5 -top-1.5 z-10 grid h-5 min-w-[20px] place-items-center rounded-full border border-[#8a5f18] bg-gradient-to-b from-[#f5d78e] to-[#d4a83c] px-1 text-[9px] font-black text-[#2a1d05] shadow">
+      <span className="num animate-chip-drop absolute -right-1.5 -top-1.5 z-20 grid h-5 min-w-[20px] place-items-center rounded-full border border-[#8a5f18] bg-gradient-to-b from-[#f5d78e] to-[#d4a83c] px-1 text-[9px] font-black text-[#2a1d05] shadow">
         {amount >= 100_000 ? `${Math.round(amount / 100_000)}k` : Math.round(amount / 100)}
       </span>
     ) : null;
 
+  /**
+   * Border/ring for any cell on the felt, in priority order: a landed winner
+   * outranks a previewed cover, which outranks a placed chip.
+   */
+  const cellState = (won: boolean, covered: boolean, staked: boolean) =>
+    won
+      ? "animate-win-pulse border-[#f0c75e] ring-2 ring-[#f0c75e] z-10"
+      : covered
+        ? "border-volt ring-2 ring-volt/70 z-10"
+        : staked
+          ? "border-[#d4a83c]/70"
+          : "border-black/40";
+
   const numberCell = (n: number) => {
     const c = colorOf(n);
     const amount = stakeOn("straight", n);
-    const hit = last?.result.pocket === n;
+    const covered = explainedSet?.has(n) ?? false;
     return (
       <button
         key={n}
         type="button"
         onClick={() => place("straight", n)}
+        onMouseEnter={() => setHovered({ type: "straight", number: n })}
+        onMouseLeave={() => setHovered(null)}
         disabled={busy}
-        className={`relative h-9 rounded-md border text-[12px] font-bold transition disabled:opacity-60 ${
+        className={`relative h-9 rounded-md border text-[12px] font-bold transition duration-150 hover:-translate-y-0.5 disabled:opacity-60 ${
           c === "red" ? "bg-gradient-to-b from-[#e2385a] to-[#a8102c] text-white" : "bg-gradient-to-b from-[#26272f] to-[#0e0f14] text-slate-200"
-        } ${hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]/70" : "border-black/40"} hover:border-[#f0c75e]/60`}
+        } ${cellState(landed === n, covered, amount > 0)}`}
         aria-label={`Straight up on ${n}`}
       >
         {n}
@@ -221,20 +274,21 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
   const outsideCell = (type: BetType, label: string, span: string) => {
     const amount = stakeOn(type);
-    const hit = last ? last.result.bets.some((b) => b.won && b.label === betLabel({ type, amountCents: 0 })) : false;
     return (
       <button
         key={type}
         type="button"
         onClick={() => place(type)}
+        onMouseEnter={() => setHovered({ type })}
+        onMouseLeave={() => setHovered(null)}
         disabled={busy}
-        className={`relative h-9 rounded-md border text-[11px] font-bold uppercase tracking-wide transition disabled:opacity-60 ${
+        className={`relative h-9 rounded-md border text-[11px] font-bold uppercase tracking-wide transition duration-150 hover:-translate-y-0.5 disabled:opacity-60 ${
           type === "red"
             ? "bg-gradient-to-b from-[#e2385a]/85 to-[#a8102c]/85 text-white"
             : type === "black"
               ? "bg-gradient-to-b from-[#26272f] to-[#0e0f14] text-slate-200"
-              : "bg-[#12633a] text-slate-100"
-        } ${hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]/70" : "border-black/40"} hover:border-[#f0c75e]/60 ${span}`}
+              : "bg-[#12345f] text-slate-100"
+        } ${cellState(landedOn(type), false, amount > 0)} ${span}`}
       >
         {label}
         <Chip amount={amount} />
@@ -274,7 +328,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
                       ? "bg-gradient-to-b from-[#e2385a] to-[#a8102c] text-white"
                       : colorOf(n) === "black"
                         ? "bg-gradient-to-b from-[#26272f] to-[#0e0f14] text-slate-200"
-                        : "bg-gradient-to-b from-[#12a15f] to-[#0a5c37] text-white"
+                        : "bg-gradient-to-b from-[#3a8dfa] to-[#0b3f8c] text-white"
                   }`}
                 >
                   {n}
@@ -285,21 +339,27 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         </div>
       </div>
 
-      {/* Felt — green baize in a gold-railed frame */}
-      <div className="overflow-x-auto rounded-2xl border-2 border-[#8a5f18] bg-gradient-to-b from-[#0d3d24] to-[#082818] p-3 shadow-[inset_0_2px_12px_rgba(0,0,0,0.5)] sm:p-4">
+      {/* Felt — blue baize in a gold-railed frame */}
+      <div className="relative overflow-x-auto rounded-2xl border-2 border-[#8a5f18] bg-gradient-to-b from-[#0b2242] to-[#050f21] p-3 shadow-[inset_0_2px_12px_rgba(0,0,0,0.5)] sm:p-4">
+        {/* A light sweeping across the baize while the ball is still running. */}
+        {busy && (
+          <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden rounded-2xl">
+            <div className="animate-felt-sweep h-full w-1/3 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
+          </div>
+        )}
         <div className="min-w-[520px]">
           <div className="flex gap-1.5">
             <button
               type="button"
               onClick={() => place("straight", 0)}
+              onMouseEnter={() => setHovered({ type: "straight", number: 0 })}
+              onMouseLeave={() => setHovered(null)}
               disabled={busy}
-              className={`relative w-9 rounded-md border bg-gradient-to-b from-[#12a15f] to-[#0a5c37] text-[12px] font-bold text-white transition disabled:opacity-60 ${
-                last?.result.pocket === 0
-                  ? "border-[#f0c75e] ring-2 ring-[#f0c75e]"
-                  : stakeOn("straight", 0) > 0
-                    ? "border-[#d4a83c]/70"
-                    : "border-black/40"
-              }`}
+              className={`relative w-9 rounded-md border bg-gradient-to-b from-[#3a8dfa] to-[#0b3f8c] text-[12px] font-bold text-white transition duration-150 disabled:opacity-60 ${cellState(
+                landed === 0,
+                explainedSet?.has(0) ?? false,
+                stakeOn("straight", 0) > 0,
+              )}`}
               aria-label="Straight up on 0"
             >
               0
@@ -313,10 +373,16 @@ export default function RouletteGame({ game }: { game: GameDef }) {
                   <button
                     type="button"
                     onClick={() => place(ROW_COLUMN[ri])}
+                    onMouseEnter={() => setHovered({ type: ROW_COLUMN[ri] })}
+                    onMouseLeave={() => setHovered(null)}
                     disabled={busy}
-                    className={`relative h-9 rounded-md border bg-[#12633a] text-[10px] font-bold uppercase text-slate-100 transition disabled:opacity-60 ${
-                      stakeOn(ROW_COLUMN[ri]) > 0 ? "border-[#d4a83c]/70" : "border-[#1f8f57]"
-                    } hover:border-[#f0c75e]/60`}
+                    className={`relative h-9 rounded-md border bg-[#12345f] text-[10px] font-bold uppercase text-slate-100 transition duration-150 hover:-translate-y-0.5 disabled:opacity-60 ${
+                      landedOn(ROW_COLUMN[ri])
+                        ? "animate-win-pulse border-[#f0c75e] ring-2 ring-[#f0c75e]"
+                        : stakeOn(ROW_COLUMN[ri]) > 0
+                          ? "border-[#d4a83c]/70"
+                          : "border-[#2a5590]"
+                    }`}
                     aria-label={`Column ${3 - ri} bet`}
                   >
                     2:1
@@ -325,26 +391,42 @@ export default function RouletteGame({ game }: { game: GameDef }) {
                 </div>
               ))}
 
-              {/* Corner bets: a dot straddling each 4-number intersection,
-                  one row of dots per gap between the three number rows. */}
+              {/* Corner bets: a dot straddling each 4-number intersection, one
+                  row of dots per gap between the three number rows.
+
+                  Every dot is pinned to grid row 1 explicitly. The column spans
+                  deliberately overlap (dot i covers columns i+1..i+2, dot i+1
+                  covers i+2..i+3) and without a fixed row the auto-placement
+                  algorithm resolves that collision by pushing each dot onto a
+                  new row, which fans them diagonally down the table. */}
               {[0, 1].map((gap) => (
                 <div
                   key={gap}
-                  className="pointer-events-none absolute inset-x-0 z-10 grid grid-cols-[repeat(12,minmax(0,1fr))_44px]"
-                  style={{ top: gap === 0 ? "36px" : "78px", height: 0 }}
+                  className="pointer-events-none absolute inset-x-0 z-10 grid grid-cols-[repeat(12,minmax(0,1fr))_44px] gap-x-1.5"
+                  // Rows are h-9 (36px) with a 6px space between them, so the two
+                  // seams sit at y=39 and y=81. Gap 0 holds the anchors whose
+                  // block straddles the middle and bottom rows (1, 4, 7, ...).
+                  style={{ top: gap === 0 ? "81px" : "39px", height: 0 }}
                 >
                   {CORNER_ANCHOR_ROWS[gap].map((anchor, i) => {
                     const amount = stakeOn("corner", anchor);
-                    const hit = last?.result.bets.some((b) => b.won && b.type === "corner" && b.number === anchor) ?? false;
                     return (
                       <button
                         key={anchor}
                         type="button"
                         onClick={() => place("corner", anchor)}
+                        onMouseEnter={() => setHovered({ type: "corner", number: anchor })}
+                        onMouseLeave={() => setHovered(null)}
                         disabled={busy}
-                        style={{ gridColumn: `${i + 1} / ${i + 3}` }}
-                        className={`pointer-events-auto relative z-10 h-3.5 w-3.5 -translate-y-1/2 justify-self-center rounded-full border-2 bg-[#0a2818] transition hover:scale-125 hover:border-[#f0c75e] disabled:opacity-60 ${
-                          hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]" : "border-white/40"
+                        style={{ gridRow: 1, gridColumn: `${i + 1} / span 2` }}
+                        className={`pointer-events-auto relative h-3.5 w-3.5 -translate-y-1/2 justify-self-center rounded-full border-2 bg-[#071a33] transition duration-150 hover:scale-150 hover:border-[#f0c75e] disabled:opacity-60 ${
+                          landedOn("corner", anchor)
+                            ? "animate-win-pulse z-20 scale-150 border-[#f0c75e]"
+                            : explained?.type === "corner" && explained.number === anchor
+                              ? "z-20 scale-150 border-volt"
+                              : amount > 0
+                                ? "z-20 border-[#d4a83c]"
+                                : "border-white/40"
                         }`}
                         aria-label={`Corner bet on ${cornerNumbers(anchor).join(", ")}`}
                       >
@@ -361,18 +443,26 @@ export default function RouletteGame({ game }: { game: GameDef }) {
           <div className="mt-1.5 grid grid-cols-[repeat(12,minmax(0,1fr))_44px] gap-1.5 pl-[42px]">
             {STREET_ANCHORS.map((anchor) => {
               const amount = stakeOn("street", anchor);
-              const hit = last?.result.bets.some((b) => b.won && b.type === "street" && b.number === anchor) ?? false;
               return (
                 <button
                   key={anchor}
                   type="button"
                   onClick={() => place("street", anchor)}
+                  onMouseEnter={() => setHovered({ type: "street", number: anchor })}
+                  onMouseLeave={() => setHovered(null)}
                   disabled={busy}
-                  className={`relative h-4 rounded border bg-[#0a2818] text-[8px] font-bold text-slate-400 transition disabled:opacity-60 ${
-                    hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]" : "border-white/20"
-                  } hover:border-[#f0c75e]/70`}
+                  className={`relative h-5 rounded border bg-[#12345f] text-[8px] font-bold text-slate-300 transition duration-150 hover:-translate-y-0.5 disabled:opacity-60 ${
+                    landedOn("street", anchor)
+                      ? "animate-win-pulse border-[#f0c75e] ring-2 ring-[#f0c75e]"
+                      : explained?.type === "street" && explained.number === anchor
+                        ? "border-volt ring-2 ring-volt/70"
+                        : amount > 0
+                          ? "border-[#d4a83c]"
+                          : "border-white/20"
+                  }`}
                   aria-label={`Street bet on ${streetNumbers(anchor).join(", ")}`}
                 >
+                  {anchor}–{anchor + 2}
                   <Chip amount={amount} />
                 </button>
               );
@@ -384,6 +474,35 @@ export default function RouletteGame({ game }: { game: GameDef }) {
             {OUTSIDE.map((o) => outsideCell(o.type, o.label, o.span))}
           </div>
         </div>
+      </div>
+
+      {/* What the felt is currently lighting up, and why. */}
+      <div className="mt-2 min-h-[34px] rounded-xl border border-white/5 bg-base-900/60 px-3 py-2 text-center text-[11px]">
+        {landed !== null ? (
+          <p className="animate-pop-in text-slate-300">
+            <span className="font-black text-[#f0c75e]">{landed}</span> landed — every winning area on
+            the felt is ringed in gold.{" "}
+            <span className="text-slate-500">
+              {last!.result.bets.filter((b) => b.won).length > 0
+                ? `You were on ${last!.result.bets.filter((b) => b.won).map((b) => b.label).join(", ")}.`
+                : "None of your chips were on it."}
+            </span>
+          </p>
+        ) : explained && explainedSet ? (
+          <p className="text-slate-300">
+            <span className="font-bold text-volt">{betLabel({ ...explained, amountCents: 0 })}</span>{" "}
+            pays {betOdds({ ...explained, amountCents: 0 })}:1 and wins on{" "}
+            <span className="num font-bold text-slate-100">
+              {[...explainedSet].sort((a, b) => a - b).join(", ")}
+            </span>{" "}
+            <span className="text-slate-500">({explainedSet.size} of 37 pockets)</span>
+          </p>
+        ) : (
+          <p className="text-slate-500">
+            Hover or click any area to light up the numbers it needs. Dots on the seams are corners
+            (4 numbers, 8:1); the thin row under the grid is streets (3 numbers, 11:1).
+          </p>
+        )}
       </div>
 
       {error && <p className="mt-3 text-center text-sm font-semibold text-loss">{error}</p>}
@@ -445,7 +564,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
   const rules = (
     <>
       <p>
-        A European single-zero wheel: 37 pockets, one green zero, no double zero. The winning pocket
+        A European single-zero wheel: 37 pockets, one zero pocket, no double zero. The winning pocket
         is a single <code className="text-volt">crypto.randomInt(37)</code> draw taken before the
         wheel animation starts — the animation is just a rendering of a result that already exists.
       </p>

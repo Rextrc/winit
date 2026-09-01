@@ -23,10 +23,10 @@ export const RED_NUMBERS = new Set([
   1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36,
 ]);
 
-export type Color = "red" | "black" | "green";
+export type Color = "red" | "black" | "zero";
 
 export function colorOf(n: number): Color {
-  if (n === 0) return "green";
+  if (n === 0) return "zero";
   return RED_NUMBERS.has(n) ? "red" : "black";
 }
 

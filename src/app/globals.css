@@ -14,8 +14,8 @@ body {
 body {
   @apply bg-base-900 text-slate-200 antialiased;
   background-image:
-    radial-gradient(900px 500px at 15% -10%, rgba(182, 255, 46, 0.07), transparent 60%),
-    radial-gradient(700px 400px at 100% 0%, rgba(120, 90, 255, 0.08), transparent 55%);
+    radial-gradient(900px 500px at 15% -10%, rgba(46, 139, 255, 0.10), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(0, 200, 255, 0.07), transparent 55%);
   background-attachment: fixed;
 }
 
@@ -30,7 +30,7 @@ body {
   }
 
   .btn-primary {
-    @apply btn bg-volt text-base-900 hover:bg-volt-300 active:scale-[0.98];
+    @apply btn bg-volt text-white hover:bg-volt-500 active:scale-[0.98];
   }
 
   .btn-ghost {
@@ -60,7 +60,7 @@ body {
   /* High-contrast win/loss numerals. */
   .num-win {
     @apply num font-bold text-win;
-    text-shadow: 0 0 24px rgba(62, 232, 143, 0.35);
+    text-shadow: 0 0 24px rgba(46, 230, 184, 0.35);
   }
 
   .num-loss {
