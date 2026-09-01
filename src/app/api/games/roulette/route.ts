@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { handleError, jsonError, requireUser } from "@/lib/api";
 import { MIN_BET_CENTS, formatCents } from "@/lib/money";
-import { spin, type RouletteBet } from "@/lib/games/roulette";
+import { spin, validCornerAnchor, validStreetAnchor, type RouletteBet } from "@/lib/games/roulette";
 import { settleOneShotBet } from "@/lib/ledger";
 
 export const runtime = "nodejs";
 
 const BET_TYPES = [
-  "straight", "red", "black", "odd", "even", "low", "high",
+  "straight", "street", "corner", "red", "black", "odd", "even", "low", "high",
   "dozen1", "dozen2", "dozen3", "col1", "col2", "col3",
 ] as const;
 
@@ -43,6 +43,12 @@ export async function POST(req: Request) {
   for (const b of bets) {
     if (b.type === "straight" && typeof b.number !== "number") {
       return jsonError("A straight-up bet needs a number.");
+    }
+    if (b.type === "street" && (typeof b.number !== "number" || !validStreetAnchor(b.number))) {
+      return jsonError("That street isn't a valid row on the table.");
+    }
+    if (b.type === "corner" && (typeof b.number !== "number" || !validCornerAnchor(b.number))) {
+      return jsonError("That corner isn't a valid intersection on the table.");
     }
   }
 

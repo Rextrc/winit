@@ -32,6 +32,8 @@ export function colorOf(n: number): Color {
 
 export type BetType =
   | "straight"
+  | "street"
+  | "corner"
   | "red"
   | "black"
   | "odd"
@@ -47,10 +49,38 @@ export type BetType =
 
 export type RouletteBet = {
   type: BetType;
-  /** Only used by `straight`. */
+  /**
+   * The reference number a bet needs beyond its type: the number itself for
+   * `straight`, or the top-left anchor of the block for `street` / `corner`
+   * (see `streetNumbers` / `cornerNumbers`).
+   */
   number?: number;
   amountCents: number;
 };
+
+/** A street covers one full row of 3: {anchor, anchor+1, anchor+2}. */
+export function streetNumbers(anchor: number): number[] {
+  return [anchor, anchor + 1, anchor + 2];
+}
+
+/** A corner covers a 2x2 block: {anchor, anchor+1, anchor+3, anchor+4}. */
+export function cornerNumbers(anchor: number): number[] {
+  return [anchor, anchor + 1, anchor + 3, anchor + 4];
+}
+
+/** Valid street anchors are a row's first number: 1, 4, 7, ..., 34. */
+export function validStreetAnchor(anchor: number): boolean {
+  return Number.isInteger(anchor) && anchor >= 1 && anchor <= 34 && anchor % 3 === 1;
+}
+
+/**
+ * Valid corner anchors are the top-left of a 2x2 block: any number in
+ * column 1 or 2 (not 3, which has no column to its right) with a row below
+ * it (so not 34-36, the last row).
+ */
+export function validCornerAnchor(anchor: number): boolean {
+  return Number.isInteger(anchor) && anchor >= 1 && anchor <= 32 && anchor % 3 !== 0;
+}
 
 type Spec = {
   /** Pocket numbers this bet covers. */
@@ -60,7 +90,7 @@ type Spec = {
   label: string;
 };
 
-const SPECS: Record<Exclude<BetType, "straight">, Spec> = {
+const SPECS: Record<Exclude<BetType, "straight" | "street" | "corner">, Spec> = {
   red: { covers: (n) => colorOf(n) === "red", oddsToOne: 1, label: "Red" },
   black: { covers: (n) => colorOf(n) === "black", oddsToOne: 1, label: "Black" },
   odd: { covers: (n) => n !== 0 && n % 2 === 1, oddsToOne: 1, label: "Odd" },
@@ -77,21 +107,30 @@ const SPECS: Record<Exclude<BetType, "straight">, Spec> = {
 
 export function betLabel(bet: RouletteBet): string {
   if (bet.type === "straight") return `Straight ${bet.number}`;
+  if (bet.type === "street") return `Street ${bet.number}-${(bet.number ?? 0) + 2}`;
+  if (bet.type === "corner") return `Corner ${bet.number}`;
   return SPECS[bet.type].label;
 }
 
 export function betOdds(bet: RouletteBet): number {
-  return bet.type === "straight" ? 35 : SPECS[bet.type].oddsToOne;
+  if (bet.type === "straight") return 35;
+  if (bet.type === "street") return 11;
+  if (bet.type === "corner") return 8;
+  return SPECS[bet.type].oddsToOne;
 }
 
 export function betCovers(bet: RouletteBet, pocket: number): boolean {
   if (bet.type === "straight") return bet.number === pocket;
+  if (bet.type === "street") return bet.number !== undefined && streetNumbers(bet.number).includes(pocket);
+  if (bet.type === "corner") return bet.number !== undefined && cornerNumbers(bet.number).includes(pocket);
   return SPECS[bet.type].covers(pocket);
 }
 
 /** How many of the 37 pockets a bet covers — used for the odds display. */
 export function coverageCount(type: BetType): number {
   if (type === "straight") return 1;
+  if (type === "street") return 3;
+  if (type === "corner") return 4;
   let c = 0;
   for (let n = 0; n < POCKETS; n++) if (SPECS[type].covers(n)) c++;
   return c;
@@ -157,6 +196,6 @@ export function spin(bets: RouletteBet[]): RouletteResult {
 /** Exact RTP for any single bet type: 36/37 on a single-zero wheel. */
 export function exactRtp(type: BetType): number {
   const covers = coverageCount(type);
-  const odds = type === "straight" ? 35 : SPECS[type].oddsToOne;
+  const odds = type === "straight" ? 35 : type === "street" ? 11 : type === "corner" ? 8 : SPECS[type].oddsToOne;
   return (covers * (odds + 1)) / POCKETS;
 }

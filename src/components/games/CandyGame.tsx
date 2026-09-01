@@ -13,6 +13,7 @@ import {
   BUY_FEATURE_PRICE_MULTIPLIER,
   BUY_FEATURE_SPINS,
   COLS,
+  MIN_CLUSTER,
   MULTIPLIER_TRAIL,
   ROWS,
   SYMBOL_NAMES,
@@ -176,7 +177,7 @@ export default function CandyGame({ game }: { game: GameDef }) {
     run: spin,
     note: bonusBadge
       ? `Bonus spin ${bonusBadge.index} · ${bonusBadge.remaining} left`
-      : `${COLS}×${ROWS} grid · min cluster 5`,
+      : `${COLS}×${ROWS} grid · min cluster ${MIN_CLUSTER}`,
   });
 
   const canSpin = !busy && !betError && effectiveBet > 0 && (balanceCents ?? 0) >= effectiveBet;
@@ -384,7 +385,7 @@ export default function CandyGame({ game }: { game: GameDef }) {
   const rules = (
     <>
       <p>
-        A {COLS}×{ROWS} grid where groups of 5 or more adjacent matching candies pay. Winners vanish,
+        A {COLS}×{ROWS} grid where groups of {MIN_CLUSTER} or more adjacent matching candies pay. Winners vanish,
         everything above falls to fill the gap, and fresh candies drop from the top — repeating until
         nothing new lines up. Every cell is drawn independently with{" "}
         <code className="text-volt">crypto.randomInt</code>, including every refill.

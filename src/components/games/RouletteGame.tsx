@@ -8,7 +8,16 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
-import { betLabel, betOdds, colorOf, coverageCount, type BetType, type RouletteBet } from "@/lib/games/roulette";
+import {
+  betLabel,
+  betOdds,
+  colorOf,
+  coverageCount,
+  cornerNumbers,
+  streetNumbers,
+  type BetType,
+  type RouletteBet,
+} from "@/lib/games/roulette";
 
 type Placed = RouletteBet & { key: string };
 
@@ -16,7 +25,7 @@ type SpinResponse = {
   result: {
     pocket: number;
     color: "red" | "black" | "green";
-    bets: { label: string; amountCents: number; won: boolean; returnedCents: number }[];
+    bets: { type: BetType; number?: number; label: string; amountCents: number; won: boolean; returnedCents: number }[];
     totalStakeCents: number;
     payoutCents: number;
     summary: string;
@@ -47,8 +56,17 @@ const OUTSIDE: { type: BetType; label: string; span: string }[] = [
 ];
 
 function keyFor(type: BetType, n?: number) {
-  return type === "straight" ? `straight:${n}` : type;
+  return type === "straight" || type === "street" || type === "corner" ? `${type}:${n}` : type;
 }
+
+/** The row of 12 street anchors, in the same left-to-right order as the felt. */
+const STREET_ANCHORS = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34];
+
+/** Every valid corner anchor between the two row gaps, 11 per gap. */
+const CORNER_ANCHOR_ROWS = [
+  [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31], // between the middle and bottom row
+  [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32], // between the top and middle row
+];
 
 export default function RouletteGame({ game }: { game: GameDef }) {
   const { effectiveBet, maxBetCents, betError, pushFlash } = useBet();
@@ -215,7 +233,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
             ? "bg-gradient-to-b from-[#e2385a]/85 to-[#a8102c]/85 text-white"
             : type === "black"
               ? "bg-gradient-to-b from-[#26272f] to-[#0e0f14] text-slate-200"
-              : "bg-[#0d3d24] text-slate-200"
+              : "bg-[#12633a] text-slate-100"
         } ${hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]/70" : "border-black/40"} hover:border-[#f0c75e]/60 ${span}`}
       >
         {label}
@@ -288,7 +306,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
               <Chip amount={stakeOn("straight", 0)} />
             </button>
 
-            <div className="flex-1 space-y-1.5">
+            <div className="relative flex-1 space-y-1.5">
               {GRID_ROWS.map((row, ri) => (
                 <div key={ri} className="grid grid-cols-[repeat(12,minmax(0,1fr))_44px] gap-1.5">
                   {row.map(numberCell)}
@@ -296,8 +314,8 @@ export default function RouletteGame({ game }: { game: GameDef }) {
                     type="button"
                     onClick={() => place(ROW_COLUMN[ri])}
                     disabled={busy}
-                    className={`relative h-9 rounded-md border bg-[#0d3d24] text-[10px] font-bold uppercase text-slate-300 transition disabled:opacity-60 ${
-                      stakeOn(ROW_COLUMN[ri]) > 0 ? "border-[#d4a83c]/70" : "border-black/40"
+                    className={`relative h-9 rounded-md border bg-[#12633a] text-[10px] font-bold uppercase text-slate-100 transition disabled:opacity-60 ${
+                      stakeOn(ROW_COLUMN[ri]) > 0 ? "border-[#d4a83c]/70" : "border-[#1f8f57]"
                     } hover:border-[#f0c75e]/60`}
                     aria-label={`Column ${3 - ri} bet`}
                   >
@@ -306,7 +324,60 @@ export default function RouletteGame({ game }: { game: GameDef }) {
                   </button>
                 </div>
               ))}
+
+              {/* Corner bets: a dot straddling each 4-number intersection,
+                  one row of dots per gap between the three number rows. */}
+              {[0, 1].map((gap) => (
+                <div
+                  key={gap}
+                  className="pointer-events-none absolute inset-x-0 z-10 grid grid-cols-[repeat(12,minmax(0,1fr))_44px]"
+                  style={{ top: gap === 0 ? "36px" : "78px", height: 0 }}
+                >
+                  {CORNER_ANCHOR_ROWS[gap].map((anchor, i) => {
+                    const amount = stakeOn("corner", anchor);
+                    const hit = last?.result.bets.some((b) => b.won && b.type === "corner" && b.number === anchor) ?? false;
+                    return (
+                      <button
+                        key={anchor}
+                        type="button"
+                        onClick={() => place("corner", anchor)}
+                        disabled={busy}
+                        style={{ gridColumn: `${i + 1} / ${i + 3}` }}
+                        className={`pointer-events-auto relative z-10 h-3.5 w-3.5 -translate-y-1/2 justify-self-center rounded-full border-2 bg-[#0a2818] transition hover:scale-125 hover:border-[#f0c75e] disabled:opacity-60 ${
+                          hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]" : "border-white/40"
+                        }`}
+                        aria-label={`Corner bet on ${cornerNumbers(anchor).join(", ")}`}
+                      >
+                        <Chip amount={amount} />
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* Street bets: one per row of 3, along the bottom edge of the grid. */}
+          <div className="mt-1.5 grid grid-cols-[repeat(12,minmax(0,1fr))_44px] gap-1.5 pl-[42px]">
+            {STREET_ANCHORS.map((anchor) => {
+              const amount = stakeOn("street", anchor);
+              const hit = last?.result.bets.some((b) => b.won && b.type === "street" && b.number === anchor) ?? false;
+              return (
+                <button
+                  key={anchor}
+                  type="button"
+                  onClick={() => place("street", anchor)}
+                  disabled={busy}
+                  className={`relative h-4 rounded border bg-[#0a2818] text-[8px] font-bold text-slate-400 transition disabled:opacity-60 ${
+                    hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]" : "border-white/20"
+                  } hover:border-[#f0c75e]/70`}
+                  aria-label={`Street bet on ${streetNumbers(anchor).join(", ")}`}
+                >
+                  <Chip amount={amount} />
+                </button>
+              );
+            })}
+            <div />
           </div>
 
           <div className="mt-1.5 grid grid-cols-12 gap-1.5 pl-[42px]">

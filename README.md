@@ -109,7 +109,7 @@ game's RTP can't be pinned down any tighter than that in the first place.
 
 ### Candy Cascade (slots) — RTP ~96% (simulated)
 
-A 7×7 grid, cluster pays instead of paylines: groups of 5 or more orthogonally adjacent matching
+A 7×7 grid, cluster pays instead of paylines: groups of 8 or more orthogonally adjacent matching
 candies pay, the winners vanish, everything above falls to fill the gap, and fresh candies drop in
 from the top — repeating until nothing new lines up. Every one of the 49 cells is drawn
 independently via `crypto.randomInt`, including every refill after a tumble.
@@ -122,7 +122,7 @@ Each cascade within a spin raises a shared multiplier along a fixed trail (1, 2,
 whole feature instead of resetting between spins. Landing 4+ lollipop scatters anywhere across a
 spin's drops triggers 10–20 bonus spins; 3+ scatters during the bonus adds more.
 
-**Buy Feature** skips straight to the bonus round for 11× the stake. Like the bonus
+**Buy Feature** skips straight to the bonus round for 14× the stake. Like the bonus
 buys before it, the price is derived from the feature's own simulated expected value divided by the
 base game's RTP, so buying it returns essentially the same percentage as triggering it naturally —
 a shortcut, not an edge.

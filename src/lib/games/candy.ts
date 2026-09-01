@@ -29,7 +29,7 @@
 
 export const COLS = 7;
 export const ROWS = 7;
-export const MIN_CLUSTER = 5;
+export const MIN_CLUSTER = 8;
 
 export const SYMBOLS = ["STAR", "GEM", "HEX", "HEART", "BEAR", "CANDY", "LOLLI"] as const;
 export type Sym = (typeof SYMBOLS)[number];
@@ -68,8 +68,8 @@ export const SYMBOL_NAMES: Record<Sym, string> = {
   LOLLI: "Lollipop",
 };
 
-/** Cluster size bands: 5-6, 7-9, 10-13, 14-19, 20+. */
-export const TIER_FLOORS = [5, 7, 10, 14, 20] as const;
+/** Cluster size bands: 8-9, 10-12, 13-16, 17-21, 22+. */
+export const TIER_FLOORS = [8, 10, 13, 17, 22] as const;
 
 export function tierIndex(size: number): number {
   let idx = 0;
@@ -79,16 +79,16 @@ export function tierIndex(size: number): number {
 
 /** Pay per cluster, as a fraction of the total bet, indexed by tier. */
 export const CLUSTER_PAYS: Record<PaySym, [number, number, number, number, number]> = {
-  STAR: [0.001068, 0.002136, 0.004263, 0.01067, 0.032318],
-  GEM: [0.001294, 0.00267, 0.00533, 0.012932, 0.037168],
-  HEX: [0.00162, 0.003231, 0.006462, 0.016163, 0.042662],
-  HEART: [0.002136, 0.004263, 0.008534, 0.021331, 0.053332],
-  BEAR: [0.004263, 0.008534, 0.017068, 0.042662, 0.127994],
-  CANDY: [0.008534, 0.017068, 0.034128, 0.085332, 0.266649],
+  STAR: [0.2, 0.4, 0.8, 2, 6],
+  GEM: [0.24, 0.48, 0.96, 2.4, 7.2],
+  HEX: [0.3, 0.6, 1.2, 3, 9],
+  HEART: [0.4, 0.8, 1.6, 4, 12],
+  BEAR: [0.8, 1.6, 3.2, 8, 24],
+  CANDY: [1.6, 3.2, 6.4, 16, 48],
 };
 
 /** Anywhere-pay for landing scatters, as a fraction of the total bet. */
-export const SCATTER_PAYS: Record<number, number> = { 4: 0.018, 5: 0.045, 6: 0.135, 7: 0.36 };
+export const SCATTER_PAYS: Record<number, number> = { 4: 0.2, 5: 0.5, 6: 1.5, 7: 4 };
 
 /** Free spins awarded by scatter count at trigger. */
 export const FREE_SPINS_AWARD: Record<number, number> = { 4: 10, 5: 12, 6: 15, 7: 20 };
@@ -99,7 +99,7 @@ export const RETRIGGER_SPINS = 5;
 
 export const BUY_FEATURE_SPINS = 10;
 /** Determined by simulation (see the header note) and fixed here as a constant. */
-export const BUY_FEATURE_PRICE_MULTIPLIER = 11;
+export const BUY_FEATURE_PRICE_MULTIPLIER = 14;
 
 /**
  * The multiplier applied to a cascade's pay, indexed by how many cascades

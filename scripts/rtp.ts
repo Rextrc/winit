@@ -21,7 +21,16 @@ import {
   type CandyMode,
 } from "../src/lib/games/candy";
 import { drawGrid, playRound as playCandyRound } from "../src/lib/games/candy.engine";
-import { exactRtp as rouletteRtp, spin as spinRoulette, coverageCount, type BetType } from "../src/lib/games/roulette";
+import {
+  exactRtp as rouletteRtp,
+  spin as spinRoulette,
+  coverageCount,
+  cornerNumbers,
+  streetNumbers,
+  validCornerAnchor,
+  validStreetAnchor,
+  type BetType,
+} from "../src/lib/games/roulette";
 import {
   applyAction,
   availableActions,
@@ -175,9 +184,43 @@ check(
 // -------------------------------------------------------------- roulette
 console.log("\nEUROPEAN ROULETTE (roulette)");
 
-const TYPES: BetType[] = ["straight", "red", "black", "odd", "even", "low", "high", "dozen1", "col1"];
+const TYPES: BetType[] = ["straight", "street", "corner", "red", "black", "odd", "even", "low", "high", "dozen1", "col1"];
 for (const type of TYPES) {
   check(`${type} exact (covers ${coverageCount(type)}/37)`, rouletteRtp(type), 36 / 37, 1e-12);
+}
+
+// Structural check: every valid street/corner anchor must cover numbers that
+// are actually all on the table (1-36), and the 12 streets must partition
+// 1-36 exactly once each with no gaps or overlaps.
+{
+  const seenFromStreets = new Set<number>();
+  for (let anchor = 1; anchor <= 36; anchor++) {
+    if (!validStreetAnchor(anchor)) continue;
+    const nums = streetNumbers(anchor);
+    if (nums.length !== 3 || nums.some((n) => n < 1 || n > 36)) {
+      failures++;
+      console.log(`  FAIL  street anchor ${anchor} covers an out-of-range number: ${nums}`);
+    }
+    for (const n of nums) seenFromStreets.add(n);
+  }
+  if (seenFromStreets.size !== 36) {
+    failures++;
+    console.log(`  FAIL  the 12 streets cover ${seenFromStreets.size}/36 numbers, not all of them exactly once`);
+  } else {
+    console.log("  PASS  the 12 streets partition 1-36 exactly once each");
+  }
+
+  let cornerCount = 0;
+  for (let anchor = 1; anchor <= 36; anchor++) {
+    if (!validCornerAnchor(anchor)) continue;
+    cornerCount++;
+    const nums = cornerNumbers(anchor);
+    if (nums.length !== 4 || nums.some((n) => n < 1 || n > 36)) {
+      failures++;
+      console.log(`  FAIL  corner anchor ${anchor} covers an out-of-range number: ${nums}`);
+    }
+  }
+  check("22 valid corner anchors on the table", cornerCount, 22, 0);
 }
 
 let rouletteReturned = 0;
