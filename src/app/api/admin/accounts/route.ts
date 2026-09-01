@@ -86,7 +86,7 @@ export async function GET(req: Request) {
 const createSchema = z.object({
   username: z.string().regex(/^[a-zA-Z0-9_]{3,20}$/, "3-20 letters, numbers or underscore."),
   password: z.string().min(8),
-  reason: z.string(),
+  reason: z.string().optional(),
   /** A loaded account for testing: balance, level, VIP and every venue seen. */
   testAccount: z.boolean().optional(),
 });
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const reasonCheck = requireReason(parsed.data.reason);
+  const reasonCheck = requireReason(parsed.data.reason, staff);
   if ("error" in reasonCheck) return reasonCheck.error;
 
   const existing = await prisma.user.findUnique({ where: { username: parsed.data.username } });

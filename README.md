@@ -466,6 +466,20 @@ player-facing half:
   rather than a read-then-write, and the credit goes through the ledger like
   any other.
 
+### Reasons, and acting on yourself
+
+Every mutating staff action still writes an audit entry with the old value, the
+new value and a reason. Below OWNER the reason is mandatory. An OWNER may leave
+it blank — they answer to nobody inside the app, so the text box is friction
+rather than accountability — and the entry is written anyway, with the reason
+field reading `No reason given (owner).` so the trail never has a silent gap.
+
+Staff may also act on their own account: the rank rule exists to stop peers
+overriding each other, and you are not your own peer. Three actions are refused
+on yourself regardless of role — `suspend`, `delete` and `role.set` — because
+roles can only be minted from the command line, so an owner who demoted himself
+would have no way back in.
+
 ### The security check
 
 ```bash
@@ -473,7 +487,7 @@ npm run dev          # in one shell
 npm run security     # in another
 ```
 
-42 assertions over HTTP: anonymous and ordinary players refused on every admin
+48 assertions over HTTP: anonymous and ordinary players refused on every admin
 route; SUPPORT reading accounts but refused on the economy; MODERATOR able to
 suspend but not to touch money or configure a game; ADMIN refused on role
 changes; equal-rank staff unable to act on each other; missing reasons and

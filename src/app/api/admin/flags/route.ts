@@ -17,7 +17,7 @@ export async function GET() {
 const schema = z.object({
   key: z.string().min(1).max(64),
   value: z.string().max(500),
-  reason: z.string(),
+  reason: z.string().optional(),
   confirm: z.boolean().optional(),
 });
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid flag." }, { status: 400 });
 
-  const reasonCheck = requireReason(parsed.data.reason);
+  const reasonCheck = requireReason(parsed.data.reason, staff);
   if ("error" in reasonCheck) return reasonCheck.error;
 
   if (parsed.data.key === FLAG_MAINTENANCE) {

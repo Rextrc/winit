@@ -22,7 +22,7 @@ const schema = z.object({
   minBetCentsOverride: z.number().int().min(0).nullable().optional(),
   maxBetCentsOverride: z.number().int().min(0).nullable().optional(),
   disabledNote: z.string().max(200).nullable().optional(),
-  reason: z.string(),
+  reason: z.string().optional(),
 });
 
 /**
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid configuration." }, { status: 400 });
 
-  const reasonCheck = requireReason(parsed.data.reason);
+  const reasonCheck = requireReason(parsed.data.reason, staff);
   if ("error" in reasonCheck) return reasonCheck.error;
 
   const game = PLAYABLE.find((g) => g.slug === parsed.data.slug);

@@ -40,35 +40,38 @@ export const dynamic = "force-dynamic";
  */
 
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("balance.grant"), cents: z.number().int(), reason: z.string() }),
+  z.object({ action: z.literal("balance.grant"), cents: z.number().int(), reason: z.string().optional() }),
   z.object({
     action: z.literal("balance.set"),
     cents: z.number().int().min(0),
-    reason: z.string(),
+    reason: z.string().optional(),
     confirm: z.boolean(),
   }),
-  z.object({ action: z.literal("xp.grant"), xp: z.number().int(), reason: z.string() }),
-  z.object({ action: z.literal("level.set"), level: z.number().int().min(1).max(MAX_LEVEL), reason: z.string() }),
-  z.object({ action: z.literal("reputation.set"), points: z.number().int().min(0), reason: z.string() }),
-  z.object({ action: z.literal("vip.set"), level: z.number().int().min(0).max(VIP_TIERS.length - 1), reason: z.string() }),
-  z.object({ action: z.literal("prestige.set"), rebirths: z.number().int().min(0).max(MAX_REBIRTHS), reason: z.string() }),
-  z.object({ action: z.literal("progression.reset"), reason: z.string(), confirm: z.boolean() }),
-  z.object({ action: z.literal("achievement.grant"), key: z.string(), reason: z.string() }),
-  z.object({ action: z.literal("achievement.revoke"), key: z.string(), reason: z.string() }),
-  z.object({ action: z.literal("venue.unlock"), venueId: z.string(), reason: z.string() }),
-  z.object({ action: z.literal("suspend"), reason: z.string() }),
-  z.object({ action: z.literal("unsuspend"), reason: z.string() }),
-  z.object({ action: z.literal("delete"), reason: z.string(), confirm: z.boolean() }),
-  z.object({ action: z.literal("restore"), reason: z.string() }),
+  z.object({ action: z.literal("xp.grant"), xp: z.number().int(), reason: z.string().optional() }),
+  z.object({ action: z.literal("level.set"), level: z.number().int().min(1).max(MAX_LEVEL), reason: z.string().optional() }),
+  z.object({ action: z.literal("reputation.set"), points: z.number().int().min(0), reason: z.string().optional() }),
+  z.object({ action: z.literal("vip.set"), level: z.number().int().min(0).max(VIP_TIERS.length - 1), reason: z.string().optional() }),
+  z.object({ action: z.literal("prestige.set"), rebirths: z.number().int().min(0).max(MAX_REBIRTHS), reason: z.string().optional() }),
+  z.object({ action: z.literal("progression.reset"), reason: z.string().optional(), confirm: z.boolean() }),
+  z.object({ action: z.literal("achievement.grant"), key: z.string(), reason: z.string().optional() }),
+  z.object({ action: z.literal("achievement.revoke"), key: z.string(), reason: z.string().optional() }),
+  z.object({ action: z.literal("venue.unlock"), venueId: z.string(), reason: z.string().optional() }),
+  z.object({ action: z.literal("suspend"), reason: z.string().optional() }),
+  z.object({ action: z.literal("unsuspend"), reason: z.string().optional() }),
+  z.object({ action: z.literal("delete"), reason: z.string().optional(), confirm: z.boolean() }),
+  z.object({ action: z.literal("restore"), reason: z.string().optional() }),
   z.object({
     action: z.literal("role.set"),
     role: z.string().nullable(),
-    reason: z.string(),
+    reason: z.string().optional(),
     confirm: z.boolean(),
   }),
 ]);
 
 /** Which capability each action needs. Checked before anything else happens. */
+/** Actions that would strand the actor outside the dashboard if self-applied. */
+const SELF_FORBIDDEN = new Set(["suspend", "delete", "role.set"]);
+
 const NEEDS: Record<string, Capability> = {
   "balance.grant": "accounts.economy",
   "balance.set": "accounts.economy",
@@ -110,7 +113,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!staff) return response;
 
   // (3) reason
-  const reasonCheck = requireReason(input.reason);
+  const reasonCheck = requireReason(input.reason, staff);
   if ("error" in reasonCheck) return reasonCheck.error;
   const reason = reasonCheck.reason;
 
@@ -123,6 +126,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const targetCheck = await requireTarget(staff, params.id);
   if (!targetCheck.target) return targetCheck.response;
   const target = targetCheck.target;
+
+  // Acting on your own account is allowed — granting yourself credits, setting
+  // your own level — but not in the three ways that would end with nobody able
+  // to reach the dashboard. An owner who suspends, deletes or demotes himself
+  // has no route back in, since roles are only mintable from the command line.
+  if (target.id === staff.id && SELF_FORBIDDEN.has(input.action)) {
+    return NextResponse.json(
+      { error: "You cannot do that to your own account — it would lock you out of the dashboard." },
+      { status: 400 },
+    );
+  }
   const auditTarget = { id: target.id, username: target.username };
 
   try {

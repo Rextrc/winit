@@ -63,6 +63,11 @@ export async function requireStaff(
  * Additionally checks the target account may be acted on. Staff can always act
  * on ordinary players; acting on another staff account requires outranking
  * them, which is what stops two peers demoting each other.
+ *
+ * Acting on your OWN account is allowed here — the rank rule exists to stop
+ * peers overriding each other, and you are not your own peer. The handful of
+ * actions that could lock you out of the dashboard are refused separately, by
+ * the route, so the exception cannot be used to strand an owner.
  */
 export async function requireTarget(
   staff: Staff,
@@ -80,7 +85,7 @@ export async function requireTarget(
   });
   if (!target) return { target: null, response: adminError("No such account.", 404) };
 
-  if (!mayActOn(staff.role, target.adminRole)) {
+  if (target.id !== staff.id && !mayActOn(staff.role, target.adminRole)) {
     return {
       target: null,
       response: adminError("That account holds a role at or above your own.", 403),
@@ -113,9 +118,28 @@ export function requireConfirmation(confirm: unknown): NextResponse | null {
   return null;
 }
 
-/** Every mutating admin route requires a non-trivial reason. */
-export function requireReason(reason: unknown): { reason: string } | { error: NextResponse } {
-  if (typeof reason !== "string" || reason.trim().length < 3) {
+/** What the audit log records when an owner changes something without saying why. */
+export const UNSTATED_REASON = "No reason given (owner).";
+
+/**
+ * Every mutating admin route requires a non-trivial reason — except from an
+ * OWNER, who may leave it blank.
+ *
+ * The exemption is about who has to justify themselves to whom: an owner
+ * answers to nobody inside the app, so a mandatory text box is friction rather
+ * than accountability. It is deliberately *not* an exemption from the audit
+ * log — the entry is still written, with the reason field spelling out that
+ * none was given, so the trail never has a silent gap in it. Any other role
+ * still has to state one.
+ */
+export function requireReason(
+  reason: unknown,
+  staff?: Staff | null,
+): { reason: string } | { error: NextResponse } {
+  const given = typeof reason === "string" ? reason.trim() : "";
+
+  if (given.length < 3) {
+    if (staff?.role === "OWNER") return { reason: given.length > 0 ? given : UNSTATED_REASON };
     return {
       error: NextResponse.json(
         { error: "A reason of at least 3 characters is required." },
@@ -123,5 +147,5 @@ export function requireReason(reason: unknown): { reason: string } | { error: Ne
       ),
     };
   }
-  return { reason: reason.trim().slice(0, 500) };
+  return { reason: given.slice(0, 500) };
 }

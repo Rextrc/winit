@@ -26,9 +26,9 @@ const schema = z.discriminatedUnion("op", [
     level: z.enum(["INFO", "WARNING", "CELEBRATION"]).default("INFO"),
     /** Null or absent broadcasts to everyone; a username targets one account. */
     targetUsername: z.string().nullable().optional(),
-    reason: z.string(),
+    reason: z.string().optional(),
   }),
-  z.object({ op: z.literal("retire"), id: z.string().min(1), reason: z.string() }),
+  z.object({ op: z.literal("retire"), id: z.string().min(1), reason: z.string().optional() }),
 ]);
 
 export async function POST(req: Request) {
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   // A stable reference, so the discriminated union narrows across the awaits.
   const input = parsed.data;
 
-  const reasonCheck = requireReason(input.reason);
+  const reasonCheck = requireReason(input.reason, staff);
   if ("error" in reasonCheck) return reasonCheck.error;
 
   if (input.op === "retire") {

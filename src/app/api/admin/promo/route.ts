@@ -38,9 +38,9 @@ const schema = z.discriminatedUnion("op", [
     /** 0 means unlimited. */
     maxRedemptions: z.number().int().min(0).max(1_000_000),
     expiresAt: z.string().nullable().optional(),
-    reason: z.string(),
+    reason: z.string().optional(),
   }),
-  z.object({ op: z.literal("revoke"), id: z.string().min(1), reason: z.string() }),
+  z.object({ op: z.literal("revoke"), id: z.string().min(1), reason: z.string().optional() }),
 ]);
 
 export async function POST(req: Request) {
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   }
   const input = parsed.data;
 
-  const reasonCheck = requireReason(input.reason);
+  const reasonCheck = requireReason(input.reason, staff);
   if ("error" in reasonCheck) return reasonCheck.error;
 
   if (input.op === "revoke") {

@@ -227,16 +227,55 @@ async function main() {
 
   // --- 4. reason and confirmation -----------------------------------------
   console.log("\n4. reason and confirmation");
-  const noReason = await call(owner, `/api/admin/accounts/${victim.id}/mutate`, {
+  // Everyone below OWNER has to say why. The owner is exempt from typing one,
+  // but not from the audit log — the entry is still written, with a reason
+  // recording that none was given.
+  const noReason = await call(admin, `/api/admin/accounts/${victim.id}/mutate`, {
     method: "POST",
     body: JSON.stringify({ action: "balance.grant", cents: 100, reason: "" }),
   });
-  check("a mutation without a reason is rejected", noReason.status === 400, `got ${noReason.status}`);
+  check("a non-owner mutation without a reason is rejected", noReason.status === 400, `got ${noReason.status}`);
+
+  const ownerNoReason = await call(owner, `/api/admin/accounts/${victim.id}/mutate`, {
+    method: "POST",
+    body: JSON.stringify({ action: "xp.grant", xp: 1 }),
+  });
+  check("an OWNER may omit the reason", ownerNoReason.status === 200, show(ownerNoReason.json));
+
+  const unstated = await prisma.auditLog.findFirst({
+    where: { targetId: victim.id, action: "account.xp.grant" },
+    orderBy: { createdAt: "desc" },
+  });
+  check(
+    "the reasonless owner action is still audited",
+    unstated != null && unstated.reason.toLowerCase().includes("no reason given"),
+    show(unstated),
+  );
   const noConfirm = await call(owner, `/api/admin/accounts/${victim.id}/mutate`, {
     method: "POST",
     body: JSON.stringify({ action: "balance.set", cents: 0, reason: "zeroing the account" }),
   });
   check("a dangerous action without confirmation is rejected", noConfirm.status === 400, `got ${noConfirm.status}`);
+
+  // Staff may act on their own account — the rank rule is about peers, and you
+  // are not your own peer — except in the three ways that would lock them out.
+  const selfGrant = await call(owner, `/api/admin/accounts/${owner.id}/mutate`, {
+    method: "POST",
+    body: JSON.stringify({ action: "balance.grant", cents: 500 }),
+  });
+  check("an OWNER can grant money to themselves", selfGrant.status === 200, show(selfGrant.json));
+
+  for (const action of [
+    { action: "suspend" },
+    { action: "delete", confirm: true },
+    { action: "role.set", role: "SUPPORT", confirm: true },
+  ]) {
+    const res = await call(owner, `/api/admin/accounts/${owner.id}/mutate`, {
+      method: "POST",
+      body: JSON.stringify(action),
+    });
+    check(`an OWNER cannot ${action.action} their own account`, res.status === 400, `got ${res.status}`);
+  }
 
   // --- 5. an admin grant is a ledger row, not a raw balance write ----------
   console.log("\n5. the books still balance after an admin adjustment");

@@ -9,7 +9,8 @@ type Row = {
   disabledNote: string | null;
 };
 
-export default function GameConfigPanel() {
+export default function GameConfigPanel({ role }: { role: string | null }) {
+  const reasonOptional = role === "OWNER";
   const [games, setGames] = useState<Row[] | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,10 @@ export default function GameConfigPanel() {
 
   const save = useCallback(
     async (payload: Record<string, unknown>) => {
-      if (reason.trim().length < 3) {
+      // An owner may leave the reason blank; the API records "no reason given"
+      // in the audit entry rather than refusing the change. Everyone else has
+      // to state one, and the API enforces that independently of this check.
+      if (!reasonOptional && reason.trim().length < 3) {
         setError("Enter a reason — every configuration change is recorded with one.");
         return;
       }
@@ -59,7 +63,7 @@ export default function GameConfigPanel() {
         setBusy(null);
       }
     },
-    [reason],
+    [reason, reasonOptional],
   );
 
   if (!games) return <p className="text-sm text-slate-500">{error ?? "Loading…"}</p>;
@@ -67,7 +71,7 @@ export default function GameConfigPanel() {
   return (
     <div className="space-y-4">
       <div>
-        <label className="label" htmlFor="game-reason">Reason (required for any change)</label>
+        <label className="label" htmlFor="game-reason">Reason {reasonOptional ? "(optional for owners)" : "(required for any change)"}</label>
         <input id="game-reason" className="field max-w-xl" value={reason}
           onChange={(e) => setReason(e.target.value)} placeholder="e.g. closing while the paytable retune ships" />
       </div>

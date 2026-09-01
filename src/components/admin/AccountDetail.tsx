@@ -38,7 +38,9 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function AccountDetail({ id }: { id: string }) {
+export default function AccountDetail({ id, role, viewerId }: { id: string; role: string | null; viewerId: string | null }) {
+  const reasonOptional = role === "OWNER";
+  const isSelf = viewerId != null && viewerId === id;
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -71,7 +73,10 @@ export default function AccountDetail({ id }: { id: string }) {
    */
   const act = useCallback(
     async (payload: Record<string, unknown>, confirmMessage?: string) => {
-      if (reason.trim().length < 3) {
+      // An owner may leave the reason blank; the API records "no reason given"
+      // in the audit entry rather than refusing the change. Everyone else has
+      // to state one, and the API enforces that independently of this check.
+      if (!reasonOptional && reason.trim().length < 3) {
         setError("Enter a reason first — every staff action is recorded with one.");
         return;
       }
@@ -100,7 +105,7 @@ export default function AccountDetail({ id }: { id: string }) {
         setBusy(false);
       }
     },
-    [id, reason, load],
+    [id, reason, reasonOptional, load],
   );
 
   if (error && !data) return <p className="text-sm text-loss">{error}</p>;
@@ -119,6 +124,11 @@ export default function AccountDetail({ id }: { id: string }) {
           </Link>
           <h1 className="font-display mt-1 text-2xl font-black tracking-tight text-white">
             {a.username}
+            {isSelf && (
+              <span className="ml-2 rounded bg-volt/20 px-2 py-0.5 align-middle text-[10px] font-black uppercase text-volt">
+                You
+              </span>
+            )}
             {a.adminRole && (
               <span className="ml-2 rounded bg-loss/20 px-2 py-0.5 align-middle text-[10px] font-black uppercase text-loss">
                 {a.adminRole}
@@ -167,7 +177,7 @@ export default function AccountDetail({ id }: { id: string }) {
         </p>
 
         <div className="mt-3">
-          <label className="label" htmlFor="reason">Reason (required)</label>
+          <label className="label" htmlFor="reason">Reason {reasonOptional ? "(optional for owners)" : "(required)"}</label>
           <input
             id="reason"
             className="field"

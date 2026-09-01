@@ -13,7 +13,8 @@ type Announcement = { id: string; title: string; body: string; level: string; ta
 
 const MAINTENANCE = "site.maintenance";
 
-export default function SitePanel() {
+export default function SitePanel({ role }: { role: string | null }) {
+  const reasonOptional = role === "OWNER";
   const [flags, setFlags] = useState<Flag[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -51,7 +52,10 @@ export default function SitePanel() {
 
   const post = useCallback(
     async (url: string, payload: Record<string, unknown>, confirmMessage?: string) => {
-      if (reason.trim().length < 3) {
+      // An owner may leave the reason blank; the API records "no reason given"
+      // in the audit entry rather than refusing the change. Everyone else has
+      // to state one, and the API enforces that independently of this check.
+      if (!reasonOptional && reason.trim().length < 3) {
         setError("Enter a reason — every change here is recorded with one.");
         return false;
       }
@@ -75,7 +79,7 @@ export default function SitePanel() {
         return false;
       }
     },
-    [reason, load],
+    [reason, reasonOptional, load],
   );
 
   const maintenanceOn = flags.find((f) => f.key === MAINTENANCE)?.value === "true";
@@ -83,7 +87,7 @@ export default function SitePanel() {
   return (
     <div className="space-y-5">
       <div>
-        <label className="label" htmlFor="site-reason">Reason (required for any change)</label>
+        <label className="label" htmlFor="site-reason">Reason {reasonOptional ? "(optional for owners)" : "(required for any change)"}</label>
         <input id="site-reason" className="field max-w-xl" value={reason}
           onChange={(e) => setReason(e.target.value)} placeholder="e.g. deploying the tournament build" />
       </div>
