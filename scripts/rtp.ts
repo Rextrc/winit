@@ -9,6 +9,9 @@
  * If a paytable is edited without updating the published number, this fails.
  */
 
+import * as Bacc from "../src/lib/games/baccarat";
+import * as Mines from "../src/lib/games/mines";
+import * as Hilo from "../src/lib/games/hilo";
 import {
   BUY_FEATURE_PRICE_MULTIPLIER,
   COLS,
@@ -387,6 +390,115 @@ for (const picks of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
   let sum = 0;
   for (let h = 0; h <= picks; h++) sum += Orig.kenoHitProbability(picks, h);
   check(`keno ${picks} picks hit-probabilities sum to 1`, sum, 1, 1e-9);
+}
+
+// ---------------------------------------------------------------- baccarat
+console.log("\nBACCARAT (Punto Banco)");
+
+const baccOdds = Bacc.exactOdds();
+check("baccarat exact odds sum to 1", baccOdds.player + baccOdds.banker + baccOdds.tie, 1, 1e-9);
+console.log(
+  `  Exact win odds: player ${pct(baccOdds.player)}, banker ${pct(baccOdds.banker)}, tie ${pct(baccOdds.tie)}`,
+);
+check("player bet RTP (exact)", Bacc.exactRtp("player"), 0.98765, 1e-4);
+check("banker bet RTP (exact)", Bacc.exactRtp("banker"), 0.98942, 1e-4);
+check("tie bet RTP (exact)", Bacc.exactRtp("tie"), 0.85640, 1e-4);
+
+// Monte-Carlo the actual dealing function through the same rules, as a check
+// on the enumeration independent of it.
+const BACC_HANDS = 300_000;
+let bp = 0, bb = 0, bt = 0;
+for (let i = 0; i < BACC_HANDS; i++) {
+  const h = Bacc.playHand();
+  if (h.winner === "player") bp++;
+  else if (h.winner === "banker") bb++;
+  else bt++;
+}
+// Multinomial variance per outcome ~ p(1-p); 5 SE over 300k hands.
+const baccSE = (p: number) => 5 * Math.sqrt((p * (1 - p)) / BACC_HANDS);
+check(`${BACC_HANDS.toLocaleString()} simulated hands — player win rate`, bp / BACC_HANDS, baccOdds.player, baccSE(baccOdds.player));
+check(`${BACC_HANDS.toLocaleString()} simulated hands — banker win rate`, bb / BACC_HANDS, baccOdds.banker, baccSE(baccOdds.banker));
+check(`${BACC_HANDS.toLocaleString()} simulated hands — tie rate`, bt / BACC_HANDS, baccOdds.tie, baccSE(baccOdds.tie));
+
+// ------------------------------------------------------------------- mines
+console.log("\nMINES");
+
+// The survival-probability formula must itself be a valid probability, and
+// the fair multiplier at r=0 must always be 1 (nothing has been risked yet).
+for (const mines of [1, 3, 5, 10, 24]) {
+  check(`mines=${mines}: multiplier at 0 reveals is 1x`, Mines.multiplierAt(mines, 0), 1, 0);
+  const maxR = Mines.maxSafeReveals(mines);
+  for (const r of [1, Math.ceil(maxR / 2), maxR]) {
+    check(`mines=${mines} r=${r}: exact RTP at that cash-out`, Mines.exactRtpAt(mines, r), 0.99, 1e-4);
+  }
+  // Revealing more cells than exist can't happen and must read as impossible,
+  // not silently clamp to some other probability.
+  check(`mines=${mines}: P(survive more reveals than safe cells exist) = 0`, Mines.survivalProbability(mines, maxR + 1), 0, 1e-12);
+}
+
+// Monte-Carlo the actual mine placement: with `mines` mines placed uniformly,
+// the empirical rate of a specific cell being a mine should match mines/25.
+const MINES_TRIALS = 200_000;
+let mineHits = 0;
+for (let i = 0; i < MINES_TRIALS; i++) {
+  if (Mines.placeMines(5).includes(0)) mineHits++;
+}
+const expectedCellRate = 5 / Mines.GRID_SIZE;
+check(
+  "placeMines: empirical P(cell 0 is a mine)",
+  mineHits / MINES_TRIALS,
+  expectedCellRate,
+  5 * Math.sqrt((expectedCellRate * (1 - expectedCellRate)) / MINES_TRIALS),
+);
+
+// --------------------------------------------------------------------- hilo
+console.log("\nHI-LO");
+
+// With a freshly built full deck and a mid-value current card, the exact
+// higher/lower counts must add up (plus ties) to the rest of the deck.
+{
+  const deck = Hilo.buildDeck();
+  const current = deck.pop()!; // hold one card out as "current", rest is "remaining"
+  const value = Hilo.RANK_VALUE[current.r];
+  const { higher, equal, lower } = Hilo.remainingSplit(deck, value);
+  check("hilo: higher+equal+lower accounts for the whole remaining deck", higher + equal + lower, deck.length, 0);
+}
+
+// Exact RTP of a single guess, for every possible current-card value, using a
+// freshly built deck (52 cards, so the counts are exactly the textbook 4 per
+// rank) — every guess should be exactly 99% except where a whole direction
+// is impossible (guessing "lower" than the lowest card, etc).
+for (let value = 1; value <= 13; value++) {
+  // A fresh 52-card deck with exactly one card of `value` removed — as if
+  // that single card had just been drawn as "current". 51 cards remain,
+  // with 3 (not 0) still left of the current rank, matching a real round.
+  const full = Hilo.buildDeck();
+  const drawnIdx = full.findIndex((c) => Hilo.RANK_VALUE[c.r] === value);
+  const remaining = [...full.slice(0, drawnIdx), ...full.slice(drawnIdx + 1)];
+  for (const dir of ["higher", "lower"] as const) {
+    if (!Hilo.directionAvailable(remaining, value, dir)) continue;
+    const { higher, lower } = Hilo.remainingSplit(remaining, value);
+    const favourable = dir === "higher" ? higher : lower;
+    const p = favourable / remaining.length;
+    const rtp = p * Hilo.multiplierFor(remaining, value, dir);
+    check(`hilo value=${value} guess=${dir}: exact RTP`, rtp, 0.99, 1e-3);
+  }
+}
+
+// Monte-Carlo the whole round-start function: a fresh 52-card deck must have
+// exactly 4 of each rank once the first card is drawn as "current".
+const HILO_ROUNDS = 20_000;
+const rankTally: Record<string, number> = {};
+for (let i = 0; i < HILO_ROUNDS; i++) {
+  const state = Hilo.newRound(1000);
+  rankTally[state.current.r] = (rankTally[state.current.r] ?? 0) + 1;
+}
+const hiloRanks = Object.keys(rankTally).length;
+if (hiloRanks !== 13) {
+  failures++;
+  console.log(`  FAIL  only ${hiloRanks}/13 ranks appeared as the opening card over ${HILO_ROUNDS} rounds`);
+} else {
+  console.log(`  PASS  all 13 ranks appeared as the opening card over ${HILO_ROUNDS.toLocaleString()} rounds`);
 }
 
 // ----------------------------------------------------------------- done

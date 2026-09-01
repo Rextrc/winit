@@ -175,11 +175,48 @@ it is the ceiling reached with correct decisions, not an average over all play. 
 The shoe lives server-side in the `Round` row. The browser receives only the cards it is entitled
 to see; the dealer's hole card genuinely is not sent until the dealer plays.
 
+### Baccarat (baccarat) — RTP Player 98.76% / Banker 98.94% / Tie 85.64%
+
+Standard Punto Banco: an 8-deck shoe, reset fresh every hand, with **no player decisions** — the
+third-card rules are entirely fixed by the two hands' totals, so a bet resolves in one request like
+roulette rather than needing turn state like blackjack. Player and Banker pay 1:1 (Banker less the
+standard 5% commission); Tie pays 8:1. A tie pushes a Player or Banker bet rather than losing it.
+
+The odds are not textbook citations: `exactOdds()` in `src/lib/games/baccarat.ts` enumerates every
+reachable sequence of card **point values** (suit never affects a baccarat outcome, so the state
+space is 10 values, not 52 cards) through the real drawing rules, weighting each by its exact
+multivariate-hypergeometric probability given the shoe's true composition and depletion order. The
+result — Player 44.6247%, Banker 45.8597%, Tie 9.5156% to win — matches the published odds for this
+game exactly, which is how `npm run rtp` confirms the enumeration is right rather than just
+internally consistent.
+
+### Mines (originals) — RTP exactly 99.00% at every cash-out point
+
+1–24 mines are placed uniformly at random among 25 cells. Reveal cells one at a time; cash out any
+time. Because mines are placed independently of reveal order, "the first *r* reveals are all safe"
+has the same probability as "*r* uniformly random cells are all safe" — an exact hypergeometric
+survival probability, `C(25−mines, r) / C(25, r)`. Paying `0.99 / P(survive r)` on cashing out after
+*r* safe reveals makes the return exactly 99% for that decision, and — by the same optional-stopping
+argument Limbo relies on — for whichever *r* a player actually stops at, reactively or not.
+
+### Hi-Lo (originals, cards) — RTP exactly 99.00% on every guess
+
+One 52-card deck, reshuffled every round. Guess whether the next card ranks higher or lower than the
+one showing (a tie loses either way); cash out any time. Because it's a real deck with no
+replacement, the exact count of remaining cards that would win each guess is known precisely at
+every step from what has actually been dealt — no assumed distribution. The multiplier offered is
+`0.99 / P(that guess wins)`, recomputed fresh each step; a direction with zero winning cards left is
+disabled rather than offered at odds that can't pay.
+
+Mines and Hi-Lo both use the `Round` table (the same one blackjack's hands live in) to hold state
+between requests, since — unlike a one-shot bet — "cash out any time" needs the server to remember
+where you are.
+
 ---
 
-## Originals — Dice, Limbo, Coinflip, Wheel, Plinko, Keno
+## Originals — Dice, Limbo, Coinflip, Wheel, Plinko, Keno, Mines, Hi-Lo
 
-Six instant-settle games built on one shared formula rather than six separate paytables:
+Eight games in this family. Six are instant-settle and share one formula; Mines and Hi-Lo add a cash-out-any-time step but reduce to the same idea per decision (see their own sections above):
 
 ```
 multiplier = (1 - HOUSE_EDGE) / P(win)      HOUSE_EDGE = 0.01
@@ -202,6 +239,9 @@ one the code actually pays, not the idealised formula.
 `npm run rtp` checks every one of these exactly (closed-form probability sums, hit-probability and
 bucket-probability distributions summing to 1) and empirically (a Monte-Carlo of the actual bounce
 and draw processes for Plinko and Limbo).
+
+Mines and Hi-Lo apply the identical `0.99 / P(win)` idea to a step-by-step game instead of a single
+draw — see their sections above the `---` for the details specific to each.
 
 ## Life, levels and rebirth
 

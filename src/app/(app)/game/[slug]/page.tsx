@@ -9,6 +9,9 @@ import CoinflipGame from "@/components/games/CoinflipGame";
 import WheelGame from "@/components/games/WheelGame";
 import PlinkoGame from "@/components/games/PlinkoGame";
 import KenoGame from "@/components/games/KenoGame";
+import BaccaratGame from "@/components/games/BaccaratGame";
+import MinesGame from "@/components/games/MinesGame";
+import HiloGame from "@/components/games/HiloGame";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +38,12 @@ export default function GamePage({ params }: { params: { slug: string } }) {
       return <PlinkoGame game={game} />;
     case "keno":
       return <KenoGame game={game} />;
+    case "baccarat":
+      return <BaccaratGame game={game} />;
+    case "mines":
+      return <MinesGame game={game} />;
+    case "hilo":
+      return <HiloGame game={game} />;
     default:
       notFound();
   }
