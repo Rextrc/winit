@@ -4,6 +4,11 @@ import { requireUser } from "@/lib/api";
 import { fromDb } from "@/lib/bigmoney";
 import { MIN_BET_CENTS } from "@/lib/money";
 import { VENUES, doorCheck, tableMinCents, travelCostCents } from "@/lib/life/venues";
+import { buildSnapshot } from "@/lib/life/snapshot";
+import { nextGoals } from "@/lib/life/goals";
+import { REP_TIERS, tierFor, tierProgress, nextTier } from "@/lib/life/reputation";
+import { VIP_TIERS, nextVip, vipFor, vipProgress } from "@/lib/life/vip";
+import { ACHIEVEMENTS } from "@/lib/life/achievements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,10 +51,34 @@ export async function GET() {
     take: 25,
   });
 
+  // One snapshot, shared by the goals, the achievement count and the tiers, so
+  // none of them can disagree about what is true of this account.
+  const { snapshot, xp, unlocked } = await buildSnapshot(user.id);
+  const lifetimeWagered = snapshot.lifetimeWageredCents;
+
   return NextResponse.json({
     career: user.career,
     progression: user.progression,
     balanceCents: user.balanceCents,
+    goals: nextGoals({ snapshot, xp, unlocked }),
+    reputation: {
+      points: snapshot.reputation,
+      tier: tierFor(snapshot.reputation),
+      next: nextTier(snapshot.reputation),
+      progress: tierProgress(snapshot.reputation),
+      tiers: REP_TIERS,
+    },
+    vip: {
+      lifetimeWageredCents: lifetimeWagered,
+      tier: vipFor(lifetimeWagered),
+      next: nextVip(lifetimeWagered),
+      progress: vipProgress(lifetimeWagered),
+      tiers: VIP_TIERS,
+    },
+    achievements: {
+      unlocked: unlocked.size,
+      total: ACHIEVEMENTS.length,
+    },
     venues,
     lives: lives.map((l) => ({
       id: l.id,

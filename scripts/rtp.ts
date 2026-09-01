@@ -40,7 +40,7 @@ import {
   totalStake,
   type BlackjackState,
 } from "../src/lib/games/blackjack";
-import { GAMES } from "../src/lib/games/registry";
+import { ENGINE_KEY, GAMES } from "../src/lib/games/registry";
 import * as Career from "../src/lib/life/career";
 import * as NewSicBo from "../src/lib/games/sicbo";
 import * as NewScratch from "../src/lib/games/scratch";
@@ -53,6 +53,11 @@ import * as NewCrash from "../src/lib/games/crash";
 import * as NewTowers from "../src/lib/games/towers";
 import * as NewVP from "../src/lib/games/videopoker";
 import * as Venues from "../src/lib/life/venues";
+import * as Rep from "../src/lib/life/reputation";
+import * as Vip from "../src/lib/life/vip";
+import * as Ach from "../src/lib/life/achievements";
+import * as Chal from "../src/lib/life/challenges";
+import * as Ev from "../src/lib/life/events";
 import { xpForWager } from "../src/lib/progression";
 import * as Orig from "../src/lib/games/originals";
 
@@ -950,6 +955,225 @@ check("a first career starts at level 1", Career.startingLevel(0), 1, 0);
   const plain = xpForWager(100_000, 0, 0);
   const withLegacy = xpForWager(100_000, 0, 4);
   check("legacy doubles XP after four lives", withLegacy / plain, 2, 1e-9);
+}
+
+
+// --------------------------------------------- THE PROGRESSION LAYER (2026)
+//
+// None of this touches a game's odds, but two parts of it move currency —
+// challenge rewards and random events — so those get the same treatment as a
+// paytable: the bounds are asserted here rather than assumed.
+
+console.log("\nREPUTATION");
+{
+  let monotonic = true;
+  for (let i = 1; i < Rep.REP_TIERS.length; i++) {
+    if (Rep.REP_TIERS[i].from <= Rep.REP_TIERS[i - 1].from) monotonic = false;
+  }
+  check("reputation tiers rise monotonically", monotonic ? 1 : 0, 1, 0);
+  check("a fresh career is the bottom tier", Rep.tierIndex(0), 0, 0);
+  check("the top tier is reachable", Rep.tierIndex(Rep.MAX_REP), Rep.REP_TIERS.length - 1, 0);
+
+  // Reputation must be capped at the full-limit value, so a table limit that
+  // has not caught up with a bankroll cannot be farmed by one enormous bet.
+  const atLimit = Rep.repForWager(1_000, 1_000, 1);
+  const wayOver = Rep.repForWager(1_000_000_000, 1_000, 1);
+  check("reputation per bet is capped at the table limit", wayOver, atLimit, 0);
+  check("a minimum bet still earns something", Rep.repForWager(1, 1_000_000, 1) >= 1 ? 1 : 0, 1, 0);
+}
+
+console.log("\nVIP");
+{
+  let ok = true;
+  for (let i = 1; i < Vip.VIP_TIERS.length; i++) {
+    const a = Vip.VIP_TIERS[i - 1];
+    const b = Vip.VIP_TIERS[i];
+    // Requirement, limit perk and bonus perk must all move the right way.
+    if (b.from <= a.from) ok = false;
+    if (b.limitMultiplier < a.limitMultiplier) ok = false;
+    if (b.bonusMultiplier < a.bonusMultiplier) ok = false;
+  }
+  check("VIP tiers rise monotonically in requirement and perks", ok ? 1 : 0, 1, 0);
+  check("an account that has staked nothing is unranked", Vip.vipFor(0).level, 0, 0);
+  check("the top tier has no next", Vip.nextVip(Number.MAX_SAFE_INTEGER) === null ? 1 : 0, 1, 0);
+}
+
+console.log("\nACHIEVEMENTS");
+{
+  const keys = Ach.ACHIEVEMENTS.map((a) => a.key);
+  check("every achievement key is unique", new Set(keys).size, keys.length, 0);
+
+  // A fresh account must have essentially nothing, and a maxed one must have
+  // essentially everything — a predicate that is always true or never true is
+  // a bug either way.
+  const empty: Ach.StatSnapshot = {
+    level: 1, rebirths: 0, livesLived: 0, reputation: 0, repTierIndex: 0, vipLevel: 0,
+    lifetimeWageredCents: 0, lifetimeWonCents: 0, biggestWinCents: 0, bestMultiplier: 0,
+    betsThisLife: 0, careerDays: 0, age: 18, balanceCents: 10_000_000,
+    peakBalanceCents: 10_000_000, comebacksUsed: 0, venueId: "back-room",
+    venuesVisited: ["back-room"], games: {}, distinctGamesPlayed: 0, distinctGamesWon: 0,
+  };
+  const earnedAtStart = Ach.newlyEarned(empty, new Set());
+  check("a brand-new account has earned nothing yet", earnedAtStart.length, 0, 0);
+
+  const maxed: Ach.StatSnapshot = {
+    ...empty,
+    level: 50, rebirths: 10, livesLived: 10, reputation: 1_000_000, repTierIndex: 6, vipLevel: 6,
+    lifetimeWageredCents: 1e14, lifetimeWonCents: 1e14, biggestWinCents: 1e12,
+    bestMultiplier: 10_000, betsThisLife: 5_000, careerDays: 22_000, age: 78,
+    balanceCents: 1e12, peakBalanceCents: 1e12, comebacksUsed: 3,
+    venuesVisited: Venues.VENUES.map((v) => v.id),
+    games: Object.fromEntries(
+      GAMES.filter((g) => g.playable).map((g) => [
+        ENGINE_KEY[g.slug],
+        { bets: 10_000, wins: 5_000, wageredCents: 1e10, biggestWinCents: 1e10 },
+      ]),
+    ),
+    distinctGamesPlayed: 22,
+    distinctGamesWon: 22,
+  };
+  const earnedAtMax = Ach.newlyEarned(maxed, new Set());
+  // Everything should be reachable from a maxed account EXCEPT the secrets
+  // that are about NOT doing something — those are unreachable by
+  // construction, so they are named rather than counted. Anything else going
+  // missing means a predicate no player can ever satisfy.
+  const restraintOnly = ["secret-minimalist", "secret-purist"];
+  const missing = Ach.ACHIEVEMENTS.filter((a) => !earnedAtMax.includes(a)).map((a) => a.key).sort();
+  check(
+    "the only unreachable achievements are the restraint secrets",
+    missing.join(",") === restraintOnly.sort().join(",") ? 1 : 0,
+    1,
+    0,
+  );
+
+  // Every progress function must stay inside 0..1 for both extremes.
+  let outOfRange = 0;
+  for (const a of Ach.ACHIEVEMENTS) {
+    if (!a.progress) continue;
+    for (const snap of [empty, maxed]) {
+      const p = a.progress(snap);
+      if (!(p >= 0 && p <= 1)) outOfRange++;
+    }
+  }
+  check("every progress bar stays within 0..1", outOfRange, 0, 0);
+}
+
+console.log("\nCHALLENGES");
+{
+  // The rule the whole module exists for.
+  const volumePaying = Chal.CHALLENGE_DEFS.filter((d) => d.kind === "VOLUME" && d.baseCents !== 0);
+  check("no volume challenge pays currency", volumePaying.length, 0, 0);
+
+  // Boards must be deterministic in the period key and free of duplicates.
+  const a1 = Chal.boardFor("daily", "2026-09-01").map((d) => d.key);
+  const a2 = Chal.boardFor("daily", "2026-09-01").map((d) => d.key);
+  check("a board is deterministic in its period key", a1.join(",") === a2.join(",") ? 1 : 0, 1, 0);
+  check("a daily board has the right number of slots", a1.length, Chal.DAILY_SLOTS, 0);
+  check("a board never repeats a challenge", new Set(a1).size, a1.length, 0);
+
+  // Sample a year of boards: each must contain something that pays, or the
+  // day reads as pointless.
+  let boardsWithoutPay = 0;
+  for (let d = 0; d < 365; d++) {
+    const key = new Date(Date.UTC(2026, 0, 1 + d)).toISOString().slice(0, 10);
+    if (!Chal.boardFor("daily", key).some((x) => x.kind === "OUTCOME")) boardsWithoutPay++;
+  }
+  check("every daily board of 2026 has a paying challenge", boardsWithoutPay, 0, 0);
+
+  // The faucet bound: the most claimable in a day, before rebirth scaling.
+  const cap = Chal.maxDailyCents();
+  console.log(`  Most claimable in one day, before rebirth scaling: ${(cap / 100).toLocaleString()}`);
+  check("the daily challenge faucet is bounded under 10,000.00", cap < 1_000_000 ? 1 : 0, 1, 0);
+}
+
+console.log("\nRANDOM EVENTS");
+{
+  // Weights inside a choice are probabilities; they have to sum to 1.
+  let badWeights = 0;
+  let overSized = 0;
+  for (const e of Ev.EVENTS) {
+    for (const c of e.choices ?? []) {
+      const sum = c.outcomes.reduce((s, o) => s + o.weight, 0);
+      if (Math.abs(sum - 1) > 1e-9) badWeights++;
+      for (const o of c.outcomes) {
+        if (Math.abs(o.effect.limitFraction ?? 0) > Ev.MAX_EFFECT_FRACTION) overSized++;
+      }
+    }
+    if (e.instant && Math.abs(e.instant.limitFraction ?? 0) > Ev.MAX_EFFECT_FRACTION) overSized++;
+  }
+  check("every choice's outcome weights sum to 1", badWeights, 0, 0);
+  check("no single outcome exceeds the effect ceiling", overSized, 0, 0);
+
+  check("every event key is unique", new Set(Ev.EVENTS.map((e) => e.key)).size, Ev.EVENTS.length, 0);
+
+  // An event is either a decision or something that happens — never neither.
+  const malformed = Ev.EVENTS.filter((e) => !e.instant && (!e.choices || e.choices.length === 0));
+  check("every event is either instant or a decision", malformed.length, 0, 0);
+
+  const rookie: Ev.EventContext = {
+    level: 1, reputation: 0, repTierIndex: 0, vipLevel: 0, balanceCents: 10_000_000,
+    limitCents: 100_000, venueId: "back-room", age: 18, betsThisLife: 0,
+    comebacksUsed: 0, livesLived: 0, rebirths: 0,
+  };
+  const veteran: Ev.EventContext = {
+    ...rookie, level: 45, reputation: 60_000, repTierIndex: 6, vipLevel: 5,
+    balanceCents: 1e11, limitCents: 5_000_000, venueId: "the-vault", age: 60,
+    betsThisLife: 900, livesLived: 3, rebirths: 4,
+  };
+  const rookiePool = Ev.eligible(rookie);
+  const veteranPool = Ev.eligible(veteran);
+  console.log(`  Eligible events — rookie: ${rookiePool.length}, veteran: ${veteranPool.length} of ${Ev.EVENTS.length}`);
+  check("a brand-new player has events available", rookiePool.length > 0 ? 1 : 0, 1, 0);
+  check("a veteran unlocks strictly more", veteranPool.length > rookiePool.length ? 1 : 0, 1, 0);
+
+  // THE FAUCET BOUND, measured correctly. A player picks the best CHOICE but
+  // cannot pick which EVENT fires, so the number that matters is the weighted
+  // mean of the best choice across the pool — not the single best event, which
+  // an earlier version of this check wrongly used and which made a balanced
+  // catalogue look like a 24x-per-day exploit.
+  for (const [who, ctx, pool] of [
+    ["rookie", rookie, rookiePool],
+    ["veteran", veteran, veteranPool],
+  ] as const) {
+    void ctx;
+    const perDraw = Ev.expectedDrawValue(pool);
+    const perDay = perDraw * Ev.MAX_EVENTS_PER_DAY;
+    console.log(
+      `  ${who}: ${perDraw.toFixed(4)} table limits per event under perfect play, ` +
+      `${perDay.toFixed(3)} per day at the ${Ev.MAX_EVENTS_PER_DAY}-event cap.`,
+    );
+    check(`${who}: daily event value stays under one table limit`, perDay < 1 ? 1 : 0, 1, 0);
+  }
+
+  // THE STAKE CAP. This is what makes minimum-bet farming pointless: an effect
+  // is capped at EFFECT_STAKE_MULTIPLE times the stake that triggered it, so
+  // grinding the 0.10 minimum draws 0.10-sized events no matter how large the
+  // player's table limit has grown.
+  {
+    const hugeLimit = 100_000_000; // 1,000,000.00
+    const minStake = 10; // 0.10
+    const biggest = Ev.EVENTS.reduce((m, e) => Math.max(m, Ev.bestEv(e)), 0);
+    const effect = { limitFraction: biggest, text: "" };
+    const farmed = Ev.centsFor(effect, hugeLimit, minStake);
+    const played = Ev.centsFor(effect, hugeLimit, hugeLimit);
+    console.log(
+      `  Best effect at a 0.10 stake against a 1,000,000.00 limit: ${(farmed / 100).toFixed(2)} ` +
+      `(vs ${(played / 100).toLocaleString()} when actually risking the limit).`,
+    );
+    check(
+      "the stake cap holds a minimum-bet farm to 10x the stake",
+      farmed,
+      minStake * Ev.EFFECT_STAKE_MULTIPLE,
+      0,
+    );
+    check(
+      "a whole day of minimum-stake farming is worth under 10.00",
+      (farmed * Ev.MAX_EVENTS_PER_DAY) / 100 < 10 ? 1 : 0,
+      1,
+      0,
+    );
+    check("playing the limit is not capped by the stake rule", played > farmed ? 1 : 0, 1, 0);
+  }
 }
 
 // ----------------------------------------------------------------- done

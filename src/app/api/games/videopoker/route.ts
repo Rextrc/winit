@@ -132,7 +132,7 @@ export async function POST(req: Request) {
         balanceAfterCents: balanceCents,
         detail: { dealt: state.hand, held: uniqueHeld, finalHand: drawn.finalHand, hand },
       });
-      const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+      const progress = await awardProgress(tx, user.id, "videopoker", state.betCents, payoutCents);
 
       return { view: toView(drawn), balanceCents, progress, roundId: round.id };
     });

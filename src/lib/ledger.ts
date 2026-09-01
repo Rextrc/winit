@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { fromDb, toDb } from "@/lib/bigmoney";
 import { MIN_BET_CENTS, formatCents } from "@/lib/money";
 import * as Career from "@/lib/life/career";
+import { applyProgression, type ProgressionExtras } from "@/lib/life/advance";
 import type { CareerState, DeathCause } from "@/lib/life/career";
 import {
   applyXp,
@@ -34,7 +35,9 @@ export type LedgerKind =
   | "COMEBACK"
   | "DEATH"
   | "TRAVEL"
-  | "NEWLIFE";
+  | "NEWLIFE"
+  | "EVENT"
+  | "CHALLENGE";
 export type LedgerOutcome = "WIN" | "LOSS" | "PUSH" | "CREDIT";
 
 export class InsufficientBalanceError extends Error {
@@ -119,6 +122,8 @@ export type ProgressUpdate = {
   progression: Progression;
   career: CareerState;
   careerEvents: CareerEvent[];
+  /** Reputation, VIP, achievements, challenges and any random event. */
+  extras: ProgressionExtras;
 };
 
 /** Something the career layer did to you as a result of the bet just settled. */
@@ -142,6 +147,8 @@ export type CareerEvent =
 export async function awardProgress(
   tx: Tx,
   userId: string,
+  /** Engine key, e.g. "roulette" — drives the per-game counters. */
+  game: string,
   wagerCents: number,
   payoutCents: number,
 ): Promise<ProgressUpdate> {
@@ -164,6 +171,10 @@ export async function awardProgress(
       peakBalanceCents: true,
       venueId: true,
       deathCause: true,
+      reputation: true,
+      visitedVenuesJson: true,
+      eventsToday: true,
+      eventDayKey: true,
     },
   });
 
@@ -307,6 +318,53 @@ export async function awardProgress(
     careerEvents.push({ kind: "DEATH", cause: deathCause, ageAtEnd: summary.ageAtEnd, epitaph });
   }
 
+  // Everything that happens BECAUSE this bet settled — per-game counters,
+  // reputation, VIP, achievements, challenges and the random-event roll. It
+  // runs inside this same transaction, so a bet either updates all of it or
+  // none of it.
+  const lifetimeWageredAfter = fromDb(before.lifetimeWageredCents) + wagerCents;
+  const extras = await applyProgression(
+    tx,
+    {
+      userId,
+      game,
+      wagerCents,
+      payoutCents,
+      level: rolled.level,
+      rebirths: before.rebirths,
+      livesLived: before.livesLived,
+      lifetimeWageredCents: lifetimeWageredAfter,
+      lifetimeWonCents: fromDb(before.lifetimeWonCents) + payoutCents,
+      biggestWinCents: Math.max(fromDb(before.biggestWinCents), payoutCents),
+      bestMultiplierX100: Math.max(before.bestMultiplierX100, multiplierX100),
+      betsThisLife: before.betsThisLife + 1,
+      careerDays,
+      balanceCents,
+      peakBalanceCents,
+      comebacksUsed,
+      venueId: before.venueId,
+      maxBetCents: describeProgression({
+        level: rolled.level,
+        xp: rolled.xp,
+        rebirths: before.rebirths,
+        lifetimeWageredCents: lifetimeWageredAfter,
+        lifetimeWonCents: 0,
+        biggestWinCents: 0,
+        bestMultiplierX100: 0,
+      }).maxBetCents,
+      lifetimeWageredBefore: fromDb(before.lifetimeWageredCents),
+      reputationBefore: before.reputation,
+      visitedVenuesJson: before.visitedVenuesJson,
+      eventsToday: before.eventsToday,
+      eventDayKey: before.eventDayKey,
+      careerOver: deathCause !== null,
+    },
+    { credit, debit, writeTransaction },
+  );
+
+  // Re-read AFTER the progression pass: an instant event can have moved the
+  // balance and the career clock, and the figures returned to the client have
+  // to be the ones actually on the row.
   const after = await tx.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
@@ -317,6 +375,10 @@ export async function awardProgress(
       lifetimeWonCents: true,
       biggestWinCents: true,
       bestMultiplierX100: true,
+      careerDays: true,
+      comebacksUsed: true,
+      reputation: true,
+      deathCause: true,
     },
   });
 
@@ -337,17 +399,18 @@ export async function awardProgress(
     career: Career.describeCareer(
       {
         livesLived: before.livesLived,
-        careerDays,
-        comebacksUsed,
+        careerDays: after.careerDays,
+        comebacksUsed: after.comebacksUsed,
         betsThisLife: before.betsThisLife + 1,
         peakBalanceCents,
         venueId: before.venueId,
-        deathCause,
+        deathCause: after.deathCause,
       },
       progression.maxBetCents,
       MIN_BET_CENTS,
     ),
     careerEvents,
+    extras: { ...extras, reputation: after.reputation },
   };
 }
 
@@ -387,7 +450,7 @@ export async function settleOneShotBet(args: {
       detail: args.detail,
     });
 
-    const progress = await awardProgress(tx, args.userId, args.betCents, args.payoutCents);
+    const progress = await awardProgress(tx, args.userId, args.game, args.betCents, args.payoutCents);
 
     return {
       balanceCents,

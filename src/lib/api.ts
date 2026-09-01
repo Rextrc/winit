@@ -28,6 +28,10 @@ export type CurrentUser = {
   rebirths: number;
   progression: Progression;
   career: CareerState;
+  /** Per-life reputation — can go down, unlike everything else. */
+  reputation: number;
+  /** Drives the VIP ladder, which no reset ever clears. */
+  lifetimeWageredCents: number;
 };
 
 /** Loads the caller, or returns a 401 response to bail out with. */
@@ -77,6 +81,8 @@ export async function requireUser(): Promise<
       rebirths: row.rebirths,
       progression,
       career,
+      reputation: row.reputation,
+      lifetimeWageredCents: fromDb(row.lifetimeWageredCents),
     },
     response: null,
   };

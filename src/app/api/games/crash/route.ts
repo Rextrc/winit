@@ -53,7 +53,7 @@ async function settleIfBusted(tx: Prisma.TransactionClient, userId: string, roun
     balanceAfterCents: balanceCents,
     detail: { crashPoint: state.crashPoint, autoTarget: state.autoTarget },
   });
-  const progress = await awardProgress(tx, userId, state.betCents, 0);
+  const progress = await awardProgress(tx, userId, "crash", state.betCents, 0);
   return { view: toView(state), balanceCents, progress };
 }
 
@@ -149,7 +149,7 @@ export async function POST(req: Request) {
             balanceAfterCents: after,
             detail: { crashPoint: state.crashPoint, autoTarget },
           });
-          const progress = await awardProgress(tx, user.id, bet.cents, payoutCents);
+          const progress = await awardProgress(tx, user.id, "crash", bet.cents, payoutCents);
           return { roundId: round.id, view: toView(state), balanceCents: after, progress };
         }
 
@@ -206,7 +206,7 @@ export async function POST(req: Request) {
         balanceAfterCents: balanceCents,
         detail: { crashPoint: state.crashPoint, cashedAt: multiplier },
       });
-      const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+      const progress = await awardProgress(tx, user.id, "crash", state.betCents, payoutCents);
       return { view: toView(state), balanceCents, progress, roundId: round.id };
     });
 

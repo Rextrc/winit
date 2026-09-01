@@ -63,7 +63,7 @@ async function settleRound(
   // Career XP is awarded on the hand's total stake, doubles and splits
   // included, once the hand is actually settled. It never changes the
   // balance, so the credited amount above is still the final figure.
-  const progress = await awardProgress(tx, userId, stake, payout);
+  const progress = await awardProgress(tx, userId, "blackjack", stake, payout);
 
   return { balanceCents, progress };
 }

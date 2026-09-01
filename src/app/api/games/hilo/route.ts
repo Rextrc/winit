@@ -94,7 +94,7 @@ export async function POST(req: Request) {
           balanceAfterCents: balanceCents,
           detail: { steps: state.steps, streakMultiplier: state.streakMultiplier },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+        const progress = await awardProgress(tx, user.id, "hilo", state.betCents, payoutCents);
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
           balanceAfterCents: currentBalance,
           detail: { steps: state.steps, from: state.current, to: next },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, 0);
+        const progress = await awardProgress(tx, user.id, "hilo", state.betCents, 0);
         return { view: toView(revealedState, next), balanceCents: currentBalance, progress, roundId: round.id };
       }
 
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
           balanceAfterCents: balanceCents,
           detail: { steps: state.steps },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+        const progress = await awardProgress(tx, user.id, "hilo", state.betCents, payoutCents);
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 

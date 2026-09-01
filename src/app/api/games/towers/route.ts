@@ -123,7 +123,7 @@ export async function POST(req: Request) {
           balanceAfterCents: balanceCents,
           detail: { difficulty: state.difficulty, picks: state.picks, safeTiles: state.safeTiles },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+        const progress = await awardProgress(tx, user.id, "towers", state.betCents, payoutCents);
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
           balanceAfterCents: balanceCents,
           detail: { difficulty: state.difficulty, picks: state.picks, safeTiles: state.safeTiles },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, 0);
+        const progress = await awardProgress(tx, user.id, "towers", state.betCents, 0);
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 
@@ -181,7 +181,7 @@ export async function POST(req: Request) {
           balanceAfterCents: balanceCents,
           detail: { difficulty: state.difficulty, picks: state.picks, safeTiles: state.safeTiles },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+        const progress = await awardProgress(tx, user.id, "towers", state.betCents, payoutCents);
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 

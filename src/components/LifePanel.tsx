@@ -5,6 +5,9 @@ import { useWallet } from "@/components/WalletProvider";
 import CareerClock from "@/components/life/CareerClock";
 import VenueMap, { type VenueRow } from "@/components/life/VenueMap";
 import HallOfLives, { type LifeRow } from "@/components/life/HallOfLives";
+import NextGoals, { type GoalRow } from "@/components/life/NextGoals";
+import ChallengesPanel from "@/components/life/ChallengesPanel";
+import TrackBars, { type RepFeed, type VipFeed } from "@/components/life/TrackBars";
 import { STARTING_BALANCE_CENTS, formatCents } from "@/lib/money";
 import { legacyXpMultiplier, startingLevel, type CareerState } from "@/lib/life/career";
 import {
@@ -36,6 +39,10 @@ type LifeFeed = {
   balanceCents: number;
   venues: VenueRow[];
   lives: LifeRow[];
+  goals: GoalRow[];
+  reputation: RepFeed;
+  vip: VipFeed;
+  achievements: { unlocked: number; total: number };
 };
 
 export default function LifePanel() {
@@ -234,9 +241,25 @@ export default function LifePanel() {
         />
       </div>
 
+      {feed && <NextGoals goals={feed.goals} />}
+
+      {feed && (
+        <TrackBars
+          reputation={feed.reputation}
+          vip={feed.vip}
+          achievements={feed.achievements}
+        />
+      )}
+
       {feed && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ChallengesPanel onClaimed={reload} />
           <VenueMap venues={feed.venues} frozen={feed.career.over} onTravelled={reload} />
+        </div>
+      )}
+
+      {feed && (
+        <div className="grid grid-cols-1 gap-4">
           <HallOfLives lives={feed.lives} />
         </div>
       )}

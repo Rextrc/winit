@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import type { BonusStatus } from "@/lib/bonus";
 import type { Progression } from "@/lib/progression";
 import type { CareerState } from "@/lib/life/career";
+import type { PendingEventView, ProgressionExtras } from "@/lib/life/advance";
 import type { ProgressUpdate } from "@/lib/ledger";
 
 type LastDelta = { id: number; netCents: number } | null;
@@ -13,6 +14,13 @@ export type LevelUpToast = { id: number; update: ProgressUpdate } | null;
 
 /** Raised the moment a settled bet ends the career. */
 export type DeathToast = { id: number; cause: "RUIN" | "OLD_AGE"; ageAtEnd: number; epitaph: string } | null;
+
+/** Anything worth celebrating that is not a level-up or a big win. */
+export type Award =
+  | { id: number; kind: "achievement"; name: string; description: string; tier: string }
+  | { id: number; kind: "vip"; name: string; colour: string }
+  | { id: number; kind: "reputation"; name: string; blurb: string }
+  | { id: number; kind: "challenge"; name: string; period: string };
 
 type Wallet = {
   balanceCents: number | null;
@@ -29,6 +37,12 @@ type Wallet = {
   dismissLevelUp: () => void;
   death: DeathToast;
   dismissDeath: () => void;
+  /** A choice event waiting on the player, if any. */
+  pendingEvent: PendingEventView | null;
+  clearPendingEvent: () => void;
+  /** Queue of achievement / VIP / reputation / challenge celebrations. */
+  awards: Award[];
+  dismissAward: (id: number) => void;
   refresh: () => Promise<void>;
   claimBonus: () => Promise<{ ok: boolean; error?: string; amountCents?: number }>;
   claiming: boolean;
@@ -46,6 +60,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const levelUpId = useRef(0);
   const [death, setDeath] = useState<DeathToast>(null);
   const deathId = useRef(0);
+  const [pendingEvent, setPendingEvent] = useState<PendingEventView | null>(null);
+  const [awards, setAwards] = useState<Award[]>([]);
+  const awardId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [lastDelta, setLastDelta] = useState<LastDelta>(null);
@@ -66,6 +83,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBonus(data.bonus);
       setProgression(data.progression ?? null);
       setCareer(data.career ?? null);
+      // An event left PENDING by a previous session is still owed a decision.
+      try {
+        const ev = await fetch("/api/life/event", { cache: "no-store" });
+        if (ev.ok) {
+          const evData = await ev.json();
+          if (evData.event) setPendingEvent(evData.event as PendingEventView);
+        }
+      } catch {
+        /* the next settled bet will surface it again */
+      }
     } catch {
       /* offline — keep the last known balance rather than blanking the header */
     } finally {
@@ -117,6 +144,61 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       levelUpId.current += 1;
       setLevelUp({ id: levelUpId.current, update });
     }
+    // Everything the progression pass turned up, queued as celebrations.
+    const extras = update.extras as ProgressionExtras | undefined;
+    if (extras) {
+      const queued: Award[] = [];
+      for (const a of extras.achievements) {
+        awardId.current += 1;
+        queued.push({
+          id: awardId.current,
+          kind: "achievement",
+          name: a.name,
+          description: a.description,
+          tier: a.tier,
+        });
+      }
+      if (extras.vipPromotion) {
+        awardId.current += 1;
+        queued.push({
+          id: awardId.current,
+          kind: "vip",
+          name: extras.vipPromotion.name,
+          colour: extras.vipPromotion.colour,
+        });
+      }
+      if (extras.repTierUp) {
+        awardId.current += 1;
+        queued.push({
+          id: awardId.current,
+          kind: "reputation",
+          name: extras.repTierUp.name,
+          blurb: extras.repTierUp.blurb,
+        });
+      }
+      for (const c of extras.challengesCompleted) {
+        awardId.current += 1;
+        queued.push({ id: awardId.current, kind: "challenge", name: c.name, period: c.period });
+      }
+      if (queued.length > 0) setAwards((a) => [...a, ...queued]);
+
+      // An instant event has already moved the balance server-side.
+      if (extras.resolvedEvent) {
+        awardId.current += 1;
+        setAwards((a) => [
+          ...a,
+          {
+            id: awardId.current,
+            kind: "achievement",
+            name: extras.resolvedEvent!.title,
+            description: extras.resolvedEvent!.outcomeText,
+            tier: "secret",
+          },
+        ]);
+      }
+      if (extras.pendingEvent) setPendingEvent(extras.pendingEvent);
+    }
+
     // A comeback quietly changed the balance behind the game's own result, so
     // take the career layer's figure as the authoritative one.
     for (const ev of update.careerEvents) {
@@ -130,6 +212,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const dismissLevelUp = useCallback(() => setLevelUp(null), []);
   const dismissDeath = useCallback(() => setDeath(null), []);
+  const clearPendingEvent = useCallback(() => setPendingEvent(null), []);
+  const dismissAward = useCallback((id: number) => setAwards((a) => a.filter((x) => x.id !== id)), []);
 
   const claimBonus = useCallback(async () => {
     setClaiming(true);
@@ -163,6 +247,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       dismissLevelUp,
       death,
       dismissDeath,
+      pendingEvent,
+      clearPendingEvent,
+      awards,
+      dismissAward,
       refresh,
       claimBonus,
       claiming,
@@ -180,6 +268,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       dismissLevelUp,
       death,
       dismissDeath,
+      pendingEvent,
+      clearPendingEvent,
+      awards,
+      dismissAward,
       refresh,
       claimBonus,
       claiming,

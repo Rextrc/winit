@@ -62,9 +62,112 @@ model User {
   // Highest balance this life ever reached — the headline on the headstone.
   peakBalanceCents BigInt @default(10000000)
 
+  // --- Progression layer ---------------------------------------------------
+  // Reputation is per-life and can go DOWN — random events take it, and losing
+  // it can close a door you had already walked through. See lib/life/reputation.
+  reputation      Int    @default(0)
+  // Rooms this life has actually placed a bet in, as a JSON array of venue ids.
+  visitedVenuesJson String @default("[\"back-room\"]")
+  // Random-event rate cap, reset when the UTC day key changes.
+  eventsToday     Int    @default(0)
+  eventDayKey     String @default("")
+
   transactions Transaction[]
   rounds       Round[]
   lives        Life[]
+  gameStats    GameStat[]
+  achievements AchievementUnlock[]
+  challenges   ChallengeProgress[]
+  events       LifeEvent[]
+}
+
+// Per-game counters, so achievements and the developer analytics can ask
+// "how many hands of blackjack" without scanning the whole transaction log.
+model GameStat {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The engine key used in the ledger: "roulette", "slots", "crash", ...
+  game String
+
+  bets            Int    @default(0)
+  wins            Int    @default(0)
+  wageredCents    BigInt @default(0)
+  wonCents        BigInt @default(0)
+  biggestWinCents BigInt @default(0)
+  bestMultiplierX100 Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, game])
+  @@index([userId])
+}
+
+// An achievement is unlocked the first time its own predicate returns true.
+// Written once, never updated — see lib/life/achievements.
+model AchievementUnlock {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  key        String
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+// Progress against one challenge in one period. The board itself is derived
+// from the period key rather than stored, so only progress lives here.
+model ChallengeProgress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  key    String
+  // "daily" | "weekly"
+  period String
+  // "2026-09-01" or "2026-W36"
+  periodKey String
+
+  progress Int     @default(0)
+  target   Int
+  claimed  Boolean @default(false)
+
+  // Distinct games seen this period, for the DISTINCT_GAMES metric.
+  seenJson String @default("[]")
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key, period, periodKey])
+  @@index([userId, periodKey])
+}
+
+// A random event. Choice events sit PENDING until the player decides; the
+// money only moves on resolution, and always through the ledger.
+model LifeEvent {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  key    String
+  // "PENDING" | "RESOLVED"
+  status String @default("PENDING")
+
+  choiceKey  String?
+  outcomeText String?
+  // The stake that triggered this event — an effect is capped against it, so
+  // farming events at the minimum bet cannot pay out against a big limit.
+  stakeCents BigInt @default(0)
+  netCents   BigInt @default(0)
+  reputationDelta Int @default(0)
+  daysDelta  Int    @default(0)
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([userId, status])
 }
 
 // A finished career, kept for the hall of lives. Written once when a life ends

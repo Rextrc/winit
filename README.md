@@ -320,6 +320,79 @@ on the `NEWLIFE` row (surrendered as `betCents`, restored as `payoutCents`) so t
 stays exact — an earlier draft wrote it as a zero-value row and broke reconciliation, which the
 reconciliation test caught.
 
+## The progression layer: reputation, VIP, achievements, challenges, events
+
+Four tracks run alongside the level ladder, and every one of them is evaluated
+server-side from real data after each settled bet.
+
+**Reputation** is per-life and is the only number in the app that can go DOWN.
+It is earned on how much of your OWN table limit a bet represents, not on the
+raw amount, so a level 3 player pushing their limit builds a name as fast as a
+level 40 one and a whale betting the minimum builds none. Random events take it
+back, and losing a tier can close a door you had already walked through.
+
+**VIP** is the opposite: banked against lifetime amount staked, which no reset
+ever clears, so it is the account's permanent record rather than the current
+gambler's. A tier raises your table limit and your daily bonus. It never
+touches the odds of a game — every published RTP above would become a lie the
+moment a loyalty tier quietly paid better.
+
+**Achievements** (43 of them, including four secrets) are pure predicates over
+a statistics snapshot. Nothing is awarded by a route saying so: the whole list
+is re-evaluated after every settled bet and an achievement unlocks the first
+time its own predicate returns true, so they cannot drift out of sync with the
+data and cannot be granted by a client asking nicely. The harness asserts that
+a brand-new account has earned nothing, that a maxed one has earned everything
+except the two secrets that are about NOT doing something, and that every
+progress bar stays inside 0..1.
+
+**Challenges** rotate daily and weekly, picked deterministically from the
+period key so the board is the same for everyone and needs no stored
+randomness. They are split by design, for the reason the level-up rewards were
+removed:
+
+| Objective | Pays |
+|---|---|
+| Volume — place N bets, stake X, try N games | XP and reputation **only** |
+| Outcome — win N times, land a big multiplier | XP, reputation and currency |
+
+Anything that pays currency for volume is free money bought by betting enough.
+A volume challenge with a non-zero cash reward throws at module load, the claim
+route re-checks it at the point of payment, and the harness asserts it too. The
+most claimable in a day before rebirth scaling is 5,200.00 — bounded, and in
+the same order as the daily bonus.
+
+### Random events, and how they stay honest
+
+After a settled bet an event can fire — sometimes something simply happens,
+sometimes you are asked to decide and the decision moves money, reputation and
+the clock. The outcome is always drawn on the server from the catalogue's own
+weights; the client sends only which button was pressed.
+
+Money here is held down by four rules:
+
+1. **Every cent goes through the same ledger as a bet**, so the running-balance
+   reconciliation that proves the books still passes. A 222-row history mixing
+   bets, events and a challenge claim chains exactly onto the live balance.
+2. **Effects are a fraction of the player's own table limit**, not of their
+   balance and not a flat sum — a flat sum is life-changing at level 1 and
+   invisible at level 50.
+3. **An effect is also capped at 10x the stake that triggered it.** This closes
+   the real hole, and the harness is what found it: events fire per settled bet
+   regardless of size, so without this rule a player could grind the 0.10
+   minimum two hundred times — losing almost nothing — and still draw eight
+   events priced against a seven-figure table limit. With it, farming at the
+   minimum is worth under 10.00 a day.
+4. **The rate is capped at 8 events a day.** What bounds the faucet is not the
+   best event in the catalogue but the WEIGHTED MEAN of the best choice across
+   the pool you are eligible for, since you cannot choose which event fires.
+   That comes to **-0.02 table limits per event for a new player and +0.099 for
+   a veteran** — under one table limit a day at the cap, asserted for both.
+
+An earlier version of that last check measured the single best event instead
+and made a balanced catalogue look like a 24x-per-day exploit. The check was
+wrong, but fixing it is what surfaced the stake-farming hole that was real.
+
 ## Architecture notes
 
 ```
@@ -329,6 +402,12 @@ src/lib/bigmoney.ts       the BigInt <-> number boundary, and the only place it 
 src/lib/progression.ts    XP curve, life stages, table limits, unlocks, rebirth rules
 src/lib/life/career.ts    the clock, ruin, death causes, legacy — pure, no I/O
 src/lib/life/venues.ts    the circuit: floors, doors and fares (never odds)
+src/lib/life/reputation.ts per-life standing; the one number that can fall
+src/lib/life/vip.ts       lifetime-staked ladder; limits and bonus, never odds
+src/lib/life/achievements.ts 43 pure predicates over a stats snapshot
+src/lib/life/challenges.ts daily/weekly boards; volume never pays currency
+src/lib/life/events.ts    the random-event catalogue and its faucet bounds
+src/lib/life/advance.ts   the progression pass that runs on every settled bet
 src/lib/ledger.ts         the only place balance moves; atomic, conditional SQL updates
 src/lib/bonus.ts          daily bonus cooldown + streak maths
 src/lib/games/candy.ts    Candy Cascade's paytable, cluster evaluator and pay maths — pure

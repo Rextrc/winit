@@ -111,7 +111,7 @@ export async function POST(req: Request) {
           balanceAfterCents: balanceCents,
           detail: { mines: state.mines, revealed: state.revealed, minePositions: state.minePositions },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+        const progress = await awardProgress(tx, user.id, "mines", state.betCents, payoutCents);
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
           balanceAfterCents: currentBalance,
           detail: { mines: state.mines, revealed: state.revealed, minePositions: state.minePositions },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, 0);
+        const progress = await awardProgress(tx, user.id, "mines", state.betCents, 0);
         return { view: toView(state), balanceCents: currentBalance, progress, roundId: round.id };
       }
 
@@ -161,7 +161,7 @@ export async function POST(req: Request) {
           balanceAfterCents: balanceCents,
           detail: { mines: state.mines, revealed: state.revealed, minePositions: state.minePositions },
         });
-        const progress = await awardProgress(tx, user.id, state.betCents, payoutCents);
+        const progress = await awardProgress(tx, user.id, "mines", state.betCents, payoutCents);
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 
