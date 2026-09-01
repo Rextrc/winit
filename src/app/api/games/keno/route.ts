@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { handleError, jsonError, requireUser } from "@/lib/api";
+import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
 import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
@@ -33,6 +33,8 @@ export async function POST(req: Request) {
 
   const bet = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
   if (!bet.ok) return jsonError(bet.error, 409);
+  const gate = assertBettable(user, bet.cents);
+  if (gate) return gate;
 
   try {
     // Shuffle the whole pool and take the first KENO_DRAWN — an unbiased way

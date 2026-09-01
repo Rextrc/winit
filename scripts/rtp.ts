@@ -41,6 +41,9 @@ import {
   type BlackjackState,
 } from "../src/lib/games/blackjack";
 import { GAMES } from "../src/lib/games/registry";
+import * as Career from "../src/lib/life/career";
+import * as Venues from "../src/lib/life/venues";
+import { xpForWager } from "../src/lib/progression";
 import * as Orig from "../src/lib/games/originals";
 
 const SPINS = 1_000_000;
@@ -546,6 +549,64 @@ if (hiloRanks !== 13) {
   console.log(`  FAIL  only ${hiloRanks}/13 ranks appeared as the opening card over ${HILO_ROUNDS} rounds`);
 } else {
   console.log(`  PASS  all 13 ranks appeared as the opening card over ${HILO_ROUNDS.toLocaleString()} rounds`);
+}
+
+// ------------------------------------------------------- THE CAREER LAYER
+//
+// The career layer sits above every game and must never touch a single one of
+// the numbers above. These checks pin the one property that matters: a venue
+// changes the size of the table and nothing else. If a room ever started
+// paying differently, every RTP figure printed in this file would be a lie.
+console.log("\nTHE CAREER LAYER (venues, clock, legacy)");
+
+for (const venue of Venues.VENUES) {
+  // A room's floor is a fraction of the player's own limit, so it can never
+  // exceed it — a room you are allowed into is a room you can afford one bet in.
+  for (const limit of [100_000, 1_570_000, 47_100_000]) {
+    const floor = Venues.tableMinCents(venue, limit, 10);
+    if (floor > limit) {
+      failures++;
+      console.log(`  FAIL  ${venue.name}: floor ${floor} exceeds the table limit ${limit}`);
+    }
+  }
+}
+console.log(`  PASS  every room's floor stays at or under the player's own table limit`);
+
+// The floors must be strictly ordered, or "moving up" would be meaningless.
+{
+  const limit = 1_570_000;
+  const floors = Venues.VENUES.map((v) => Venues.tableMinCents(v, limit, 10));
+  const ordered = floors.every((f, i) => i === 0 || f >= floors[i - 1]);
+  if (!ordered) {
+    failures++;
+    console.log(`  FAIL  venue floors are not monotonic: ${floors.join(", ")}`);
+  } else {
+    console.log(`  PASS  venue floors rise monotonically along the circuit`);
+  }
+}
+
+// A life is a fixed budget of bets, identical at every table in the app.
+check("a life is exactly 22,630 days", Career.LIFE_DAYS, 22_630, 0);
+check("which is 1,508 bets", Career.BETS_PER_LIFE, 1508, 0);
+check("a fresh career reads age 18", Career.ageFromDays(0), 18, 0);
+check("the last day of the clock still reads 79", Career.ageFromDays(Career.LIFE_DAYS - 1), 79, 0);
+check("and the clock ends exactly at 80", Career.ageFromDays(Career.LIFE_DAYS), 80, 0);
+check("spending the budget one bet at a time lands exactly on the end",
+  Career.betsRemaining(Career.BETS_PER_LIFE * Career.DAYS_PER_BET), 0, 0);
+check("a career that has not started is 0% spent", Career.lifeProgress(0), 0, 0);
+check("and one that has ended is 100% spent", Career.lifeProgress(Career.LIFE_DAYS), 1, 0);
+
+// Legacy is an XP multiplier and nothing else — it must never pay currency.
+check("legacy at 0 lives is a no-op", Career.legacyXpMultiplier(0), 1, 0);
+check("and +25% per life after that", Career.legacyXpMultiplier(4), 2, 1e-12);
+check("an heir's starting level is capped at 10", Career.startingLevel(50), 10, 0);
+check("a first career starts at level 1", Career.startingLevel(0), 1, 0);
+
+// XP scales with legacy, but only ever as a multiplier on volume staked.
+{
+  const plain = xpForWager(100_000, 0, 0);
+  const withLegacy = xpForWager(100_000, 0, 4);
+  check("legacy doubles XP after four lives", withLegacy / plain, 2, 1e-9);
 }
 
 // ----------------------------------------------------------------- done

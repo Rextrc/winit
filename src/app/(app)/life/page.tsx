@@ -10,9 +10,10 @@ export default function LifePage() {
       <header className="mb-6">
         <h1 className="font-display text-2xl font-black tracking-tight text-white">Your life</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-400">
-          A career built out of play money. Staking raises your level, levels raise the ceiling on
-          what you can put on one bet, and a rebirth trades the whole ladder for a permanent
-          multiplier on that ceiling.
+          You start at 18 with a stake and play until you run out of money or out of years. Staking
+          raises your level, levels open better rooms and a bigger ceiling, and a rebirth trades the
+          whole ladder — and your bankroll — for a permanent multiplier on that ceiling. Every bet
+          costs the same slice of the clock, and when the clock stops, someone else sits down.
         </p>
       </header>
 

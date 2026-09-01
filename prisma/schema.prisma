@@ -45,8 +45,54 @@ model User {
   // Best payout multiplier ever hit, stored x100 so it stays an integer.
   bestMultiplierX100   Int    @default(0)
 
+  // --- The career ----------------------------------------------------------
+  // A life is a budget of days that every settled bet spends. When it runs out
+  // — or the player goes broke once too often — the career ends and the next
+  // one starts from scratch. See src/lib/life/career.ts.
+  careerDays      Int      @default(0)
+  careerStartedAt DateTime @default(now())
+  betsThisLife    Int      @default(0)
+  venueId         String   @default("back-room")
+  comebacksUsed   Int      @default(0)
+  // "RUIN" | "OLD_AGE" once the career is over, null while it is running.
+  deathCause    String?
+  diedAt        DateTime?
+  // Completed careers. Each one makes the next quicker to build.
+  livesLived    Int     @default(0)
+  // Highest balance this life ever reached — the headline on the headstone.
+  peakBalanceCents BigInt @default(10000000)
+
   transactions Transaction[]
   rounds       Round[]
+  lives        Life[]
+}
+
+// A finished career, kept for the hall of lives. Written once when a life ends
+// and never updated — these are gravestones, not state.
+model Life {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 1 for the first career on the account, 2 for the next, and so on.
+  ordinal Int
+  // "RUIN" | "OLD_AGE"
+  cause    String
+  ageAtEnd Int
+  level    Int
+  rebirths Int
+  venueId  String
+  epitaph  String
+
+  peakBalanceCents     BigInt
+  lifetimeWageredCents BigInt
+  biggestWinCents      BigInt
+  betsPlaced           Int    @default(0)
+
+  startedAt DateTime
+  endedAt   DateTime @default(now())
+
+  @@index([userId, ordinal])
 }
 
 model Transaction {

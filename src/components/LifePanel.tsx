@@ -1,8 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
-import { formatCents } from "@/lib/money";
+import CareerClock from "@/components/life/CareerClock";
+import VenueMap, { type VenueRow } from "@/components/life/VenueMap";
+import HallOfLives, { type LifeRow } from "@/components/life/HallOfLives";
+import { STARTING_BALANCE_CENTS, formatCents } from "@/lib/money";
+import { legacyXpMultiplier, startingLevel, type CareerState } from "@/lib/life/career";
 import {
   MAX_LEVEL,
   MAX_REBIRTHS,
@@ -27,12 +31,63 @@ function Stat({ label, value, tone = "" }: { label: string; value: string; tone?
   );
 }
 
+type LifeFeed = {
+  career: CareerState;
+  balanceCents: number;
+  venues: VenueRow[];
+  lives: LifeRow[];
+};
+
 export default function LifePanel() {
-  const { progression, refresh, loading } = useWallet();
+  const { progression, refresh, loading, dismissDeath } = useWallet();
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [feed, setFeed] = useState<LifeFeed | null>(null);
+
+  const loadFeed = useCallback(async () => {
+    try {
+      const res = await fetch("/api/life", { cache: "no-store" });
+      if (!res.ok) return;
+      setFeed((await res.json()) as LifeFeed);
+    } catch {
+      /* offline — keep whatever is on screen rather than blanking the career */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadFeed();
+  }, [loadFeed]);
+
+  /** Refreshes both the header wallet and this page's own career feed. */
+  const reload = useCallback(async () => {
+    await Promise.all([refresh(), loadFeed()]);
+  }, [refresh, loadFeed]);
+
+  const startNewLife = useCallback(async () => {
+    setWorking(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/life/new", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't start a new life right now.");
+        return;
+      }
+      setMessage(
+        `Life ${data.livesLived + 1} begins. Level ${data.level}, ${formatCents(data.balanceCents)}, ` +
+          `×${data.legacyXpMultiplier.toFixed(2)} XP from the careers behind you.`,
+      );
+      dismissDeath();
+      await reload();
+    } catch {
+      setError("Network error — nothing changed.");
+    } finally {
+      setWorking(false);
+    }
+  }, [reload, dismissDeath]);
 
   const rebirth = useCallback(async () => {
     setWorking(true);
@@ -45,16 +100,18 @@ export default function LifePanel() {
         return;
       }
       setMessage(
-        `Rebirth ${data.rebirths} complete. Table limits are now ×${rebirthMultiplier(data.rebirths)}. Your balance is unchanged.`,
+        `Rebirth ${data.rebirths} complete. Table limits are now ×${rebirthMultiplier(
+          data.rebirths,
+        )}, and you are down to ${formatCents(data.balanceCents)}.`,
       );
       setConfirming(false);
-      await refresh();
+      await reload();
     } catch {
       setError("Network error — nothing changed.");
     } finally {
       setWorking(false);
     }
-  }, [refresh]);
+  }, [reload]);
 
   if (loading && !progression) {
     return <p className="text-sm text-slate-500">Loading your career…</p>;
@@ -68,8 +125,50 @@ export default function LifePanel() {
   const nextLimit = atCeiling ? null : maxBetCents(p.level + 1, p.rebirths);
   const nextRebirthMultiplier = rebirthMultiplier(Math.min(p.rebirths + 1, MAX_REBIRTHS));
 
+  const career = feed?.career ?? null;
+
   return (
     <div className="space-y-4">
+      {/* the clock — the thing a career actually runs on */}
+      {career && (
+        <CareerClock
+          career={career}
+          stageTitle={p.stage.title}
+          balanceCents={feed!.balanceCents}
+        />
+      )}
+
+      {/* the end of a career, and the way out of it */}
+      {career?.over && (
+        <div className="panel border-loss/30 bg-loss/5 p-6">
+          <h3 className="font-display text-xl font-black tracking-tight text-white">
+            {career.deathCause === "RUIN"
+              ? `Ruined at ${career.age}.`
+              : `The clock ran out at ${career.age}.`}
+          </h3>
+          <p className="mt-2 text-[13px] leading-relaxed text-slate-300">
+            Every table in the app is closed to you until someone new sits down. Starting again
+            resets the balance to {formatCents(STARTING_BALANCE_CENTS)}, the level to{" "}
+            {startingLevel(career.livesLived + 1)}, and the rebirth count to zero — a retirement with
+            a large bankroll gives that bankroll up, which is the price of playing on rather than
+            stopping while ahead.
+          </p>
+          <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
+            What survives is the legacy: ×{legacyXpMultiplier(career.livesLived + 1).toFixed(2)} XP on
+            everything the next career stakes.
+          </p>
+          <button
+            type="button"
+            onClick={startNewLife}
+            disabled={working}
+            className="btn-primary mt-4 w-full py-2.5"
+          >
+            {working ? "Starting over…" : `Begin life ${career.livesLived + 2}`}
+          </button>
+          {error && <p className="mt-2 text-[12px] font-semibold text-loss">{error}</p>}
+        </div>
+      )}
+
       {/* headline */}
       <div className="panel overflow-hidden">
         <div className="border-b border-white/5 bg-gradient-to-r from-volt/10 via-transparent to-transparent p-6">
@@ -134,6 +233,13 @@ export default function LifePanel() {
           tone="text-volt"
         />
       </div>
+
+      {feed && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <VenueMap venues={feed.venues} frozen={feed.career.over} onTravelled={reload} />
+          <HallOfLives lives={feed.lives} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* career track */}
@@ -232,13 +338,17 @@ export default function LifePanel() {
               XP so the climb back is faster.
             </p>
             <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
-              Your balance is never touched, win or lose — only the level and rebirth count reset.
-              Rebirth pays no currency of its own; the daily bonus is still the only balance top-up.
+              It costs you the bankroll. Everything above the{" "}
+              {formatCents(STARTING_BALANCE_CENTS)} sign-up stake is surrendered and does not come
+              back — you restart the ladder at level 1 on beginner money with a far higher ceiling.
+              Rebirth pays no currency of its own, and if you are already below the stake nothing is
+              handed to you; the daily bonus is still the only balance top-up.
             </p>
 
             <dl className="mt-3 space-y-1.5 border-t border-white/5 pt-3">
               {[
                 ["Level after rebirth", "1"],
+                ["Bankroll after rebirth", formatCents(STARTING_BALANCE_CENTS)],
                 ["Table limit at level 1", formatCents(maxBetCents(1, p.rebirths + 1))],
                 ["Table limit at level 50", formatCents(maxBetCents(MAX_LEVEL, p.rebirths + 1))],
               ].map(([k, v]) => (
@@ -281,7 +391,7 @@ export default function LifePanel() {
                   onClick={() => setConfirming(true)}
                   className="btn-primary w-full py-2.5"
                 >
-                  Rebirth — reset to level 1 for ×{nextRebirthMultiplier} limits
+                  Rebirth — give up the bankroll for ×{nextRebirthMultiplier} limits
                 </button>
               )}
 

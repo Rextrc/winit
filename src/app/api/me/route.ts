@@ -15,5 +15,6 @@ export async function GET() {
     balanceCents: user.balanceCents,
     bonus: bonusStatus(user.lastBonusAt, user.bonusStreak, undefined, user.rebirths),
     progression: user.progression,
+    career: user.career,
   });
 }

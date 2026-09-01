@@ -101,11 +101,16 @@ export function xpMultiplier(rebirths: number): number {
 
 /**
  * XP awarded for staking `betCents`. One XP per 1.00 staked, before the
- * rebirth multiplier. Always at least 1 so a minimum bet still counts.
+ * rebirth and legacy multipliers. Always at least 1 so a minimum bet counts.
+ *
+ * `livesLived` is the number of careers already finished on the account: each
+ * one makes the ladder a quarter faster to climb, which is the only thing an
+ * heir inherits. It carries no currency — see src/lib/life/career.ts.
  */
-export function xpForWager(betCents: number, rebirths: number): number {
+export function xpForWager(betCents: number, rebirths: number, livesLived = 0): number {
   const base = Math.floor(betCents / 100);
-  return Math.max(1, Math.floor(base * xpMultiplier(rebirths)));
+  const legacy = 1 + 0.25 * livesLived;
+  return Math.max(1, Math.floor(base * xpMultiplier(rebirths) * legacy));
 }
 
 /** Permanent multiplier on table limits from rebirths alone. */

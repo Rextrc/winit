@@ -99,7 +99,10 @@ export default function HistoryTable({ rows }: { rows: TxRow[] }) {
                   </td>
                   <td className="px-4 py-2.5 text-slate-400">{t.summary}</td>
                   <td className="num px-4 py-2.5 text-right text-slate-300">
-                    {t.kind === "BET" ? formatCents(t.betCents) : "—"}
+                    {/* Not only bets take money now: a rebirth, a new life and
+                        a travel fare all debit, and hiding that would make the
+                        running balance look like it moved on its own. */}
+                    {t.betCents > 0 ? formatCents(t.betCents) : "—"}
                   </td>
                   <td className="num px-4 py-2.5 text-right text-slate-300">{formatCents(t.payoutCents)}</td>
                   <td className={`px-4 py-2.5 text-right ${win ? "num-win" : push ? "num text-slate-400" : "num-loss"}`}>

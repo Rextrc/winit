@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { handleError, jsonError, requireUser } from "@/lib/api";
+import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { MIN_BET_CENTS, formatCents } from "@/lib/money";
 import { spin, validCornerAnchor, validStreetAnchor, type RouletteBet } from "@/lib/games/roulette";
 import { settleOneShotBet } from "@/lib/ledger";
@@ -62,6 +62,10 @@ export async function POST(req: Request) {
   if (totalStake > user.balanceCents) {
     return jsonError("Not enough balance for those chips.", 409);
   }
+  // The room's floor applies to the whole spin, not to each chip: a scatter of
+  // small chips across the layout is one bet as far as the table is concerned.
+  const gate = assertBettable(user, totalStake);
+  if (gate) return gate;
 
   try {
     const result = spin(bets);

@@ -263,7 +263,12 @@ and rebirth at 50.
 have, plus +50% XP so the climb back is faster. Anything unlocked in a past life stays unlocked. Up
 to 10 rebirths, which puts the ceiling at 15,700.00 × 3¹⁰ = 927,069,300.00 a bet.
 
-Your balance is never touched by a rebirth, win or lose — only the level and rebirth count reset.
+**Rebirth costs you the bankroll.** Everything above the 100,000.00 sign-up stake is surrendered and
+does not come back: you restart the ladder at level 1 on beginner money with a far higher ceiling.
+The wipe is `min(balance, starting stake)`, so it is a pure sink and can never hand anybody a cent —
+an account that reaches level 50 already below the stake keeps exactly what it had rather than being
+topped up to it. The surrendered amount is logged as the `betCents` of the `REBIRTH` row, because
+the running balance has to explain itself.
 
 **Neither leveling nor rebirth pays any currency.** They didn't always: an earlier version granted
 chips on level-up and topped a rebirthing account's balance up to a floor. Both were a real exploit —
@@ -274,6 +279,47 @@ rewards at the old rate. The rebirth floor was worse — deliberately losing eve
 the 10 allowed rebirths could extract up to $88.5M in free chips, bounded only by the rebirth cap.
 Both credit paths are gone; the daily bonus is the only balance top-up in the app.
 
+## The career: venues, the clock, and dying
+
+Above the ladder sits a career. An account is not one gambler but a succession of them: you start at
+18 with a stake, you play, you age, and one day you either run out of money or run out of years.
+
+**The clock.** Every settled bet costs 15 days, win or lose, at every table in the app. A life runs
+from 18 to 80 — 22,630 days — so a career is a budget of exactly 1,508 bets no matter how you spend
+them. Nothing buys more of them.
+
+**The circuit.** Seven rooms, from a folding table off Route 9 to somewhere with no name on the
+door. A room changes three things and only three: the smallest stake its floor will take, the level
+and bankroll its door wants to see, and the fare to get there. **It does not change the odds** —
+every room deals the identical engine at the identical published RTP. A room that paid better would
+either be free money or a trap, and either way it would make every RTP figure above meaningless.
+
+Floors and fares are fractions of the player's *own* table limit rather than fixed sums, since the
+limit already scales with level and multiplies with every rebirth. As a fraction, "the high rooms
+want a fifth of your limit on the table" holds for a broke level 3 and a level 50 on their tenth
+rebirth alike — and can never exceed the limit itself, which a fixed number silently could. The RTP
+harness asserts exactly that, plus that the floors rise monotonically along the circuit.
+
+**Ruin.** Falling below the global minimum stake means no room will deal to you. That is survivable
+three times a life: each comeback hands back the sign-up stake and costs three years of the clock.
+Out of comebacks and out of money, the career ends.
+
+**Old age.** Reaching 22,630 days ends it too, whatever you are holding.
+
+Either way the career freezes — every bet and every trip is refused — and a `Life` row is written:
+cause, age, level, rebirths, peak balance, lifetime staked, bets placed, and an epitaph. These are
+gravestones and are never updated.
+
+**Starting again** resets balance, level, XP, rebirths, venue and comebacks. A retirement with a
+large bankroll gives that bankroll up, which is the price of playing on rather than stopping while
+ahead. What an heir inherits is a legacy: +25% XP per finished career and a slightly higher starting
+level, capped at 10 — both worth exactly zero currency. The reset balance is the same fake sign-up
+stake every account already gets, and reaching it costs an entire career first, making it a strictly
+worse way to obtain fake credits than claiming the daily bonus. Like rebirth, the movement is logged
+on the `NEWLIFE` row (surrendered as `betCents`, restored as `payoutCents`) so the ledger chain
+stays exact — an earlier draft wrote it as a zero-value row and broke reconciliation, which the
+reconciliation test caught.
+
 ## Architecture notes
 
 ```
@@ -281,6 +327,8 @@ src/lib/rng.ts            crypto CSPRNG helpers (rejection-sampled, no modulo bi
 src/lib/money.ts          integer-cent money, bet validation
 src/lib/bigmoney.ts       the BigInt <-> number boundary, and the only place it happens
 src/lib/progression.ts    XP curve, life stages, table limits, unlocks, rebirth rules
+src/lib/life/career.ts    the clock, ruin, death causes, legacy — pure, no I/O
+src/lib/life/venues.ts    the circuit: floors, doors and fares (never odds)
 src/lib/ledger.ts         the only place balance moves; atomic, conditional SQL updates
 src/lib/bonus.ts          daily bonus cooldown + streak maths
 src/lib/games/candy.ts    Candy Cascade's paytable, cluster evaluator and pay maths — pure

@@ -4,16 +4,21 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useSession } from "next-auth/react";
 import type { BonusStatus } from "@/lib/bonus";
 import type { Progression } from "@/lib/progression";
+import type { CareerState } from "@/lib/life/career";
 import type { ProgressUpdate } from "@/lib/ledger";
 
 type LastDelta = { id: number; netCents: number } | null;
 
 export type LevelUpToast = { id: number; update: ProgressUpdate } | null;
 
+/** Raised the moment a settled bet ends the career. */
+export type DeathToast = { id: number; cause: "RUIN" | "OLD_AGE"; ageAtEnd: number; epitaph: string } | null;
+
 type Wallet = {
   balanceCents: number | null;
   bonus: BonusStatus | null;
   progression: Progression | null;
+  career: CareerState | null;
   loading: boolean;
   lastDelta: LastDelta;
   /** Applies a balance returned by a game endpoint, with an optional flash. */
@@ -22,6 +27,8 @@ type Wallet = {
   applyProgress: (update: ProgressUpdate) => void;
   levelUp: LevelUpToast;
   dismissLevelUp: () => void;
+  death: DeathToast;
+  dismissDeath: () => void;
   refresh: () => Promise<void>;
   claimBonus: () => Promise<{ ok: boolean; error?: string; amountCents?: number }>;
   claiming: boolean;
@@ -34,8 +41,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [bonus, setBonus] = useState<BonusStatus | null>(null);
   const [progression, setProgression] = useState<Progression | null>(null);
+  const [career, setCareer] = useState<CareerState | null>(null);
   const [levelUp, setLevelUp] = useState<LevelUpToast>(null);
   const levelUpId = useRef(0);
+  const [death, setDeath] = useState<DeathToast>(null);
+  const deathId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [lastDelta, setLastDelta] = useState<LastDelta>(null);
@@ -48,12 +58,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setBalanceCents(null);
         setBonus(null);
         setProgression(null);
+        setCareer(null);
         return;
       }
       const data = await res.json();
       setBalanceCents(data.balanceCents);
       setBonus(data.bonus);
       setProgression(data.progression ?? null);
+      setCareer(data.career ?? null);
     } catch {
       /* offline — keep the last known balance rather than blanking the header */
     } finally {
@@ -70,6 +82,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBalanceCents(null);
       setBonus(null);
       setProgression(null);
+      setCareer(null);
       setLoading(false);
       return;
     }
@@ -99,13 +112,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const applyProgress = useCallback((update: ProgressUpdate) => {
     setProgression(update.progression);
+    setCareer(update.career);
     if (update.levelUps.length > 0) {
       levelUpId.current += 1;
       setLevelUp({ id: levelUpId.current, update });
     }
+    // A comeback quietly changed the balance behind the game's own result, so
+    // take the career layer's figure as the authoritative one.
+    for (const ev of update.careerEvents) {
+      if (ev.kind === "COMEBACK") setBalanceCents(ev.balanceCents);
+      if (ev.kind === "DEATH") {
+        deathId.current += 1;
+        setDeath({ id: deathId.current, cause: ev.cause, ageAtEnd: ev.ageAtEnd, epitaph: ev.epitaph });
+      }
+    }
   }, []);
 
   const dismissLevelUp = useCallback(() => setLevelUp(null), []);
+  const dismissDeath = useCallback(() => setDeath(null), []);
 
   const claimBonus = useCallback(async () => {
     setClaiming(true);
@@ -130,12 +154,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       balanceCents,
       bonus,
       progression,
+      career,
       loading,
       lastDelta,
       applyResult,
       applyProgress,
       levelUp,
       dismissLevelUp,
+      death,
+      dismissDeath,
       refresh,
       claimBonus,
       claiming,
@@ -144,12 +171,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       balanceCents,
       bonus,
       progression,
+      career,
       loading,
       lastDelta,
       applyResult,
       applyProgress,
       levelUp,
       dismissLevelUp,
+      death,
+      dismissDeath,
       refresh,
       claimBonus,
       claiming,

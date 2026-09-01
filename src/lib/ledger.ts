@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { fromDb, toDb } from "@/lib/bigmoney";
-import { formatCents } from "@/lib/money";
+import { MIN_BET_CENTS, formatCents } from "@/lib/money";
+import * as Career from "@/lib/life/career";
+import type { CareerState, DeathCause } from "@/lib/life/career";
 import {
   applyXp,
   describeProgression,
@@ -23,7 +25,16 @@ import {
  * plain `number` cents. `fromDb` / `toDb` are the only conversion points.
  */
 
-export type LedgerKind = "BET" | "BONUS" | "SIGNUP" | "LEVELUP" | "REBIRTH";
+export type LedgerKind =
+  | "BET"
+  | "BONUS"
+  | "SIGNUP"
+  | "LEVELUP"
+  | "REBIRTH"
+  | "COMEBACK"
+  | "DEATH"
+  | "TRAVEL"
+  | "NEWLIFE";
 export type LedgerOutcome = "WIN" | "LOSS" | "PUSH" | "CREDIT";
 
 export class InsufficientBalanceError extends Error {
@@ -106,7 +117,14 @@ export type ProgressUpdate = {
   xpGained: number;
   levelUps: LevelUpEvent[];
   progression: Progression;
+  career: CareerState;
+  careerEvents: CareerEvent[];
 };
+
+/** Something the career layer did to you as a result of the bet just settled. */
+export type CareerEvent =
+  | { kind: "COMEBACK"; comebacksLeft: number; stakeCents: number; balanceCents: number }
+  | { kind: "DEATH"; cause: DeathCause; ageAtEnd: number; epitaph: string };
 
 /**
  * Awards career XP for a settled wager and rolls the player up through any
@@ -138,13 +156,31 @@ export async function awardProgress(
       lifetimeWonCents: true,
       biggestWinCents: true,
       bestMultiplierX100: true,
+      livesLived: true,
+      careerDays: true,
+      careerStartedAt: true,
+      betsThisLife: true,
+      comebacksUsed: true,
+      peakBalanceCents: true,
+      venueId: true,
+      deathCause: true,
     },
   });
 
-  const xpGained = xpForWager(wagerCents, before.rebirths);
+  const xpGained = xpForWager(wagerCents, before.rebirths, before.livesLived);
   const rolled = applyXp({ level: before.level, xp: before.xp, rebirths: before.rebirths }, xpGained);
 
   const multiplierX100 = wagerCents > 0 ? Math.round((payoutCents / wagerCents) * 100) : 0;
+
+  // This runs after the stake and the return have both been applied, so the
+  // row we just read already carries the final post-settlement balance.
+  let balanceCents = fromDb(before.balanceCents);
+  const peakBalanceCents = Math.max(fromDb(before.peakBalanceCents), balanceCents);
+
+  // Every settled bet spends the same fixed slice of the life.
+  let careerDays = before.careerDays + Career.DAYS_PER_BET;
+  let comebacksUsed = before.comebacksUsed;
+  const careerEvents: CareerEvent[] = [];
 
   await tx.user.update({
     where: { id: userId },
@@ -155,10 +191,10 @@ export async function awardProgress(
       lifetimeWonCents: { increment: toDb(payoutCents) },
       biggestWinCents: toDb(Math.max(fromDb(before.biggestWinCents), payoutCents)),
       bestMultiplierX100: Math.max(before.bestMultiplierX100, multiplierX100),
+      betsThisLife: { increment: 1 },
+      peakBalanceCents: toDb(peakBalanceCents),
     },
   });
-
-  const balanceCents = fromDb(before.balanceCents);
 
   for (const up of rolled.levelUps) {
     // Zero-value row: recorded for the history feed, not a balance change.
@@ -175,6 +211,102 @@ export async function awardProgress(
     });
   }
 
+  // --- Ruin -----------------------------------------------------------------
+  // Broke means broke everywhere: below the global minimum stake, there is no
+  // room on the circuit that will deal to you, not even the back room.
+  const broke = balanceCents < MIN_BET_CENTS;
+  let deathCause: DeathCause | null = null;
+
+  if (broke && comebacksUsed < Career.COMEBACKS_PER_LIFE) {
+    comebacksUsed += 1;
+    // Finding the money took three years you are not getting back.
+    careerDays += Career.COMEBACK_DAYS;
+    balanceCents = await credit(tx, userId, Career.COMEBACK_STAKE_CENTS);
+    await writeTransaction(tx, {
+      userId,
+      game: "life",
+      kind: "COMEBACK",
+      betCents: 0,
+      payoutCents: Career.COMEBACK_STAKE_CENTS,
+      outcome: "CREDIT",
+      summary:
+        `Wiped out. Scraped together ${formatCents(Career.COMEBACK_STAKE_CENTS)} and lost three years ` +
+        `doing it — ${Career.COMEBACKS_PER_LIFE - comebacksUsed} comeback(s) left.`,
+      balanceAfterCents: balanceCents,
+      detail: { comebacksUsed, daysLost: Career.COMEBACK_DAYS },
+    });
+    careerEvents.push({
+      kind: "COMEBACK",
+      comebacksLeft: Career.COMEBACKS_PER_LIFE - comebacksUsed,
+      stakeCents: Career.COMEBACK_STAKE_CENTS,
+      balanceCents,
+    });
+  } else if (broke) {
+    deathCause = "RUIN";
+  }
+
+  // --- Old age --------------------------------------------------------------
+  // Checked after the comeback, because the three years it costs can be the
+  // three years that finish you.
+  if (!deathCause && Career.isOverTheHill(careerDays)) deathCause = "OLD_AGE";
+
+  const diedAt = deathCause ? new Date() : null;
+
+  await tx.user.update({
+    where: { id: userId },
+    data: { careerDays, comebacksUsed, deathCause, diedAt },
+  });
+
+  if (deathCause) {
+    const summary: Career.LifeSummary = {
+      cause: deathCause,
+      ageAtEnd: Career.ageFromDays(careerDays),
+      level: rolled.level,
+      rebirths: before.rebirths,
+      peakBalanceCents,
+      lifetimeWageredCents: fromDb(before.lifetimeWageredCents) + wagerCents,
+      biggestWinCents: Math.max(fromDb(before.biggestWinCents), payoutCents),
+      venueId: before.venueId,
+    };
+    const epitaph = Career.epitaphFor(summary);
+
+    // The gravestone. Written once, never updated.
+    await tx.life.create({
+      data: {
+        userId,
+        ordinal: before.livesLived + 1,
+        cause: deathCause,
+        ageAtEnd: summary.ageAtEnd,
+        level: summary.level,
+        rebirths: summary.rebirths,
+        venueId: summary.venueId,
+        epitaph,
+        peakBalanceCents: toDb(summary.peakBalanceCents),
+        lifetimeWageredCents: toDb(summary.lifetimeWageredCents),
+        biggestWinCents: toDb(summary.biggestWinCents),
+        betsPlaced: before.betsThisLife + 1,
+        startedAt: before.careerStartedAt,
+      },
+    });
+
+    await writeTransaction(tx, {
+      userId,
+      game: "life",
+      kind: "DEATH",
+      betCents: 0,
+      payoutCents: 0,
+      outcome: "CREDIT",
+      summary:
+        deathCause === "RUIN"
+          ? `Ruined at ${summary.ageAtEnd}. ${epitaph}`
+          : `Reached ${summary.ageAtEnd} and the clock ran out. ${epitaph}`,
+      balanceAfterCents: balanceCents,
+      detail: { ...summary, epitaph },
+    });
+
+    careerEvents.push({ kind: "DEATH", cause: deathCause, ageAtEnd: summary.ageAtEnd, epitaph });
+  }
+
   const after = await tx.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
@@ -188,18 +320,34 @@ export async function awardProgress(
     },
   });
 
+  const progression = describeProgression({
+    level: after.level,
+    xp: after.xp,
+    rebirths: after.rebirths,
+    lifetimeWageredCents: fromDb(after.lifetimeWageredCents),
+    lifetimeWonCents: fromDb(after.lifetimeWonCents),
+    biggestWinCents: fromDb(after.biggestWinCents),
+    bestMultiplierX100: after.bestMultiplierX100,
+  });
+
   return {
     xpGained,
     levelUps: rolled.levelUps,
-    progression: describeProgression({
-      level: after.level,
-      xp: after.xp,
-      rebirths: after.rebirths,
-      lifetimeWageredCents: fromDb(after.lifetimeWageredCents),
-      lifetimeWonCents: fromDb(after.lifetimeWonCents),
-      biggestWinCents: fromDb(after.biggestWinCents),
-      bestMultiplierX100: after.bestMultiplierX100,
-    }),
+    progression,
+    career: Career.describeCareer(
+      {
+        livesLived: before.livesLived,
+        careerDays,
+        comebacksUsed,
+        betsThisLife: before.betsThisLife + 1,
+        peakBalanceCents,
+        venueId: before.venueId,
+        deathCause,
+      },
+      progression.maxBetCents,
+      MIN_BET_CENTS,
+    ),
+    careerEvents,
   };
 }
 

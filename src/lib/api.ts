@@ -4,6 +4,8 @@ import { currentUserId } from "@/lib/auth";
 import { InsufficientBalanceError } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import { describeProgression, type Progression } from "@/lib/progression";
+import { describeCareer, type CareerState } from "@/lib/life/career";
+import { MIN_BET_CENTS, formatCents } from "@/lib/money";
 
 export function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -25,6 +27,7 @@ export type CurrentUser = {
   xp: number;
   rebirths: number;
   progression: Progression;
+  career: CareerState;
 };
 
 /** Loads the caller, or returns a 401 response to bail out with. */
@@ -47,6 +50,20 @@ export async function requireUser(): Promise<
     bestMultiplierX100: row.bestMultiplierX100,
   });
 
+  const career = describeCareer(
+    {
+      livesLived: row.livesLived,
+      careerDays: row.careerDays,
+      comebacksUsed: row.comebacksUsed,
+      betsThisLife: row.betsThisLife,
+      peakBalanceCents: fromDb(row.peakBalanceCents),
+      venueId: row.venueId,
+      deathCause: row.deathCause,
+    },
+    progression.maxBetCents,
+    MIN_BET_CENTS,
+  );
+
   return {
     user: {
       id: row.id,
@@ -59,9 +76,38 @@ export async function requireUser(): Promise<
       xp: row.xp,
       rebirths: row.rebirths,
       progression,
+      career,
     },
     response: null,
   };
+}
+
+/**
+ * The two things the career layer can refuse a bet for, checked in one place
+ * so every game route enforces them identically. Returns a response to bail
+ * out with, or null to carry on.
+ *
+ * Note this is about eligibility to sit down, not about odds: a room that
+ * won't take your stake still deals exactly the same game at exactly the same
+ * published RTP as every other room.
+ */
+export function assertBettable(user: CurrentUser, stakeCents: number): NextResponse | null {
+  if (user.career.over) {
+    return jsonError(
+      user.career.deathCause === "RUIN"
+        ? "That career ended in ruin. Start a new life to play again."
+        : "That career reached the end of the clock. Start a new life to play again.",
+      409,
+    );
+  }
+  if (stakeCents < user.career.tableMinCents) {
+    return jsonError(
+      `${user.career.venueName} won't take less than ${formatCents(user.career.tableMinCents)} a bet. ` +
+        `Travel somewhere cheaper, or raise your stake.`,
+      409,
+    );
+  }
+  return null;
 }
 
 /** Maps thrown errors onto sensible API responses. */

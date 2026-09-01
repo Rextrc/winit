@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handleError, jsonError, requireUser } from "@/lib/api";
-import { fromDb } from "@/lib/bigmoney";
+import { fromDb, toDb } from "@/lib/bigmoney";
 import { writeTransaction } from "@/lib/ledger";
-import { formatCents } from "@/lib/money";
+import { STARTING_BALANCE_CENTS, formatCents } from "@/lib/money";
 import { MAX_LEVEL, MAX_REBIRTHS, describeProgression, maxBetCents, rebirthMultiplier } from "@/lib/progression";
 
 export const runtime = "nodejs";
@@ -11,13 +11,18 @@ export const runtime = "nodejs";
 /**
  * REBIRTH — the prestige step.
  *
- * You trade a maxed-out level for a permanent ×3 on every future table limit.
- * Your balance is never touched, win or lose — only the level and rebirth
- * count change. It deliberately pays no currency of its own: with XP earned
- * on volume alone, any cash grant tied to reaching level 50 would be free
- * money bought by wagering enough rather than won, and repeating this up to
- * MAX_REBIRTHS times would make it worse each time as the rebirth multiplier
- * compounds. The daily bonus remains the only balance top-up in the app.
+ * You trade a maxed-out level AND your bankroll for a permanent ×3 on every
+ * future table limit. Everything you are holding above the sign-up stake is
+ * gone; you start the ladder again at level 1 with beginner money and a much
+ * higher ceiling, which is the whole tension of the thing.
+ *
+ * The wipe is `min(balance, starting stake)`, so it is a pure sink and can
+ * never hand anybody a cent: a player who arrives at level 50 already below
+ * the sign-up stake keeps exactly what they had rather than being topped up
+ * to it. That matters, because XP is earned on volume alone — any cash grant
+ * tied to reaching level 50 would be free money bought by wagering enough
+ * rather than won, and it would compound with every rebirth taken. The daily
+ * bonus remains the only balance top-up in the app.
  */
 export async function POST() {
   const { user, response } = await requireUser();
@@ -34,13 +39,16 @@ export async function POST() {
       if (before.rebirths >= MAX_REBIRTHS) return { error: "You have taken every rebirth there is." as const };
 
       const rebirths = before.rebirths + 1;
-      const balanceCents = fromDb(before.balanceCents);
+      const wasCents = fromDb(before.balanceCents);
+      // The wipe: back down to the sign-up stake, never up to it.
+      const balanceCents = Math.min(wasCents, STARTING_BALANCE_CENTS);
+      const surrenderedCents = wasCents - balanceCents;
 
       // Conditional update doubles as the lock: a second concurrent rebirth
       // matches zero rows because the level has already been reset.
       const done = await tx.user.updateMany({
         where: { id: user.id, level: { gte: MAX_LEVEL }, rebirths: before.rebirths },
-        data: { level: 1, xp: 0, rebirths },
+        data: { level: 1, xp: 0, rebirths, balanceCents: toDb(balanceCents) },
       });
       if (done.count === 0) return { error: "That rebirth was already taken." as const };
 
@@ -48,14 +56,16 @@ export async function POST() {
         userId: user.id,
         game: "life",
         kind: "REBIRTH",
-        betCents: 0,
+        // Logged as a stake with no return, because that is what it is: the
+        // bankroll leaves the account and nothing comes back but a multiplier.
+        betCents: surrenderedCents,
         payoutCents: 0,
-        outcome: "CREDIT",
-        summary: `Rebirth ${rebirths} — table limit ×${rebirthMultiplier(rebirths)}, now ${formatCents(
-          maxBetCents(1, rebirths),
-        )}.`,
+        outcome: surrenderedCents > 0 ? "LOSS" : "CREDIT",
+        summary:
+          `Rebirth ${rebirths} — surrendered ${formatCents(surrenderedCents)}, ` +
+          `table limit ×${rebirthMultiplier(rebirths)}, now ${formatCents(maxBetCents(1, rebirths))}.`,
         balanceAfterCents: balanceCents,
-        detail: { rebirths },
+        detail: { rebirths, surrenderedCents },
       });
 
       const after = await tx.user.findUniqueOrThrow({

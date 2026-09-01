@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { handleError, jsonError, requireUser } from "@/lib/api";
+import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
 import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
@@ -30,6 +30,8 @@ export async function POST(req: Request) {
   const bet = parsed.data.bet as BetType;
   const stake = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
   if (!stake.ok) return jsonError(stake.error, 409);
+  const gate = assertBettable(user, stake.cents);
+  if (gate) return gate;
 
   try {
     const hand = playHand();

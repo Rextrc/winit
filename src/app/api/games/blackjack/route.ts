@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { handleError, jsonError, requireUser } from "@/lib/api";
+import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet } from "@/lib/money";
 import { awardProgress, credit, debit, writeTransaction, type ProgressUpdate } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
@@ -104,6 +104,8 @@ export async function POST(req: Request) {
     if (parsed.data.action === "deal") {
       const bet = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
       if (!bet.ok) return jsonError(bet.error, 409);
+      const gate = assertBettable(user, bet.cents);
+      if (gate) return gate;
 
       const existing = await prisma.round.findFirst({
         where: { userId: user.id, game: "blackjack", status: "ACTIVE" },
