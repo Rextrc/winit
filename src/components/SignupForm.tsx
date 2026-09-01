@@ -1,11 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+
+/** Only ever follow a same-app path — never an absolute or external URL. */
+function safeCallback(raw: string | null): string {
+  if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+  return "/";
+}
 
 export default function SignupForm() {
   const router = useRouter();
+  const callbackUrl = safeCallback(useSearchParams().get("callbackUrl"));
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,10 +40,10 @@ export default function SignupForm() {
 
       const signInRes = await signIn("credentials", { username, password, redirect: false });
       if (signInRes?.error) {
-        router.push("/login");
+        router.push(`/login${callbackUrl !== "/" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
         return;
       }
-      router.push("/");
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       setError("Network error — try again.");

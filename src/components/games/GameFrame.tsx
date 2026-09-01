@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import type { GameDef } from "@/lib/games/registry";
 import BetFeed from "@/components/BetFeed";
 import BalanceDisplay from "@/components/BalanceDisplay";
-import { IconInfo } from "@/components/Icons";
+import { IconInfo, IconLock } from "@/components/Icons";
 
 /**
  * Shared game page frame: canvas centred, control panel docked to the side on
@@ -26,6 +28,11 @@ export default function GameFrame({
   panel: React.ReactNode;
   rules: React.ReactNode;
 }) {
+  const { status } = useSession();
+  const pathname = usePathname();
+  const signedOut = status === "unauthenticated";
+  const callbackUrl = pathname ? `?callbackUrl=${encodeURIComponent(pathname)}` : "";
+
   return (
     <>
       <nav className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
@@ -49,8 +56,9 @@ export default function GameFrame({
           <span className="num rounded-lg border border-volt/25 bg-volt/10 px-2.5 py-1 text-xs font-bold text-volt">
             RTP {game.rtp === null ? "—" : `${(game.rtp * 100).toFixed(2)}%`}
           </span>
-          {/* Balance is repeated here so it is on screen even when the header scrolls. */}
-          <BalanceDisplay size="sm" />
+          {/* Balance is repeated here so it is on screen even when the header
+              scrolls — but there is none to show until you have an account. */}
+          {!signedOut && <BalanceDisplay size="sm" />}
         </div>
       </div>
 
@@ -70,7 +78,34 @@ export default function GameFrame({
         </div>
 
         <div className="order-2 space-y-4">
-          <div className="panel p-4 xl:sticky xl:top-20">{panel}</div>
+          <div className="panel relative p-4 xl:sticky xl:top-20">
+            {/* Browsing never needs an account; placing a bet does. Rather than
+                let every game's own controls hit the API and 401, the whole
+                betting panel is visibly inert underneath a sign-in prompt —
+                one gate for every game instead of one per game. */}
+            {signedOut && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-2xl bg-base-800/90 p-6 text-center backdrop-blur-sm">
+                <div className="grid h-11 w-11 place-items-center rounded-full bg-white/5 text-slate-400">
+                  <IconLock className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[14px] font-black text-white">Sign in to place a bet</p>
+                  <p className="mt-1 max-w-[220px] text-[12px] leading-snug text-slate-400">
+                    Everything else on this page is free to look at — no account needed to browse.
+                  </p>
+                </div>
+                <div className="flex w-full max-w-[220px] flex-col gap-2">
+                  <Link href={`/signup${callbackUrl}`} className="btn-primary w-full py-2 text-sm">
+                    Sign up — it&apos;s free
+                  </Link>
+                  <Link href={`/login${callbackUrl}`} className="btn-ghost w-full py-2 text-sm">
+                    Log in
+                  </Link>
+                </div>
+              </div>
+            )}
+            <div className={signedOut ? "pointer-events-none select-none opacity-30" : ""}>{panel}</div>
+          </div>
           <BetFeed game={engineKey} version={feedVersion} take={14} title="Bet history" />
         </div>
       </div>

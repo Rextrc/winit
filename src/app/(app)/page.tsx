@@ -8,7 +8,6 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
-  const popular = [...GAMES].sort((a, b) => b.popularity - a.popularity);
   const fresh = GAMES.filter((g) => g.new);
 
   return (
@@ -16,8 +15,14 @@ export default function HomePage() {
       <HeroCarousel />
       <CategoryTabs />
 
-      <GameRow title="Popular" subtitle="What people are playing right now" games={popular} />
-      <GameRow title="New" subtitle="Just added to the lobby" games={fresh} />
+      {/*
+       * With 13 games total, a "Popular" row sorted across the whole catalog
+       * was just every game again in a different order — the four category
+       * rows below already cover all of them once, grouped by what they are.
+       * "New" stays because it means something different: a short, curated
+       * list of what actually shipped recently, not everything.
+       */}
+      {fresh.length > 0 && <GameRow title="New" subtitle="Just added to the lobby" games={fresh} />}
       <GameRow title="Slots" games={gamesByCategory("slots")} href="/category/slots" />
       <GameRow title="Table Games" games={gamesByCategory("table")} href="/category/table" />
       <GameRow title="Originals" games={gamesByCategory("originals")} href="/category/originals" />

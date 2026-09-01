@@ -6,8 +6,15 @@ import { formatCents, STARTING_BALANCE_CENTS } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: { callbackUrl?: string };
+}) {
   if (await currentUserId()) redirect("/");
+
+  const callbackUrl = searchParams.callbackUrl;
+  const loginHref = callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login";
 
   return (
     <div className="panel p-6">
@@ -24,7 +31,7 @@ export default async function SignupPage() {
 
       <p className="mt-5 text-center text-sm text-slate-400">
         Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-volt hover:underline">
+        <Link href={loginHref} className="font-semibold text-volt hover:underline">
           Sign in
         </Link>
       </p>

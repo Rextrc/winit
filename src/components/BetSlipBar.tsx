@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBet } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
@@ -26,6 +28,9 @@ const AUTOPLAY_GAP_MS = 450;
 export default function BetSlipBar() {
   const { hook, effectiveBet, betError, flash } = useBet();
   const { balanceCents } = useWallet();
+  const { status } = useSession();
+  const pathname = usePathname();
+  const signedOut = status === "unauthenticated";
   const [open, setOpen] = useState(true);
   const [shownFlash, setShownFlash] = useState<typeof flash>(null);
   const [autoplayLeft, setAutoplayLeft] = useState<number | null>(null);
@@ -59,7 +64,7 @@ export default function BetSlipBar() {
   useEffect(() => {
     if (autoplayLeft === null) return;
     if (!hook || hook.busy) return;
-    if (autoplayLeft <= 0 || !hook.ready || !canAfford) {
+    if (autoplayLeft <= 0 || !hook.ready || !canAfford || signedOut) {
       setAutoplayLeft(null);
       return;
     }
@@ -68,7 +73,7 @@ export default function BetSlipBar() {
       setAutoplayLeft((n) => (n === null ? null : n - 1));
     }, AUTOPLAY_GAP_MS);
     return () => clearTimeout(t);
-  }, [autoplayLeft, hook, canAfford]);
+  }, [autoplayLeft, hook, canAfford, signedOut]);
 
   const startAutoplay = useCallback(
     (count: number) => {
@@ -96,13 +101,13 @@ export default function BetSlipBar() {
       if (e.code !== "Space" && e.key !== " ") return;
       const tag = (document.activeElement?.tagName ?? "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
-      if (!hook || hook.busy || !hook.ready || !canAfford) return;
+      if (!hook || hook.busy || !hook.ready || !canAfford || signedOut) return;
       e.preventDefault();
       hook.run();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [hook, canAfford]);
+  }, [hook, canAfford, signedOut]);
 
   return (
     <div className="sticky bottom-0 z-30 border-t border-white/10 bg-base-800/95 backdrop-blur-md">
@@ -164,7 +169,14 @@ export default function BetSlipBar() {
             <BetControls compact disabled={(hook?.busy ?? false) || autoplayRunning} />
           </div>
 
-          {hook ? (
+          {hook && signedOut ? (
+            <Link
+              href={`/login?callbackUrl=${encodeURIComponent(pathname ?? "/")}`}
+              className="btn-primary h-[42px] min-w-[150px] justify-center shadow-volt"
+            >
+              Sign in to {hook.actionLabel.toLowerCase()}
+            </Link>
+          ) : hook ? (
             <div className="flex items-stretch gap-1.5">
               <button
                 type="button"

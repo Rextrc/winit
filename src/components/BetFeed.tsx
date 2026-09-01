@@ -58,16 +58,25 @@ export default function BetFeed({
 }) {
   const [rows, setRows] = useState<TxRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [signedOut, setSignedOut] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const params = new URLSearchParams({ take: String(take) });
       if (game) params.set("game", game);
       const res = await fetch(`/api/transactions?${params}`, { cache: "no-store" });
+      // Anonymous browsing is expected here, not a failure — there is no
+      // history to show without an account, so say that instead of erroring.
+      if (res.status === 401) {
+        setSignedOut(true);
+        setError(null);
+        return;
+      }
       if (!res.ok) throw new Error("Couldn't load history.");
       const data = await res.json();
       setRows(data.transactions);
       setError(null);
+      setSignedOut(false);
     } catch {
       setError("Couldn't load history.");
     }
@@ -88,7 +97,11 @@ export default function BetFeed({
 
       {error && <p className="px-4 py-4 text-sm text-loss">{error}</p>}
 
-      {!error && rows === null && (
+      {!error && signedOut && (
+        <p className="px-4 py-6 text-center text-sm text-slate-500">Sign in to see your bet history.</p>
+      )}
+
+      {!error && !signedOut && rows === null && (
         <div className="space-y-2 p-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-10 animate-pulse rounded-lg bg-white/5" />

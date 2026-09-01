@@ -1,10 +1,16 @@
+import { redirect } from "next/navigation";
 import LifePanel from "@/components/LifePanel";
+import { currentUserId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Life — WinIt" };
 
-export default function LifePage() {
+export default async function LifePage() {
+  // The lobby and every game are open to anyone; a career only exists on an
+  // account, so this page gates itself here instead.
+  if (!(await currentUserId())) redirect("/login?callbackUrl=/life");
+
   return (
     <>
       <header className="mb-6">

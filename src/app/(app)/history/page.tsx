@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { currentUserId } from "@/lib/auth";
 import { formatCents, formatSignedCents } from "@/lib/money";
@@ -8,7 +9,9 @@ export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
   const userId = await currentUserId();
-  if (!userId) return null;
+  // The lobby and every game are open to anyone; this page has nothing to
+  // show without an account, so it gates itself here instead.
+  if (!userId) redirect("/login?callbackUrl=/history");
 
   const [rows, aggregate] = await Promise.all([
     prisma.transaction.findMany({

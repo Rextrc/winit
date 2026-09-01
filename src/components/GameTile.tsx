@@ -23,13 +23,13 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
         hover ? "-translate-y-1 ring-volt/60" : ""
       }`}
     >
-      {/* Original generated art: layered glyph + grid, no external assets. */}
+      {/* Original generated art: a soft glow behind the glyph, no external
+          assets. A hard pixel grid read as a wireframe/blueprint rather than
+          a game tile, so this is a gentle radial vignette instead. */}
       <div
-        className="absolute inset-0 opacity-[0.16]"
+        className="absolute inset-0 opacity-60"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "22px 22px",
+          backgroundImage: "radial-gradient(120% 90% at 50% 15%, rgba(255,255,255,0.10), transparent 60%)",
         }}
       />
 

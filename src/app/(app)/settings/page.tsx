@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import SignOutButton from "@/components/SignOutButton";
@@ -15,7 +16,9 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const user = await currentUser();
-  if (!user) return null;
+  // The lobby and every game are open to anyone; this page has nothing to
+  // show without an account, so it gates itself here instead.
+  if (!user) redirect("/login?callbackUrl=/settings");
 
   const betCount = await prisma.transaction.count({ where: { userId: user.id, kind: "BET" } });
 

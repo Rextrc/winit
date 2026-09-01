@@ -80,11 +80,17 @@ export function stageFor(level: number): Stage {
 /**
  * XP needed to advance FROM `level` to `level + 1`.
  * Quadratic, so early levels arrive quickly and the last ten are a real climb.
- * Cumulative cost of the full 1 -> 50 ladder is 1,316,875 XP.
+ * Cumulative cost of the full 1 -> 50 ladder is 3,950,625 XP.
+ *
+ * These constants are 3x an earlier curve that made the early levels trivial
+ * — a handful of table-limit bets was enough to blow through the first ten
+ * bands in one sitting, which read as the ladder not doing anything. At 1 XP
+ * per 1.00 staked, level 2 now costs 825 XP (an $8.25 bet at the table
+ * minimum, or a fraction of one bet at the table limit) rather than 275.
  */
 export function xpToNext(level: number): number {
   if (level >= MAX_LEVEL) return 0;
-  return 250 * level + 25 * level * level;
+  return 750 * level + 75 * level * level;
 }
 
 /** Total XP the whole ladder costs, from level 1 to MAX_LEVEL. */

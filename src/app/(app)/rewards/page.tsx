@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import ClaimBonusButton from "@/components/ClaimBonusButton";
 import BetFeed from "@/components/BetFeed";
 import { currentUser } from "@/lib/auth";
@@ -15,7 +16,10 @@ export const dynamic = "force-dynamic";
 
 export default async function RewardsPage() {
   const user = await currentUser();
-  const status = user ? bonusStatus(user.lastBonusAt, user.bonusStreak) : null;
+  // The lobby and every game are open to anyone; this page has nothing to
+  // show without an account, so it gates itself here instead.
+  if (!user) redirect("/login?callbackUrl=/rewards");
+  const status = bonusStatus(user.lastBonusAt, user.bonusStreak);
 
   return (
     <>

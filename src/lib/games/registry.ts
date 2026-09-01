@@ -43,7 +43,6 @@ export const GAMES: GameDef[] = [
     art: "from-fuchsia-500/60 via-base-700 to-base-900",
     glyph: "🍬",
     popularity: 99,
-    new: true,
   },
   {
     slug: "european-roulette",
@@ -85,7 +84,6 @@ export const GAMES: GameDef[] = [
     art: "from-sky-700/50 via-base-700 to-base-900",
     glyph: "🎲",
     popularity: 88,
-    new: true,
   },
   {
     slug: "limbo",
@@ -99,7 +97,6 @@ export const GAMES: GameDef[] = [
     art: "from-indigo-700/50 via-base-700 to-base-900",
     glyph: "📈",
     popularity: 84,
-    new: true,
   },
   {
     slug: "coinflip",
@@ -139,7 +136,6 @@ export const GAMES: GameDef[] = [
     art: "from-cyan-700/50 via-base-700 to-base-900",
     glyph: "⚬",
     popularity: 90,
-    new: true,
   },
   {
     slug: "keno",

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Wordmark } from "@/components/Wordmark";
 import {
@@ -50,6 +51,8 @@ export default function Sidebar({
   onCloseMobile: () => void;
 }) {
   const pathname = usePathname();
+  const { status } = useSession();
+  const signedOut = status === "unauthenticated";
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -133,7 +136,23 @@ export default function Sidebar({
       <nav className="flex-1 overflow-y-auto pb-4">
         <Section title="Browse" items={BROWSE} collapsed={collapsed} />
         <Section title="Games" items={CATEGORIES} collapsed={collapsed} />
-        <Section title="Account" items={ACCOUNT} collapsed={collapsed} />
+        {signedOut ? (
+          !collapsed && (
+            <div className="px-3">
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-[12px] font-bold text-slate-200">Playing anonymously</p>
+                <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                  Browse every game for free. Sign in to place a bet.
+                </p>
+                <Link href="/signup" className="btn-primary mt-2.5 block py-1.5 text-center text-xs">
+                  Sign up — it&apos;s free
+                </Link>
+              </div>
+            </div>
+          )
+        ) : (
+          <Section title="Account" items={ACCOUNT} collapsed={collapsed} />
+        )}
       </nav>
 
       <div className="border-t border-white/5 px-3 py-3">

@@ -11,6 +11,10 @@ body {
   height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   @apply bg-base-900 text-slate-200 antialiased;
   background-image:
@@ -20,32 +24,41 @@ body {
 }
 
 @layer components {
+  /* A soft ambient shadow + a hairline top highlight, so panels read as
+     gently raised surfaces instead of flat, hard-edged boxes. */
   .panel {
-    @apply rounded-2xl border border-white/5 bg-base-800/80 backdrop-blur;
+    @apply rounded-2xl border border-white/[0.06] bg-base-800/80 backdrop-blur;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      0 12px 32px -20px rgba(0, 0, 0, 0.7);
   }
 
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-           transition disabled:cursor-not-allowed disabled:opacity-40;
+           transition-all duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-40;
   }
 
+  /* A gentle gradient and lift rather than a flat fill — matches the soft
+     glow every other accent surface in the app already uses. */
   .btn-primary {
-    @apply btn bg-volt text-white hover:bg-volt-500 active:scale-[0.98];
+    @apply btn bg-gradient-to-b from-volt-300 to-volt text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(46,139,255,0.65)]
+           hover:-translate-y-px hover:shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_10px_24px_-8px_rgba(46,139,255,0.8)]
+           active:translate-y-0 active:scale-[0.98];
   }
 
   .btn-ghost {
-    @apply btn border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 active:scale-[0.98];
+    @apply btn border border-white/10 bg-white/5 text-slate-200 hover:-translate-y-px hover:border-white/20 hover:bg-white/10 active:translate-y-0 active:scale-[0.98];
   }
 
   .btn-chip {
     @apply rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold uppercase
-           tracking-wide text-slate-300 transition hover:border-volt/40 hover:text-volt
+           tracking-wide text-slate-300 transition-all duration-200 ease-out hover:border-volt/40 hover:text-volt
            disabled:cursor-not-allowed disabled:opacity-40;
   }
 
   .field {
     @apply w-full rounded-xl border border-white/10 bg-base-900/80 px-3.5 py-2.5 text-sm text-slate-100
-           outline-none transition placeholder:text-slate-500 focus:border-volt/60
+           outline-none transition-all duration-200 ease-out placeholder:text-slate-500 focus:border-volt/60
            focus:ring-2 focus:ring-volt/20;
   }
 

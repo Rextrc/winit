@@ -133,6 +133,13 @@ export const IconInfo = (p: P) => (
   </S>
 );
 
+export const IconLock = (p: P) => (
+  <S {...p}>
+    <rect x="5" y="11" width="14" height="9" rx="2" />
+    <path d="M8 11V7.5a4 4 0 0 1 8 0V11" />
+  </S>
+);
+
 export const IconLife = (p: P) => (
   <S {...p}>
     <path d="M12 3.5 14.4 9l5.6.4-4.3 3.7 1.4 5.5L12 15.7 6.9 18.6l1.4-5.5L4 9.4 9.6 9z" />
