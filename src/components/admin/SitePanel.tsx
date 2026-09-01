@@ -22,9 +22,12 @@ export default function SitePanel() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [flagForm, setFlagForm] = useState({ key: "", value: "" });
+  // The two amounts are held as strings so the field can be typed into freely.
+  // The preset dropdowns just write into them; whatever ends up in the box is
+  // what gets sent, and the API bounds it either way.
   const [promoForm, setPromoForm] = useState<{
-    code: string; kind: GrantKind; grant: number; xp: number; max: string;
-  }>({ code: "", kind: "money", grant: MONEY_GRANTS[1], xp: XP_GRANTS[1], max: "0" });
+    code: string; kind: GrantKind; grant: string; xp: string; max: string;
+  }>({ code: "", kind: "money", grant: String(MONEY_GRANTS[1]), xp: String(XP_GRANTS[1]), max: "0" });
   const [annForm, setAnnForm] = useState({ title: "", body: "", targetUsername: "" });
 
   const load = useCallback(async () => {
@@ -129,8 +132,9 @@ export default function SitePanel() {
       <div className="panel p-5">
         <h3 className="text-[13px] font-black text-white">Promo codes</h3>
         <p className="mt-1 text-[12px] text-slate-400">
-          Players redeem these on the Rewards page. Pick what the code hands out — the grant goes
-          through the ledger like any other credit.
+          Players redeem these on the Rewards page. Choose what the code hands out and type any
+          amount — the presets are just shortcuts. The grant goes through the ledger like any other
+          credit.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div>
@@ -150,8 +154,13 @@ export default function SitePanel() {
           {promoForm.kind !== "xp" && (
             <div>
               <label className="label" htmlFor="promo-money">Credits</label>
-              <select id="promo-money" className="field" value={promoForm.grant}
-                onChange={(e) => setPromoForm({ ...promoForm, grant: Number(e.target.value) })}>
+              <input id="promo-money" className="field num" inputMode="decimal" placeholder="e.g. 2500"
+                value={promoForm.grant}
+                onChange={(e) => setPromoForm({ ...promoForm, grant: e.target.value })} />
+              <select className="field mt-1 !py-1.5 text-[11px]" value=""
+                aria-label="Preset credit amounts"
+                onChange={(e) => e.target.value && setPromoForm({ ...promoForm, grant: e.target.value })}>
+                <option value="">Preset…</option>
                 {MONEY_GRANTS.map((v) => (
                   <option key={v} value={v}>{formatCents(v * 100)}</option>
                 ))}
@@ -162,8 +171,13 @@ export default function SitePanel() {
           {promoForm.kind !== "money" && (
             <div>
               <label className="label" htmlFor="promo-xp">XP</label>
-              <select id="promo-xp" className="field" value={promoForm.xp}
-                onChange={(e) => setPromoForm({ ...promoForm, xp: Number(e.target.value) })}>
+              <input id="promo-xp" className="field num" inputMode="numeric" placeholder="e.g. 500"
+                value={promoForm.xp}
+                onChange={(e) => setPromoForm({ ...promoForm, xp: e.target.value })} />
+              <select className="field mt-1 !py-1.5 text-[11px]" value=""
+                aria-label="Preset XP amounts"
+                onChange={(e) => e.target.value && setPromoForm({ ...promoForm, xp: e.target.value })}>
+                <option value="">Preset…</option>
                 {XP_GRANTS.map((v) => (
                   <option key={v} value={v}>{v.toLocaleString()} XP</option>
                 ))}
@@ -179,14 +193,26 @@ export default function SitePanel() {
         </div>
         <button type="button" className="btn-ghost mt-3 px-3 py-2 text-xs"
           onClick={async () => {
+            const money = Math.round((Number(promoForm.grant) || 0) * 100);
+            const xp = Math.round(Number(promoForm.xp) || 0);
+            if (promoForm.kind !== "xp" && money <= 0) {
+              setError("Enter how many credits the code grants.");
+              return;
+            }
+            if (promoForm.kind !== "money" && xp <= 0) {
+              setError("Enter how much XP the code grants.");
+              return;
+            }
             const ok = await post("/api/admin/promo", {
               op: "create",
               code: promoForm.code,
-              grantCents: promoForm.kind === "xp" ? 0 : promoForm.grant * 100,
-              grantXp: promoForm.kind === "money" ? 0 : promoForm.xp,
+              grantCents: promoForm.kind === "xp" ? 0 : money,
+              grantXp: promoForm.kind === "money" ? 0 : xp,
               maxRedemptions: Math.max(0, Math.round(Number(promoForm.max) || 0)),
             });
-            if (ok) setPromoForm({ code: "", kind: "money", grant: MONEY_GRANTS[1], xp: XP_GRANTS[1], max: "0" });
+            if (ok) {
+              setPromoForm({ code: "", kind: "money", grant: String(MONEY_GRANTS[1]), xp: String(XP_GRANTS[1]), max: "0" });
+            }
           }}>
           Create code
         </button>
