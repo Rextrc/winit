@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { TxRow } from "@/components/BetFeed";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { ENGINE_KEY, PLAYABLE } from "@/lib/games/registry";
 
 const GAME_LABELS: Record<string, string> = {
   slots: "Candy Cascade",
@@ -17,25 +18,28 @@ const GAME_LABELS: Record<string, string> = {
   baccarat: "Baccarat",
   mines: "Mines",
   hilo: "Hi-Lo",
+  crash: "Crash",
+  towers: "Towers",
+  videopoker: "Draw Poker",
+  craps: "Craps",
+  sicbo: "Sic Bo",
+  scratch: "Scratch Cards",
+  lottery: "Lottery",
+  racing: "Silks",
+  war: "War",
+  threecard: "Three Card",
   bonus: "Daily bonus",
   signup: "Welcome grant",
   life: "Life",
 };
 
+/**
+ * Built from the registry rather than typed out, so a new game shows up here
+ * the moment it is registered instead of quietly having no filter.
+ */
 const FILTERS = [
   { key: "all", label: "All" },
-  { key: "slots", label: "Candy Cascade" },
-  { key: "blackjack", label: "Blackjack" },
-  { key: "roulette", label: "European Roulette" },
-  { key: "dice", label: "Dice" },
-  { key: "limbo", label: "Limbo" },
-  { key: "coinflip", label: "Coinflip" },
-  { key: "wheel", label: "Wheel" },
-  { key: "plinko", label: "Plinko" },
-  { key: "keno", label: "Keno" },
-  { key: "baccarat", label: "Baccarat" },
-  { key: "mines", label: "Mines" },
-  { key: "hilo", label: "Hi-Lo" },
+  ...PLAYABLE.map((g) => ({ key: ENGINE_KEY[g.slug], label: g.name })),
   { key: "bonus", label: "Credits" },
   { key: "life", label: "Life" },
 ];
