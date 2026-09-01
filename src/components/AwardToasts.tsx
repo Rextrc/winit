@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useWallet, type Award } from "@/components/WalletProvider";
 import { TIER_COLOURS } from "@/lib/life/achievements";
 
@@ -8,10 +8,17 @@ import { TIER_COLOURS } from "@/lib/life/achievements";
 const LIFETIME_MS = 5200;
 
 function Toast({ award, onDone }: { award: Award; onDone: () => void }) {
+  // The callback is held in a ref rather than depended on, so the countdown is
+  // armed once per toast. Depending on it directly restarted the timer on every
+  // re-render, and the bonus countdown in WalletProvider re-renders this tree
+  // once a second — the toast was cancelling its own dismissal forever.
+  const done = useRef(onDone);
+  done.current = onDone;
+
   useEffect(() => {
-    const t = setTimeout(onDone, LIFETIME_MS);
+    const t = setTimeout(() => done.current(), LIFETIME_MS);
     return () => clearTimeout(t);
-  }, [onDone]);
+  }, [award.id]);
 
   const style = (() => {
     switch (award.kind) {
