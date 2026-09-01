@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import GameTile from "@/components/GameTile";
 import { CATEGORY_LABELS, gamesByCategory, type Category } from "@/lib/games/registry";
+import CategoryTabs from "@/components/CategoryTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,8 @@ export default function CategoryPage({ params }: { params: { category: string } 
         </h1>
         <p className="mt-1 text-sm text-slate-400">{BLURBS[category]}</p>
       </header>
+
+      <CategoryTabs />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
         {games.map((g) => (

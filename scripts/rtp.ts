@@ -100,12 +100,16 @@ console.log(
 console.log(`  Bonus trigger rate: 1 in ${(CANDY_SPINS / candySim.bonusTriggers).toFixed(1)}`);
 console.log(`  Biggest single round seen: ${candySim.biggest.toFixed(1)}x stake`);
 
-// Sanity band rather than a point check, since the true value can only be
-// estimated, not computed. 90-98% covers the intended design; well outside it
-// means the paytable drifted, not that the sample got unlucky.
+// Compared against the published figure with a tolerance derived from THIS
+// RUN's own measured variance (5 SE) — the same principle every other
+// simulated check in this file uses. A fixed percentage band here would
+// either false-fail on a heavy-tailed bonus round (routine at only 40,000
+// rounds — this game's payout SD is ~3.9x the stake) or be too loose to catch
+// a real paytable drift, depending on how well the guess happened to match
+// the actual variance. This one is derived, so it's neither.
 const registryRtp = GAMES.find((g) => g.slug === "candy-cascade")!.rtp!;
-check("measured RTP is within the documented design band", candySim.mean, (0.9 + 0.98) / 2, (0.98 - 0.9) / 2);
-check("registry figure sits inside the same band", registryRtp, (0.9 + 0.98) / 2, (0.98 - 0.9) / 2);
+check("measured RTP matches the published figure (5 SE)", candySim.mean, registryRtp, 5 * candySE);
+check("registry figure sits inside the documented design band", registryRtp, (0.9 + 0.98) / 2, (0.98 - 0.9) / 2);
 
 // The buy feature is priced from a separate simulation of its own EV; check
 // it still returns close to the base game rather than being a trap or a

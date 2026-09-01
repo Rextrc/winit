@@ -175,7 +175,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
   const Chip = ({ amount }: { amount: number }) =>
     amount > 0 ? (
-      <span className="num absolute -right-1 -top-1 z-10 grid h-5 min-w-[20px] place-items-center rounded-full bg-volt px-1 text-[9px] font-black text-base-900 shadow">
+      <span className="num absolute -right-1.5 -top-1.5 z-10 grid h-5 min-w-[20px] place-items-center rounded-full border border-[#8a5f18] bg-gradient-to-b from-[#f5d78e] to-[#d4a83c] px-1 text-[9px] font-black text-[#2a1d05] shadow">
         {amount >= 100_000 ? `${Math.round(amount / 100_000)}k` : Math.round(amount / 100)}
       </span>
     ) : null;
@@ -191,8 +191,8 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         onClick={() => place("straight", n)}
         disabled={busy}
         className={`relative h-9 rounded-md border text-[12px] font-bold transition disabled:opacity-60 ${
-          c === "red" ? "bg-[#c8324a]/80 text-white" : "bg-[#161b30] text-slate-200"
-        } ${hit ? "border-volt ring-2 ring-volt" : amount > 0 ? "border-volt/60" : "border-white/10"} hover:border-volt/70`}
+          c === "red" ? "bg-gradient-to-b from-[#e2385a] to-[#a8102c] text-white" : "bg-gradient-to-b from-[#26272f] to-[#0e0f14] text-slate-200"
+        } ${hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]/70" : "border-black/40"} hover:border-[#f0c75e]/60`}
         aria-label={`Straight up on ${n}`}
       >
         {n}
@@ -212,11 +212,11 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         disabled={busy}
         className={`relative h-9 rounded-md border text-[11px] font-bold uppercase tracking-wide transition disabled:opacity-60 ${
           type === "red"
-            ? "bg-[#c8324a]/70 text-white"
+            ? "bg-gradient-to-b from-[#e2385a]/85 to-[#a8102c]/85 text-white"
             : type === "black"
-              ? "bg-[#161b30] text-slate-200"
-              : "bg-white/5 text-slate-300"
-        } ${hit ? "border-volt ring-2 ring-volt" : amount > 0 ? "border-volt/60" : "border-white/10"} hover:border-volt/70 ${span}`}
+              ? "bg-gradient-to-b from-[#26272f] to-[#0e0f14] text-slate-200"
+              : "bg-[#0d3d24] text-slate-200"
+        } ${hit ? "border-[#f0c75e] ring-2 ring-[#f0c75e]" : amount > 0 ? "border-[#d4a83c]/70" : "border-black/40"} hover:border-[#f0c75e]/60 ${span}`}
       >
         {label}
         <Chip amount={amount} />
@@ -253,10 +253,10 @@ export default function RouletteGame({ game }: { game: GameDef }) {
                   key={`${n}-${i}`}
                   className={`num grid h-6 w-6 place-items-center rounded-md text-[10px] font-black ${
                     colorOf(n) === "red"
-                      ? "bg-[#c8324a] text-white"
+                      ? "bg-gradient-to-b from-[#e2385a] to-[#a8102c] text-white"
                       : colorOf(n) === "black"
-                        ? "bg-[#161b30] text-slate-200"
-                        : "bg-[#2f7d4f] text-white"
+                        ? "bg-gradient-to-b from-[#26272f] to-[#0e0f14] text-slate-200"
+                        : "bg-gradient-to-b from-[#12a15f] to-[#0a5c37] text-white"
                   }`}
                 >
                   {n}
@@ -267,20 +267,20 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         </div>
       </div>
 
-      {/* Felt */}
-      <div className="overflow-x-auto">
+      {/* Felt — green baize in a gold-railed frame */}
+      <div className="overflow-x-auto rounded-2xl border-2 border-[#8a5f18] bg-gradient-to-b from-[#0d3d24] to-[#082818] p-3 shadow-[inset_0_2px_12px_rgba(0,0,0,0.5)] sm:p-4">
         <div className="min-w-[520px]">
           <div className="flex gap-1.5">
             <button
               type="button"
               onClick={() => place("straight", 0)}
               disabled={busy}
-              className={`relative w-9 rounded-md border bg-[#2f7d4f] text-[12px] font-bold text-white transition disabled:opacity-60 ${
+              className={`relative w-9 rounded-md border bg-gradient-to-b from-[#12a15f] to-[#0a5c37] text-[12px] font-bold text-white transition disabled:opacity-60 ${
                 last?.result.pocket === 0
-                  ? "border-volt ring-2 ring-volt"
+                  ? "border-[#f0c75e] ring-2 ring-[#f0c75e]"
                   : stakeOn("straight", 0) > 0
-                    ? "border-volt/60"
-                    : "border-white/10"
+                    ? "border-[#d4a83c]/70"
+                    : "border-black/40"
               }`}
               aria-label="Straight up on 0"
             >
@@ -296,9 +296,9 @@ export default function RouletteGame({ game }: { game: GameDef }) {
                     type="button"
                     onClick={() => place(ROW_COLUMN[ri])}
                     disabled={busy}
-                    className={`relative h-9 rounded-md border bg-white/5 text-[10px] font-bold uppercase text-slate-300 transition disabled:opacity-60 ${
-                      stakeOn(ROW_COLUMN[ri]) > 0 ? "border-volt/60" : "border-white/10"
-                    } hover:border-volt/70`}
+                    className={`relative h-9 rounded-md border bg-[#0d3d24] text-[10px] font-bold uppercase text-slate-300 transition disabled:opacity-60 ${
+                      stakeOn(ROW_COLUMN[ri]) > 0 ? "border-[#d4a83c]/70" : "border-black/40"
+                    } hover:border-[#f0c75e]/60`}
                     aria-label={`Column ${3 - ri} bet`}
                   >
                     2:1

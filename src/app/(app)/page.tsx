@@ -1,4 +1,5 @@
 import HeroCarousel from "@/components/HeroCarousel";
+import CategoryTabs from "@/components/CategoryTabs";
 import GameRow from "@/components/GameRow";
 import BetFeed from "@/components/BetFeed";
 import { GAMES, PLAYABLE, gamesByCategory } from "@/lib/games/registry";
@@ -13,6 +14,7 @@ export default function HomePage() {
   return (
     <>
       <HeroCarousel />
+      <CategoryTabs />
 
       <GameRow title="Popular" subtitle="What people are playing right now" games={popular} />
       <GameRow title="New" subtitle="Just added to the lobby" games={fresh} />
