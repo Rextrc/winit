@@ -37,7 +37,10 @@ export type LedgerKind =
   | "TRAVEL"
   | "NEWLIFE"
   | "EVENT"
-  | "CHALLENGE";
+  | "CHALLENGE"
+  /** A staff adjustment. Always paired with an AuditLog entry. */
+  | "ADMIN"
+  | "PROMO";
 export type LedgerOutcome = "WIN" | "LOSS" | "PUSH" | "CREDIT";
 
 export class InsufficientBalanceError extends Error {

@@ -6,6 +6,8 @@ import { fromDb } from "@/lib/bigmoney";
 import { describeProgression, type Progression } from "@/lib/progression";
 import { describeCareer, type CareerState } from "@/lib/life/career";
 import { MIN_BET_CENTS, formatCents } from "@/lib/money";
+import { FLAG_MAINTENANCE, FLAG_MAINTENANCE_NOTE, gateForEngine, readBoolFlag, readFlag } from "@/lib/admin/config";
+import { isRole } from "@/lib/admin/roles";
 
 export function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -32,6 +34,11 @@ export type CurrentUser = {
   reputation: number;
   /** Drives the VIP ladder, which no reset ever clears. */
   lifetimeWageredCents: number;
+  /** Staff role, or null for an ordinary player. */
+  adminRole: string | null;
+  /** Set while the account is suspended; betting is refused. */
+  suspendedReason: string | null;
+  suspended: boolean;
 };
 
 /** Loads the caller, or returns a 401 response to bail out with. */
@@ -53,6 +60,18 @@ export async function requireUser(): Promise<
     biggestWinCents: fromDb(row.biggestWinCents),
     bestMultiplierX100: row.bestMultiplierX100,
   });
+
+  // Presence, throttled: a write only when the stamp is missing or stale, so
+  // the analytics figures are real without a UPDATE on every request.
+  const PRESENCE_THROTTLE_MS = 60_000;
+  const seen = row.lastSeenAt?.getTime() ?? 0;
+  if (Date.now() - seen > PRESENCE_THROTTLE_MS) {
+    void prisma.user
+      .update({ where: { id: row.id }, data: { lastSeenAt: new Date() } })
+      .catch(() => {
+        /* presence is best-effort — never fail a request over it */
+      });
+  }
 
   const career = describeCareer(
     {
@@ -83,6 +102,9 @@ export async function requireUser(): Promise<
       career,
       reputation: row.reputation,
       lifetimeWageredCents: fromDb(row.lifetimeWageredCents),
+      adminRole: row.adminRole,
+      suspendedReason: row.suspendedReason,
+      suspended: row.suspendedAt !== null,
     },
     response: null,
   };
@@ -97,7 +119,40 @@ export async function requireUser(): Promise<
  * won't take your stake still deals exactly the same game at exactly the same
  * published RTP as every other room.
  */
-export function assertBettable(user: CurrentUser, stakeCents: number): NextResponse | null {
+export async function assertBettable(
+  user: CurrentUser,
+  stakeCents: number,
+  /** Engine key, e.g. "roulette" — used for the per-game switches. */
+  engineKey: string,
+): Promise<NextResponse | null> {
+  // A suspended account keeps its history and its balance but cannot play.
+  if (user.suspended) {
+    return jsonError(
+      user.suspendedReason
+        ? `This account is suspended: ${user.suspendedReason}`
+        : "This account is suspended.",
+      403,
+    );
+  }
+
+  // Maintenance mode closes the floor to players. Staff are let through
+  // deliberately, so the app can be verified before it is reopened.
+  if (!isRole(user.adminRole) && (await readBoolFlag(FLAG_MAINTENANCE, false))) {
+    const note = await readFlag(FLAG_MAINTENANCE_NOTE);
+    return jsonError(note?.trim() ? note : "WinIt is down for maintenance. Back shortly.", 503);
+  }
+
+  // A game can be switched off, and can carry its own bet bounds, without a
+  // redeploy. Neither can touch the odds — see lib/admin/config.
+  const gate = await gateForEngine(engineKey);
+  if (!gate.ok) return jsonError(gate.reason, 503);
+  if (gate.minBetCents !== null && stakeCents < gate.minBetCents) {
+    return jsonError(`This table is taking ${formatCents(gate.minBetCents)} and up right now.`, 409);
+  }
+  if (gate.maxBetCents !== null && stakeCents > gate.maxBetCents) {
+    return jsonError(`This table is capped at ${formatCents(gate.maxBetCents)} right now.`, 409);
+  }
+
   if (user.career.over) {
     return jsonError(
       user.career.deathCause === "RUIN"

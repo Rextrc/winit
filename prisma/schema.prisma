@@ -72,6 +72,18 @@ model User {
   eventsToday     Int    @default(0)
   eventDayKey     String @default("")
 
+  // --- Staff, moderation and presence -------------------------------------
+  // Null for a normal player. Set only by the seed script or by an OWNER —
+  // there is deliberately no self-serve path to a role. See lib/admin/roles.
+  adminRole       String?
+  suspendedAt     DateTime?
+  suspendedReason String?
+  // Soft delete: the row stays for the audit trail, but the account cannot be
+  // signed into and is hidden from the player-facing app.
+  deletedAt       DateTime?
+  // Throttled presence stamp, for "online now" and daily-active counts.
+  lastSeenAt      DateTime?
+
   transactions Transaction[]
   rounds       Round[]
   lives        Life[]
@@ -79,6 +91,121 @@ model User {
   achievements AchievementUnlock[]
   challenges   ChallengeProgress[]
   events       LifeEvent[]
+  auditEntries AuditLog[] @relation("AuditActor")
+
+  @@index([adminRole])
+  @@index([deletedAt])
+}
+
+// Every consequential staff action, with enough detail to answer "who changed
+// this, from what, to what, and why" without reading application logs.
+// Append-only: nothing in the app updates or deletes a row here.
+model AuditLog {
+  id String @id @default(cuid())
+
+  actorId       String
+  actor         User   @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  actorUsername String
+  actorRole     String
+
+  // e.g. "account.balance.set", "account.suspend", "game.disable"
+  action String
+
+  // The account acted on, when the action targets one. Denormalised username
+  // so the entry still reads correctly if the account is later renamed.
+  targetId       String?
+  targetUsername String?
+
+  // What moved. Stored as strings so one table covers money, levels and flags.
+  field    String?
+  oldValue String?
+  newValue String?
+
+  // Required by every mutating route — an unexplained change is not allowed.
+  reason String
+
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetId])
+  @@index([actorId])
+  @@index([action])
+}
+
+// Per-game operational config, editable from the dashboard rather than by
+// redeploying. Absent row = the registry defaults, so this table only ever
+// holds deliberate overrides.
+model GameConfig {
+  slug    String  @id
+  enabled Boolean @default(true)
+  // Overrides for the table limits. Null means "use the normal rules".
+  minBetCentsOverride BigInt?
+  maxBetCentsOverride BigInt?
+  // Shown to players when the game is switched off.
+  disabledNote String?
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
+// Site-wide switches and feature flags, one row per key. Kept as strings so a
+// flag can hold a boolean, a number or a short message without a migration.
+model SiteFlag {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedById String?
+}
+
+// A message pushed to every player, or to one account.
+model Announcement {
+  id       String  @id @default(cuid())
+  title    String
+  body     String
+  // "INFO" | "WARNING" | "CELEBRATION"
+  level    String  @default("INFO")
+  // Null targets everyone; set targets a single account.
+  targetId String?
+  active   Boolean @default(true)
+
+  createdById String
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  @@index([active, targetId])
+}
+
+// A redeemable code. Redemptions are recorded so a code cannot be used twice
+// by the same account, and so the payout is auditable.
+model PromoCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  grantCents BigInt  @default(0)
+  grantXp   Int      @default(0)
+  // 0 means unlimited.
+  maxRedemptions Int @default(0)
+  redeemedCount  Int @default(0)
+  active    Boolean  @default(true)
+  expiresAt DateTime?
+
+  createdById String
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  redemptions PromoRedemption[]
+}
+
+model PromoRedemption {
+  id     String @id @default(cuid())
+  codeId String
+  code   PromoCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  userId String
+  redeemedAt DateTime @default(now())
+
+  @@unique([codeId, userId])
+  @@index([userId])
 }
 
 // Per-game counters, so achievements and the developer analytics can ask

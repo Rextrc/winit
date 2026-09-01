@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       409,
     );
   }
-  const gate = assertBettable(user, stake.cents);
+  const gate = await assertBettable(user, stake.cents, "war");
   if (gate) return gate;
 
   try {

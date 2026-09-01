@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     if (parsed.data.action === "start") {
       const bet = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
       if (!bet.ok) return jsonError(bet.error, 409);
-      const gate = assertBettable(user, bet.cents);
+      const gate = await assertBettable(user, bet.cents, "hilo");
       if (gate) return gate;
 
       const existing = await prisma.round.findFirst({ where: { userId: user.id, game: "hilo", status: "ACTIVE" } });

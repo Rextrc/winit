@@ -9,7 +9,9 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
-    "rtp": "tsx scripts/rtp.ts"
+    "rtp": "tsx scripts/rtp.ts",
+    "seed:owner": "tsx scripts/seed-owner.ts",
+    "security": "tsx scripts/security-check.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

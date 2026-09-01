@@ -393,9 +393,87 @@ An earlier version of that last check measured the single best event instead
 and made a balanced catalogue look like a 24x-per-day exploit. The check was
 wrong, but fixing it is what surfaced the stake-farming hole that was real.
 
+## The staff dashboard
+
+`/admin` is a separate surface for running the site: account support, game
+configuration, promo codes, announcements, analytics and an audit log. It is
+built around one rule.
+
+**Authorisation lives on the server.** Every admin route names the capability
+it needs and calls `requireStaff(capability)` before doing anything. The
+dashboard hiding a button is a courtesy to the person using it, not a control:
+a caller with a shell and a session cookie gets exactly the same 403 as a
+caller who never saw the page. `scripts/security-check.ts` asserts this over
+HTTP rather than by importing handlers, because the claim is about the server.
+
+### Roles
+
+Six roles, with capabilities written out per role in `src/lib/admin/roles.ts`
+rather than derived from a hierarchy — so reading the file tells you what a
+role can do, and widening one role cannot silently widen another.
+
+| Role | What it is for |
+| --- | --- |
+| OWNER | Everything, including handing out roles. |
+| ADMIN | Everything operational. Cannot create or demote staff. |
+| DEVELOPER | Configuration, flags, test accounts, the economy behind them. Cannot suspend or delete a real player. |
+| MODERATOR | Player conduct: view, suspend, announce. No economy, no configuration. |
+| SUPPORT | Reads everything about an account, changes nothing. |
+| TESTER | Views accounts and creates its own test accounts. |
+
+Rank is separate from capability and does one job: staff cannot act on staff
+at or above their own rank, which is what stops two ADMINs demoting each other
+in a loop.
+
+Roles are created by `npm run seed:owner` (`OWNER_USERNAME` + a 12-character
+`OWNER_PASSWORD`) and nowhere else. There is no route, no sign-up flag and no
+"first user becomes owner" rule: the dashboard can set balances and wipe
+progression, so minting the first one has to live outside anything an HTTP
+request can reach.
+
+### What the dashboard cannot do
+
+There is no field anywhere in `/api/admin/*` that reaches a paytable, a house
+edge or an RNG. It can close a table and bound its stakes; it cannot re-price
+one, because a dashboard that could would make every published RTP in this
+README unverifiable.
+
+Money is the same story: an admin adjustment moves through `credit`/`debit`
+and writes a `Transaction` with `kind: "ADMIN"`, exactly like a bet. It never
+writes `balanceCents` directly, so the running-balance reconciliation that
+proves the books still holds across staff action.
+
+Every mutation requires a reason of at least three characters, and the
+dangerous ones (delete, balance.set, progression reset, role change,
+maintenance mode) additionally require an explicit confirmation flag. The
+audit row — actor, role, target, field, old value, new value, reason — is
+written inside the same transaction as the change, so an action either happens
+and is recorded or neither.
+
+### The security check
+
+```bash
+npm run dev          # in one shell
+npm run security     # in another
+```
+
+42 assertions over HTTP: anonymous and ordinary players refused on every admin
+route; SUPPORT reading accounts but refused on the economy; MODERATOR able to
+suspend but not to touch money or configure a game; ADMIN refused on role
+changes; equal-rank staff unable to act on each other; missing reasons and
+missing confirmations rejected; an OWNER grant landing as an `ADMIN` ledger row
+that keeps the running-balance chain exact and an audit row carrying both
+values; and suspension, a closed table and maintenance mode each actually
+refusing a bet — with staff still able to bet during maintenance. It creates
+its own throwaway accounts and deletes them afterwards.
+
 ## Architecture notes
 
 ```
+src/lib/admin/roles.ts    roles, capabilities, rank
+src/lib/admin/guard.ts    requireStaff / requireTarget — the authorisation boundary
+src/lib/admin/audit.ts    append-only audit log
+src/lib/admin/config.ts   site flags and per-game gates (never paytables)
 src/lib/rng.ts            crypto CSPRNG helpers (rejection-sampled, no modulo bias)
 src/lib/money.ts          integer-cent money, bet validation
 src/lib/bigmoney.ts       the BigInt <-> number boundary, and the only place it happens

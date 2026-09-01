@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   }
   // The room's floor applies to the whole spin, not to each chip: a scatter of
   // small chips across the layout is one bet as far as the table is concerned.
-  const gate = assertBettable(user, totalStake);
+  const gate = await assertBettable(user, totalStake, "roulette");
   if (gate) return gate;
 
   try {

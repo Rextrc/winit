@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   const bet = parsed.data.bet as BetType;
   const stake = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
   if (!stake.ok) return jsonError(stake.error, 409);
-  const gate = assertBettable(user, stake.cents);
+  const gate = await assertBettable(user, stake.cents, "baccarat");
   if (gate) return gate;
 
   try {
