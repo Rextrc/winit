@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import ClaimBonusButton from "@/components/ClaimBonusButton";
 import BetFeed from "@/components/BetFeed";
+import RedeemCode from "@/components/RedeemCode";
 import { currentUser } from "@/lib/auth";
 import { bonusAmountForStreak, bonusStatus } from "@/lib/bonus";
 import {
@@ -26,7 +27,7 @@ export default async function RewardsPage() {
       <header className="mb-6">
         <h1 className="font-display text-2xl font-black tracking-tight text-white">Rewards</h1>
         <p className="mt-1 text-sm text-slate-400">
-          The daily bonus is the only way credits enter your balance after sign-up.
+          The daily bonus and promo codes are the only ways credits enter your balance after sign-up.
         </p>
       </header>
 
@@ -80,6 +81,9 @@ export default async function RewardsPage() {
           </div>
         </div>
 
+        <div className="space-y-4">
+        <RedeemCode />
+
         <div className="panel p-6">
           <h3 className="text-[13px] font-black tracking-tight text-white">Where credits come from</h3>
           <ul className="mt-3 space-y-3 text-[12px] leading-relaxed text-slate-400">
@@ -91,6 +95,10 @@ export default async function RewardsPage() {
               <span className="font-bold text-slate-200">Daily bonus</span> — the button above.
             </li>
             <li>
+              <span className="font-bold text-slate-200">Promo codes</span> — redeemed above, once
+              each.
+            </li>
+            <li>
               <span className="font-bold text-slate-200">Winning bets</span> — paid out of the same
               fake ledger.
             </li>
@@ -99,6 +107,7 @@ export default async function RewardsPage() {
             That is the complete list. WinIt has no payment integration, no deposit endpoint and no
             way to convert a balance into anything outside this app — by design, not by omission.
           </p>
+        </div>
         </div>
       </div>
 

@@ -450,6 +450,22 @@ audit row — actor, role, target, field, old value, new value, reason — is
 written inside the same transaction as the change, so an action either happens
 and is recorded or neither.
 
+### Where players see it
+
+Two dashboard sections write something a player actually reads, so both have a
+player-facing half:
+
+- **Announcements** land in the bell in the site header. A message with no
+  target goes to everyone; one addressed to a username goes to that account
+  alone. Read state is a row (`AnnouncementRead`), not browser storage, so a
+  message a player has read stays read on their other devices.
+- **Promo codes** are redeemed on the Rewards page. The form picks *what* a
+  code grants from a dropdown — credits, XP or both — and the API refuses a
+  code that grants neither, since that would redeem successfully and hand the
+  player nothing. Redemption is one per account, enforced by a unique index
+  rather than a read-then-write, and the credit goes through the ledger like
+  any other.
+
 ### The security check
 
 ```bash

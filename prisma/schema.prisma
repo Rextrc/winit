@@ -159,6 +159,19 @@ model SiteFlag {
 }
 
 // A message pushed to every player, or to one account.
+// A player's dismissal of one announcement. Kept as a row rather than in the
+// browser so a message stays read across devices and sign-ins.
+model AnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  readAt         DateTime @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+}
+
 model Announcement {
   id       String  @id @default(cuid())
   title    String
@@ -173,6 +186,8 @@ model Announcement {
   createdBy   String
   createdAt   DateTime  @default(now())
   expiresAt   DateTime?
+
+  reads AnnouncementRead[]
 
   @@index([active, targetId])
 }

@@ -77,6 +77,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // A code that grants nothing is a dead code — it would redeem successfully,
+  // record a redemption and hand the player nothing at all.
+  if (input.grantCents === 0 && input.grantXp === 0) {
+    return NextResponse.json(
+      { error: "Choose something to grant — credits, XP or both." },
+      { status: 400 },
+    );
+  }
+
   const clash = await prisma.promoCode.findUnique({ where: { code: input.code } });
   if (clash) return NextResponse.json({ error: "That code already exists." }, { status: 409 });
 

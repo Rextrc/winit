@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { formatCents } from "@/lib/money";
+import { GRANT_KINDS, MONEY_GRANTS, XP_GRANTS, type GrantKind } from "@/lib/admin/grants";
 
 type Flag = { key: string; value: string; updatedAt: string };
 type Promo = {
@@ -21,7 +22,9 @@ export default function SitePanel() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [flagForm, setFlagForm] = useState({ key: "", value: "" });
-  const [promoForm, setPromoForm] = useState({ code: "", grant: "", xp: "", max: "0" });
+  const [promoForm, setPromoForm] = useState<{
+    code: string; kind: GrantKind; grant: number; xp: number; max: string;
+  }>({ code: "", kind: "money", grant: MONEY_GRANTS[1], xp: XP_GRANTS[1], max: "0" });
   const [annForm, setAnnForm] = useState({ title: "", body: "", targetUsername: "" });
 
   const load = useCallback(async () => {
@@ -125,29 +128,68 @@ export default function SitePanel() {
 
       <div className="panel p-5">
         <h3 className="text-[13px] font-black text-white">Promo codes</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input className="field max-w-[160px]" placeholder="CODE" value={promoForm.code}
-            onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })} />
-          <input className="field max-w-[140px]" placeholder="grant (e.g. 500)" value={promoForm.grant}
-            onChange={(e) => setPromoForm({ ...promoForm, grant: e.target.value })} />
-          <input className="field max-w-[120px]" placeholder="XP" value={promoForm.xp}
-            onChange={(e) => setPromoForm({ ...promoForm, xp: e.target.value })} />
-          <input className="field max-w-[140px]" placeholder="max uses (0 = ∞)" value={promoForm.max}
-            onChange={(e) => setPromoForm({ ...promoForm, max: e.target.value })} />
-          <button type="button" className="btn-ghost px-3 py-2 text-xs"
-            onClick={async () => {
-              const ok = await post("/api/admin/promo", {
-                op: "create",
-                code: promoForm.code,
-                grantCents: Math.round(Number(promoForm.grant || 0) * 100),
-                grantXp: Math.round(Number(promoForm.xp || 0)),
-                maxRedemptions: Math.round(Number(promoForm.max || 0)),
-              });
-              if (ok) setPromoForm({ code: "", grant: "", xp: "", max: "0" });
-            }}>
-            Create code
-          </button>
+        <p className="mt-1 text-[12px] text-slate-400">
+          Players redeem these on the Rewards page. Pick what the code hands out — the grant goes
+          through the ledger like any other credit.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div>
+            <label className="label" htmlFor="promo-code">Code</label>
+            <input id="promo-code" className="field" placeholder="WELCOME2026" value={promoForm.code}
+              onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })} />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="promo-kind">Grants</label>
+            <select id="promo-kind" className="field" value={promoForm.kind}
+              onChange={(e) => setPromoForm({ ...promoForm, kind: e.target.value as GrantKind })}>
+              {GRANT_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+            </select>
+          </div>
+
+          {promoForm.kind !== "xp" && (
+            <div>
+              <label className="label" htmlFor="promo-money">Credits</label>
+              <select id="promo-money" className="field" value={promoForm.grant}
+                onChange={(e) => setPromoForm({ ...promoForm, grant: Number(e.target.value) })}>
+                {MONEY_GRANTS.map((v) => (
+                  <option key={v} value={v}>{formatCents(v * 100)}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {promoForm.kind !== "money" && (
+            <div>
+              <label className="label" htmlFor="promo-xp">XP</label>
+              <select id="promo-xp" className="field" value={promoForm.xp}
+                onChange={(e) => setPromoForm({ ...promoForm, xp: Number(e.target.value) })}>
+                {XP_GRANTS.map((v) => (
+                  <option key={v} value={v}>{v.toLocaleString()} XP</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="label" htmlFor="promo-max">Max uses</label>
+            <input id="promo-max" className="field" placeholder="0 = unlimited" value={promoForm.max}
+              onChange={(e) => setPromoForm({ ...promoForm, max: e.target.value })} />
+          </div>
         </div>
+        <button type="button" className="btn-ghost mt-3 px-3 py-2 text-xs"
+          onClick={async () => {
+            const ok = await post("/api/admin/promo", {
+              op: "create",
+              code: promoForm.code,
+              grantCents: promoForm.kind === "xp" ? 0 : promoForm.grant * 100,
+              grantXp: promoForm.kind === "money" ? 0 : promoForm.xp,
+              maxRedemptions: Math.max(0, Math.round(Number(promoForm.max) || 0)),
+            });
+            if (ok) setPromoForm({ code: "", kind: "money", grant: MONEY_GRANTS[1], xp: XP_GRANTS[1], max: "0" });
+          }}>
+          Create code
+        </button>
         <ul className="mt-3 space-y-1">
           {promos.map((p) => (
             <li key={p.id} className="flex flex-wrap items-baseline justify-between gap-2 text-[12px]">

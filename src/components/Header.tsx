@@ -8,6 +8,7 @@ import BalanceDisplay from "@/components/BalanceDisplay";
 import ClaimBonusButton from "@/components/ClaimBonusButton";
 import SearchBox from "@/components/SearchBox";
 import AvatarMenu from "@/components/AvatarMenu";
+import Inbox from "@/components/Inbox";
 import LevelBar from "@/components/LevelBar";
 import Link from "next/link";
 
@@ -52,6 +53,7 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
               <LevelBar />
               <BalanceDisplay />
               <ClaimBonusButton />
+              <Inbox />
               <AvatarMenu />
             </>
           )}
