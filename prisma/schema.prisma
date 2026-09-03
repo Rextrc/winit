@@ -26,6 +26,13 @@ model User {
   // Fake currency only. Seeded with 100,000.00 on sign-up.
   balanceCents BigInt   @default(10000000)
   lastBonusAt  DateTime?
+
+  // --- Referrals -----------------------------------------------------------
+  // Every account owns one shareable code. referredById names the account whose
+  // code was used at sign-up, and is set once and never changed.
+  referralCode String?   @unique
+  referredById String?
+  referredAt   DateTime?
   bonusStreak  Int      @default(0)
   createdAt    DateTime @default(now())
 
@@ -95,6 +102,8 @@ model User {
 
   @@index([adminRole])
   @@index([deletedAt])
+
+  @@index([referredById])
 }
 
 // Every consequential staff action, with enough detail to answer "who changed

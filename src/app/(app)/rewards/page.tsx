@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import ClaimBonusButton from "@/components/ClaimBonusButton";
 import BetFeed from "@/components/BetFeed";
 import RedeemCode from "@/components/RedeemCode";
+import ReferralPanel from "@/components/ReferralPanel";
 import { currentUser } from "@/lib/auth";
 import { bonusAmountForStreak, bonusStatus } from "@/lib/bonus";
 import {
@@ -27,7 +28,8 @@ export default async function RewardsPage() {
       <header className="mb-6">
         <h1 className="font-display text-2xl font-black tracking-tight text-white">Rewards</h1>
         <p className="mt-1 text-sm text-slate-400">
-          The daily bonus and promo codes are the only ways credits enter your balance after sign-up.
+          The daily bonus, promo codes and referrals are the only ways credits enter your balance
+          after sign-up.
         </p>
       </header>
 
@@ -82,6 +84,8 @@ export default async function RewardsPage() {
         </div>
 
         <div className="space-y-4">
+        <ReferralPanel />
+
         <RedeemCode />
 
         <div className="panel p-6">
@@ -97,6 +101,10 @@ export default async function RewardsPage() {
             <li>
               <span className="font-bold text-slate-200">Promo codes</span> — redeemed above, once
               each.
+            </li>
+            <li>
+              <span className="font-bold text-slate-200">Referrals</span> — when someone signs up
+              with your code.
             </li>
             <li>
               <span className="font-bold text-slate-200">Winning bets</span> — paid out of the same

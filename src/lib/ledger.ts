@@ -40,7 +40,9 @@ export type LedgerKind =
   | "CHALLENGE"
   /** A staff adjustment. Always paired with an AuditLog entry. */
   | "ADMIN"
-  | "PROMO";
+  | "PROMO"
+  /** A referral payment — to the new account or the one whose code was used. */
+  | "REFERRAL";
 export type LedgerOutcome = "WIN" | "LOSS" | "PUSH" | "CREDIT";
 
 export class InsufficientBalanceError extends Error {

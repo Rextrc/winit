@@ -393,6 +393,25 @@ An earlier version of that last check measured the single best event instead
 and made a balanced catalogue look like a 24x-per-day exploit. The check was
 wrong, but fixing it is what surfaced the stake-farming hole that was real.
 
+## Referrals
+
+Every account owns one shareable code, minted on sign-up (and on first request
+for accounts that predate the feature). Signing up with someone's code pays both
+sides: 100,000.00 to the account whose code was used, and 50,000.00 to the new
+account on top of the ordinary welcome grant. A `?ref=CODE` link fills the
+sign-up field in automatically.
+
+Both payments are ordinary ledger rows (`kind: "REFERRAL"`), written in the same
+transaction that creates the account, so a referred account's running balance
+still reconciles from zero exactly like any other. The rules are enforced at
+sign-up, server-side: the code must belong to an account that is neither
+suspended nor deleted, and `referredById` is set once at creation — no route
+changes it afterwards, so a referral cannot be claimed retroactively. Using your
+own code is impossible for free, since the account does not exist when the code
+is resolved.
+
+Codes avoid the characters people misread aloud or off a screen (0/O, 1/I/L, 8/B).
+
 ## The staff dashboard
 
 `/admin` is a separate surface for running the site: account support, game

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { formatCents } from "@/lib/money";
+import { REFEREE_BONUS_CENTS, REFERRER_BONUS_CENTS } from "@/lib/referral";
 
 /** Only ever follow a same-app path — never an absolute or external URL. */
 function safeCallback(raw: string | null): string {
@@ -12,7 +14,10 @@ function safeCallback(raw: string | null): string {
 
 export default function SignupForm() {
   const router = useRouter();
-  const callbackUrl = safeCallback(useSearchParams().get("callbackUrl"));
+  const params = useSearchParams();
+  const callbackUrl = safeCallback(params.get("callbackUrl"));
+  // A shared link carries the code in ?ref=, so the field arrives filled in.
+  const [referralCode, setReferralCode] = useState((params.get("ref") ?? "").toUpperCase());
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +33,7 @@ export default function SignupForm() {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, email }),
+        body: JSON.stringify({ username, password, email, referralCode }),
       });
       const data = await res.json();
 
@@ -97,6 +102,24 @@ export default function SignupForm() {
           required
           minLength={8}
         />
+      </div>
+
+      <div>
+        <label className="label" htmlFor="signup-referral">
+          Referral code <span className="normal-case text-slate-600">(optional)</span>
+        </label>
+        <input
+          id="signup-referral"
+          className="field num uppercase"
+          value={referralCode}
+          maxLength={32}
+          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+          placeholder="A friend's code"
+        />
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          Start with {formatCents(REFEREE_BONUS_CENTS)} extra, and they get{" "}
+          {formatCents(REFERRER_BONUS_CENTS)}.
+        </p>
       </div>
 
       {error && <p className="text-sm font-semibold text-loss">{error}</p>}
