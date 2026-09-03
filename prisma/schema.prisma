@@ -33,6 +33,16 @@ model User {
   referralCode String?   @unique
   referredById String?
   referredAt   DateTime?
+  // The address the account was created from. Used to refuse a referral
+  // between two accounts made on the same connection.
+  signupIp     String?
+
+  // --- Enforcement ---------------------------------------------------------
+  // Strikes are cumulative and never expire on their own. Three suspends the
+  // account; a fourth bans it outright. Staff clear both by unsuspending.
+  strikes      Int       @default(0)
+  bannedAt     DateTime?
+  bannedReason String?
   bonusStreak  Int      @default(0)
   createdAt    DateTime @default(now())
 
@@ -103,7 +113,10 @@ model User {
   @@index([adminRole])
   @@index([deletedAt])
 
+  strikeLog Strike[]
+
   @@index([referredById])
+  @@index([signupIp])
 }
 
 // Every consequential staff action, with enough detail to answer "who changed
@@ -397,4 +410,22 @@ model Round {
   updatedAt DateTime @updatedAt
 
   @@index([userId, status])
+}
+
+// One recorded infraction. Append-only: a strike is never edited or deleted,
+// so the count on User is always reproducible from these rows.
+model Strike {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // "referral.self" today; the column is free text so a new rule needs no migration.
+  kind      String
+  reason    String
+  // What the account was at after this strike: "WARNED" | "SUSPENDED" | "BANNED".
+  outcome   String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

@@ -7,6 +7,8 @@ import { STARTING_BALANCE_CENTS, formatCents } from "@/lib/money";
 import { credit, writeTransaction } from "@/lib/ledger";
 import { REFEREE_BONUS_CENTS, REFERRER_BONUS_CENTS, normaliseCode } from "@/lib/referral";
 import { generateCode } from "@/lib/referral-server";
+import { clientIp } from "@/lib/ip";
+import { addStrike } from "@/lib/strikes";
 
 export const runtime = "nodejs";
 
@@ -49,16 +51,52 @@ export async function POST(req: Request) {
   // A code is resolved before the account exists, so "you cannot use your own
   // code" needs no check. A suspended or deleted referrer earns nothing: the
   // code simply stops working rather than paying a banned account.
+  const ip = clientIp(req);
   const wanted = parsed.data.referralCode ? normaliseCode(parsed.data.referralCode) : "";
   let referrer: { id: string; username: string } | null = null;
   if (wanted) {
     const found = await prisma.user.findUnique({
       where: { referralCode: wanted },
-      select: { id: true, username: true, suspendedAt: true, deletedAt: true },
+      select: { id: true, username: true, suspendedAt: true, deletedAt: true, signupIp: true },
     });
-    if (!found || found.suspendedAt || found.deletedAt) {
+    if (!found) return jsonError("That referral code isn't valid.", 409);
+
+    // The same-connection check runs before the suspended/deleted one on
+    // purpose. Rejecting a suspended owner's code first would mean the strike
+    // that suspended them was also the last one they could ever earn, and the
+    // fourth-strike ban would be unreachable through this rule.
+    //
+    // Redeeming your own code from a second account is the obvious way to farm
+    // this, so a referral between two accounts made on the same connection is
+    // refused. The check covers accounts the referrer has already brought in,
+    // which is what catches a chain of them made from one machine.
+    if (ip) {
+      const sameNetwork =
+        found.signupIp === ip ||
+        (await prisma.user.count({ where: { referredById: found.id, signupIp: ip } })) > 0;
+
+      if (sameNetwork) {
+        const { outcome } = await prisma.$transaction((tx) =>
+          addStrike(tx, found.id, {
+            kind: "referral.self",
+            reason:
+              "A referral code was used to create a second account on the same connection as the account that owns it.",
+            detail: `attempted username: ${username}`,
+          }),
+        );
+        return jsonError(
+          outcome === "BANNED"
+            ? "That code cannot be used from this connection. The account it belongs to has been banned."
+            : "That code cannot be used from this connection — a referral has to come from someone else.",
+          409,
+        );
+      }
+    }
+
+    if (found.suspendedAt || found.deletedAt) {
       return jsonError("That referral code isn't valid.", 409);
     }
+
     referrer = { id: found.id, username: found.username };
   }
 
@@ -73,6 +111,7 @@ export async function POST(req: Request) {
         passwordHash,
         balanceCents: STARTING_BALANCE_CENTS,
         referralCode: generateCode(),
+        signupIp: ip,
         referredById: referrer?.id ?? null,
         referredAt: referrer ? new Date() : null,
       },

@@ -411,6 +411,36 @@ own code is impossible for free, since the account does not exist when the code
 is resolved.
 
 Codes avoid the characters people misread aloud or off a screen (0/O, 1/I/L, 8/B).
+Self-dealing is refused and penalised — see **Strikes** below.
+
+## Strikes
+
+Abuse is recorded rather than silently blocked. Each infraction writes an
+append-only `Strike` row and increments a counter: strikes 1 and 2 warn, the
+third suspends the account, the fourth bans it. A banned account cannot sign in
+at all; a suspended one still can, because it needs to be able to read the
+message explaining why it cannot bet. Every strike sends that message through
+the same inbox staff announcements use — an account that goes quiet with no
+explanation is a support ticket waiting to happen.
+
+Staff clear a suspension or ban by unsuspending, which also resets the counter:
+leaving the strikes would put a reinstated account one infraction from a ban,
+which is not what reversing a decision means. The Strike rows themselves are
+never deleted, so the history survives the reinstatement.
+
+The one rule that issues strikes today is referral self-dealing. A referral
+between two accounts created on the same connection is refused and strikes the
+account that owns the code — including where the connection matches an account
+that referrer already brought in, which is what catches a chain of them made
+from one machine. The check deliberately runs *before* the suspended-owner
+check: rejecting a suspended owner's code first would make the strike that
+suspended them the last one they could ever earn, and the fourth-strike ban
+unreachable.
+
+The address comes from `x-forwarded-for`, which is set by whatever proxy sits in
+front of the app and can be forged by a client talking to the app directly. It
+is a signal, not proof, which is why it only ever costs a bonus — nothing that
+grants access is decided by it.
 
 ## The staff dashboard
 

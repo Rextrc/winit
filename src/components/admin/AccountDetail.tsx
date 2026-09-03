@@ -11,6 +11,8 @@ type Detail = {
   account: {
     id: string; username: string; email: string | null; createdAt: string; lastSeenAt: string | null;
     adminRole: string | null; suspended: boolean; suspendedReason: string | null; deleted: boolean;
+    banned: boolean; bannedReason: string | null; strikes: number; referralCode: string | null;
+    strikeLog: { id: string; kind: string; reason: string; outcome: string; detail: string | null; createdAt: string }[];
     balanceCents: number; peakBalanceCents: number; lifetimeWageredCents: number;
     lifetimeWonCents: number; biggestWinCents: number; bestMultiplier: number;
     progression: { level: number; xp: number; xpToNext: number; rebirths: number; maxBetCents: number; stage: { title: string } };
@@ -143,14 +145,49 @@ export default function AccountDetail({ id, role, viewerId }: { id: string; role
         <div className="flex flex-wrap gap-2">
           {a.deleted && <span className="rounded-lg bg-loss/15 px-3 py-1.5 text-[11px] font-black uppercase text-loss">Deleted</span>}
           {a.suspended && <span className="rounded-lg bg-amber-400/15 px-3 py-1.5 text-[11px] font-black uppercase text-amber-400">Suspended</span>}
+          {a.banned && <span className="rounded-lg bg-loss/20 px-3 py-1.5 text-[11px] font-black uppercase text-loss">Banned</span>}
+          {a.strikes > 0 && (
+            <span className="num rounded-lg bg-amber-400/15 px-3 py-1.5 text-[11px] font-black uppercase text-amber-400">
+              {a.strikes} strike{a.strikes === 1 ? "" : "s"}
+            </span>
+          )}
           {a.career.over && <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-black uppercase text-slate-300">Career over</span>}
         </div>
       </div>
 
       {a.suspended && a.suspendedReason && (
         <p className="panel border-amber-400/30 bg-amber-400/5 p-3 text-[12px] text-amber-200">
-          Suspension reason: {a.suspendedReason}
+          {a.banned ? "Ban" : "Suspension"} reason: {a.bannedReason ?? a.suspendedReason}
         </p>
+      )}
+
+      {a.strikeLog.length > 0 && (
+        <div className="panel p-5">
+          <h3 className="text-[13px] font-black text-white">
+            Strikes <span className="num text-slate-500">({a.strikes})</span>
+          </h3>
+          <p className="mt-1 text-[12px] text-slate-400">
+            Three strikes suspend the account, a fourth bans it. Unsuspending clears both and resets
+            the count.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {a.strikeLog.map((st) => (
+              <li key={st.id} className="rounded-xl border border-white/5 bg-base-900/60 p-3">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="num text-[10px] font-black uppercase tracking-[0.14em] text-amber-400">
+                    {st.outcome}
+                  </span>
+                  <span className="num text-[10px] text-slate-500">{st.kind}</span>
+                  <span className="ml-auto text-[10px] text-slate-500">
+                    {new Date(st.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                <p className="mt-1 text-[12px] text-slate-300">{st.reason}</p>
+                {st.detail && <p className="mt-0.5 text-[11px] text-slate-500">{st.detail}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <div className="panel grid grid-cols-2 gap-4 p-5 lg:grid-cols-6">
@@ -236,7 +273,9 @@ export default function AccountDetail({ id, role, viewerId }: { id: string; role
             <ActionGroup title="Moderation">
               {a.suspended ? (
                 <button type="button" disabled={busy} className="btn-ghost w-full py-2 text-xs"
-                  onClick={() => act({ action: "unsuspend" })}>Unsuspend</button>
+                  onClick={() => act({ action: "unsuspend" })}>
+                  {a.banned ? "Unban and clear strikes" : "Unsuspend"}
+                </button>
               ) : (
                 <button type="button" disabled={busy} className="btn-ghost w-full py-2 text-xs text-amber-400"
                   onClick={() => act({ action: "suspend" })}>Suspend</button>

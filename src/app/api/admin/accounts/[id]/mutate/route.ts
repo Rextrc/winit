@@ -370,16 +370,36 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         }
 
         case "unsuspend": {
-          if (!before.suspendedAt) return { error: "That account is not suspended." as const };
+          if (!before.suspendedAt && !before.bannedAt) {
+            return { error: "That account is not suspended." as const };
+          }
+          // Reinstating clears the strikes too. Leaving them would put the
+          // account one infraction from a ban the moment it came back, which
+          // is not what a staff member reversing a decision means by it.
           await tx.user.update({
             where: { id: target.id },
-            data: { suspendedAt: null, suspendedReason: null },
+            data: {
+              suspendedAt: null,
+              suspendedReason: null,
+              bannedAt: null,
+              bannedReason: null,
+              strikes: 0,
+            },
           });
           await writeAudit(
-            { actor: staff, action: "account.unsuspend", target: auditTarget, field: "suspendedAt", oldValue: before.suspendedAt.toISOString(), newValue: null, reason },
+            {
+              actor: staff,
+              action: before.bannedAt ? "account.unban" : "account.unsuspend",
+              target: auditTarget,
+              field: before.bannedAt ? "bannedAt" : "suspendedAt",
+              oldValue: (before.bannedAt ?? before.suspendedAt)!.toISOString(),
+              newValue: null,
+              reason,
+              metadata: { strikesCleared: before.strikes },
+            },
             tx,
           );
-          return { suspended: false };
+          return { suspended: false, banned: false, strikes: 0 };
         }
 
         case "delete": {

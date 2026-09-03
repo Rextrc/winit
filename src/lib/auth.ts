@@ -31,10 +31,12 @@ export const authOptions: NextAuthOptions = {
         const valid = await compare(password, user.passwordHash);
         if (!valid) return null;
 
-        // A soft-deleted account keeps its rows for the audit trail but cannot
-        // be signed into. Deliberately the same null as a bad password, so the
-        // response does not reveal that the account exists.
-        if (user.deletedAt) return null;
+        // A soft-deleted or banned account keeps its rows for the audit trail
+        // but cannot be signed into. Deliberately the same null as a bad
+        // password, so the response does not reveal that the account exists.
+        // A suspended account can still sign in — it needs to be able to read
+        // the message explaining why it cannot bet.
+        if (user.deletedAt || user.bannedAt) return null;
 
         return { id: user.id, name: user.username };
       },

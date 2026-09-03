@@ -60,6 +60,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     venuesVisited = [];
   }
 
+  const strikeLog = await prisma.strike.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
   return NextResponse.json({
     // What the caller is allowed to do, so the dashboard can grey out what it
     // must — the server still re-checks every action regardless.
@@ -76,6 +82,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       suspendedReason: user.suspendedReason,
       deleted: user.deletedAt !== null,
       deletedAt: user.deletedAt,
+      banned: user.bannedAt !== null,
+      bannedAt: user.bannedAt,
+      bannedReason: user.bannedReason,
+      strikes: user.strikes,
+      strikeLog: strikeLog.map((s) => ({
+        id: s.id,
+        kind: s.kind,
+        reason: s.reason,
+        outcome: s.outcome,
+        detail: s.detail,
+        createdAt: s.createdAt,
+      })),
+      referralCode: user.referralCode,
+      signupIp: user.signupIp,
 
       balanceCents: fromDb(user.balanceCents),
       peakBalanceCents: fromDb(user.peakBalanceCents),
