@@ -1,0 +1,415 @@
+================================================================================
+WINIT — PROJECT OVERVIEW
+A play-money casino and gambling-career simulator
+================================================================================
+
+Written as a briefing document: hand this to another AI assistant (or a person)
+and it should be able to discuss the project without seeing the code.
+
+Everything below describes what is actually built and running. Where something
+is deliberately absent or unfinished, it says so.
+
+
+--------------------------------------------------------------------------------
+1. WHAT IT IS, IN ONE PARAGRAPH
+--------------------------------------------------------------------------------
+
+WinIt is a web casino that uses fake currency only, wrapped in a BitLife-style
+life-and-career simulator. You start at 18 with 100,000.00 play credits and no
+reputation. Every bet you settle costs days off a finite life. You level up,
+build a reputation, unlock progressively more exclusive venues, and eventually
+die — of old age or of ruin — at which point the career ends and the next one
+begins, slightly easier than the last. Underneath the theming, it is a real
+casino engine: 22 playable games whose payout mathematics are either derived in
+closed form or measured by simulation and honestly labelled as such.
+
+There is no deposit, no withdrawal, no payment integration and no way to convert
+a balance into anything outside the app. That is a design constraint, not an
+omission, and it is enforced by the absence of any such code path.
+
+
+--------------------------------------------------------------------------------
+2. TECH STACK
+--------------------------------------------------------------------------------
+
+  Framework      Next.js 14 (App Router), React 18, TypeScript
+  Styling        Tailwind CSS. Dark blue-and-black theme, no UI kit.
+  Database       Prisma 5 + SQLite (the schema is portable to Postgres)
+  Auth           NextAuth v4, credentials provider, JWT sessions, bcrypt hashes
+  Validation     Zod on every request body
+  Randomness     Node crypto CSPRNG only — Math.random is never used for an
+                 outcome anywhere in the project
+  Size           ~190 TypeScript/TSX files, ~26,000 lines; 47 API routes
+
+Scripts:
+  npm run dev          development server
+  npm run build        production build
+  npm run rtp          the payout-mathematics harness (see section 4)
+  npm run security     end-to-end authorisation test of the staff dashboard
+  npm run seed:owner   the only way to mint the first OWNER account
+
+
+--------------------------------------------------------------------------------
+3. THE GAMES (22 playable)
+--------------------------------------------------------------------------------
+
+Each game has a published RTP (return to player) that is either exactly derived
+or explicitly labelled as simulated. Nothing claims a number it cannot back up.
+
+ORIGINALS (13)
+  Dice            99% exactly.  multiplier = 0.99 / P(win), computed live
+  Limbo           99% exactly.  P(result >= M) = 0.99 / M by construction
+  Coinflip        99% exactly.  a true 50/50 priced for a 1% edge
+  Wheel           99% exactly.  segment multipliers sum to 9.9 over 10 segments
+  Plinko          99% exactly.  computed per board from Binomial(rows, 1/2)
+  Keno            99% exactly.  paytable derived from exact hypergeometric odds
+  Mines           99% exactly.  0.99 / hypergeometric survival odds, every step
+  Hi-Lo           99% exactly.  odds recomputed from the real remaining deck
+  Crash           99% exactly.  curve priced so no cash-out target beats another
+  Towers          99% exactly.  re-derived from true odds on every floor
+  Scratch Cards   99% exactly.  weighted mean of a fixed prize table
+  Lottery         99% exactly.  hypergeometric, not hand-written
+  Silks (racing)  99% exactly.  favourite and outsider priced identically
+
+TABLE GAMES (8)
+  European Roulette   36/37 (~97.30%) on every bet type; the green pocket is
+                      the entire edge
+  Blackjack           ~99.4% ceiling under full basic strategy — the player's
+                      decisions move the real number
+  Baccarat            exact, enumerated through the real drawing rules:
+                      Player 98.76%, Banker 98.94%, Tie 85.64%
+  Craps               98.586% pass line, 98.636% don't pass, 97.222% field
+  Sic Bo              99% exactly, from a full enumeration of all 216 throws
+  Casino War          97.253% exactly, enumerated over all 13x13 rank pairs
+  Three Card          99% exactly, across all C(52,3) = 22,100 hands
+  Draw Poker          depends on which cards you hold; measured under a
+                      documented reference strategy
+
+SLOTS (1)
+  Candy Cascade       a cascading/tumbling slot with free spins and bonus buys.
+                      ~96% — SIMULATED over 60,000+ full rounds, measured
+                      95–98% with +/-1.5pp standard error. Labelled as
+                      simulated because it cannot be solved in closed form.
+
+LIVE (2 placeholders)
+  Studio One / Studio Two — listed in the lobby but explicitly marked
+  "Not built yet. Nothing here streams anywhere." They are honest placeholders,
+  not fake functionality.
+
+
+--------------------------------------------------------------------------------
+4. THE RTP HARNESS — THE PROJECT'S CENTRAL DISCIPLINE
+--------------------------------------------------------------------------------
+
+`npm run rtp` is the rule the whole project is built around: no game may claim
+a return-to-player figure it cannot prove.
+
+Games fall into two classes:
+
+  DERIVED    The payout table is computed from the true probabilities rather
+             than written by hand. The house edge is a single constant
+             (fairMultiplier(p) = 0.99 / p) and the published RTP is then
+             RE-COMPUTED from the rounded multipliers actually paid — so the
+             number quoted is the number a player receives, not the ideal one
+             before rounding.
+
+  SIMULATED  Where no closed form exists (the cascading slot), the RTP is
+             measured over tens of thousands of rounds and the tolerance is
+             derived from the run's own measured variance (5 standard errors),
+             never a guessed band. The label says "simulated" on the game page.
+
+Two arguments worth knowing if you discuss this project:
+  - Mines, Towers and Hi-Lo pay 99% at EVERY cash-out point, which means no
+    stopping strategy is better than any other (an optional-stopping argument).
+  - The RNG is rejection-sampled so there is no modulo bias.
+
+
+--------------------------------------------------------------------------------
+5. THE LIFE / CAREER LAYER
+--------------------------------------------------------------------------------
+
+This is what makes it more than a games collection.
+
+A LIFE IS FINITE
+  You start at age 18 and die at 80. That is 22,630 days, and every settled bet
+  spends 15 of them — about 1,508 bets per life. Run the clock out and you die
+  of OLD_AGE. Go broke once too often and you die of RUIN.
+
+COMEBACKS
+  Going broke is not instantly fatal: you get 3 comebacks per life. Each one
+  hands you a fresh stake and costs 3 years off the clock. The fourth time you
+  bust, the career is over.
+
+DEATH AND RESTART
+  When a career ends you get a death screen with a cause and an epitaph, then
+  start a new life. Completed careers are counted and make the next one quicker
+  to build.
+
+LEVELS AND STAGES (1–50)
+  Levelling raises your table limit and unlocks features. Each band renames your
+  account as a life stage: Broke Student -> Night Shift -> Desk Jockey ->
+  Floor Manager -> Small-Time Shark -> High Roller -> Whale Watcher ->
+  Syndicate Boss -> Casino Magnate -> Living Legend -> Ready to Rebirth.
+
+REBIRTH (prestige)
+  At level 50 you can rebirth: your level resets, your bankroll is taken, and
+  every future table limit is permanently multiplied. Up to 10 rebirths.
+
+VENUES (7, unlocked by level)
+  The Back Room (L1) -> The Delta Queen (L5) -> Neon Mile (L12) ->
+  The Grand Meridian (L20) -> Salle Blanche (L28) -> Jade Terrace (L36) ->
+  The Vault (L45). Each has its own minimum stake and atmosphere, so travelling
+  up the ladder is a real decision, not a cosmetic one.
+
+REPUTATION (7 tiers)
+  Nobody -> Face in the Crowd -> Regular -> Known Quantity -> Respected ->
+  Notorious -> Legend of the Floor.
+
+VIP (7 tiers, derived from lifetime amount staked, not from money spent)
+  Unranked -> Bronze -> Silver -> Gold -> Platinum -> Diamond -> Black.
+  Higher tiers raise the table limit and the daily bonus.
+
+ACHIEVEMENTS — 43 of them, in tiers (bronze upward), across career, bankroll,
+  volume and multiplier categories.
+
+CHALLENGES — 10 definitions, served as 3 daily and 2 weekly slots, claimed on
+  the career page.
+
+RANDOM EVENTS — 44 defined events, capped at 8 per in-game day. Events can
+  affect money as well as progression. Money effects are scaled to a multiple
+  of the player's stake (EFFECT_STAKE_MULTIPLE = 10) rather than being a flat
+  amount — this closed a real exploit where a player could farm events by
+  repeatedly betting the 0.10 minimum.
+
+FEATURE UNLOCKS BY LEVEL
+  Turbo spins (L3), Bonus buy: Free Spins (L6), Bonus buy: Super Free Spins
+  (L15), Rebirth (L50).
+
+ALWAYS-VISIBLE NEXT GOAL
+  A deliberate design requirement: the player can always see current progress
+  and what the next goal is, rather than having to infer it.
+
+
+--------------------------------------------------------------------------------
+6. THE ECONOMY AND THE LEDGER
+--------------------------------------------------------------------------------
+
+Fake currency, and only five ways credits can ever enter a balance:
+
+  1. Sign-up grant        100,000.00, once
+  2. Daily bonus          5,000.00 base, +1,000.00 per consecutive day, 7-day
+                          streak cap, 20-hour cooldown, streak breaks after 48h
+  3. Promo codes          created in the staff dashboard, one use per account
+  4. Referrals            see section 7
+  5. Winning bets         paid out of the same fake ledger
+
+THE LEDGER INVARIANT — the most important rule in the codebase:
+
+  Every single movement of money writes a Transaction row carrying
+  netCents = payoutCents - betCents and the running balanceAfterCents. Walking
+  those rows from zero must reconcile EXACTLY to the live balance. This holds
+  for bets, bonuses, promos, referrals, random events, and staff adjustments
+  alike. Staff money moves through the same credit/debit helpers plus an
+  ADMIN-kind transaction — never a direct write to the balance column. There is
+  no privileged path around the books.
+
+Money is stored as integer cents in BigInt columns, because a long-lived
+account can wager past the range of a 32-bit integer.
+
+Minimum bet is 0.10. The table limit is derived server-side from the player's
+persisted level and rebirth count — never from anything the client sends.
+
+
+--------------------------------------------------------------------------------
+7. REFERRALS
+--------------------------------------------------------------------------------
+
+Every account owns one shareable code, minted at sign-up (and on first request
+for accounts that predate the feature). Signing up with someone's code pays both
+sides: 100,000.00 to the account whose code was used, 50,000.00 to the new
+account on top of the ordinary welcome grant. A ?ref=CODE link fills the sign-up
+field in automatically.
+
+Both payments are ordinary ledger rows written inside the transaction that
+creates the account, so a referred account still reconciles from zero.
+
+Rules, all enforced server-side at sign-up:
+  - the code must belong to an account that is neither suspended nor deleted
+  - referredById is set once at creation; no route changes it afterwards, so a
+    referral cannot be claimed retroactively
+  - a referral between two accounts created on the same connection is refused,
+    including where the connection matches an account that referrer already
+    brought in (which catches a chain made from one machine)
+
+Codes avoid characters people misread off a screen or aloud: no 0/O, 1/I/L, 8/B.
+
+
+--------------------------------------------------------------------------------
+8. STRIKES AND ENFORCEMENT
+--------------------------------------------------------------------------------
+
+Abuse is recorded rather than silently blocked. Each infraction writes an
+append-only Strike row and increments a counter:
+
+  strike 1  warning
+  strike 2  warning
+  strike 3  account suspended
+  strike 4  account banned
+
+A banned account cannot sign in at all. A SUSPENDED one still can — deliberately
+— because it needs to be able to read the message explaining why it cannot bet.
+Every strike sends that message through the same player inbox staff
+announcements use, so an account never goes quiet without an explanation.
+
+Staff clear a suspension or ban by unsuspending, which also resets the counter
+(leaving the strikes would put a reinstated account one infraction from a
+permanent ban). The Strike rows themselves are never deleted, so the history
+survives the reinstatement and staff can see exactly what happened.
+
+The only rule issuing strikes today is referral self-dealing.
+
+KNOWN LIMIT, STATED HONESTLY: the client address comes from the
+x-forwarded-for header, which is set by whatever proxy sits in front of the app
+and can be forged by a client talking to the app directly. It is treated as a
+signal, not proof of identity — which is why it only ever costs a bonus, and
+nothing that grants access is decided by it. It also cannot distinguish two
+genuine flatmates on one connection.
+
+
+--------------------------------------------------------------------------------
+9. THE STAFF / DEVELOPER DASHBOARD (/admin)
+--------------------------------------------------------------------------------
+
+A dashboard completely separate from the player UI, with no link to it from
+anywhere in the casino — you type the URL. A signed-in player who guesses it is
+redirected to the homepage.
+
+THE SECURITY MODEL — the single most important claim in this project:
+
+  Authorisation is enforced on the SERVER, per route, every time. Each admin
+  route names the capability it requires and re-reads the caller's role from the
+  database before doing anything. Hiding a button in the frontend is treated as
+  a courtesy, not a control — a hand-crafted request to any /api/admin/* route
+  gets a 403 regardless of what the UI rendered.
+
+SIX ROLES, with capabilities written out per role rather than derived from a
+hierarchy (so a change to one role cannot silently widen another):
+
+  OWNER       everything
+  ADMIN       everything except managing roles
+  DEVELOPER   view/create accounts, economy, progression, unlocks, game config,
+              site config, promos, analytics, audit
+  MODERATOR   view accounts, suspend, announce, audit
+  SUPPORT     view accounts, analytics, audit  (read-only)
+  TESTER      view accounts, create accounts
+
+RANK, which is separate from capability: staff cannot act on staff at or above
+their own rank. This is what stops two peers demoting each other in a loop.
+Ranks: OWNER 100, ADMIN 80, DEVELOPER 60, MODERATOR 50, SUPPORT 30, TESTER 10.
+Acting on your OWN account is allowed (you are not your own peer), except for
+suspend, delete and role-change, which would lock you out permanently.
+
+ROLES ARE ONLY MINTABLE OUTSIDE HTTP. There is no route, no sign-up flag and no
+"first user becomes owner" rule. The first OWNER is created by running
+`OWNER_USERNAME=... npm run seed:owner` on the host. Since the dashboard can set
+balances and wipe progression, the ability to mint one must live outside
+anything an HTTP request can reach.
+
+WHAT THE DASHBOARD DOES
+  - account search, and a detail page with 16 staff actions covering balance,
+    XP, level, reputation, VIP, prestige, achievements, venue unlocks,
+    suspension, deletion, restoration and roles
+  - game configuration: close a table, bound its stakes, add a note
+  - site flags, including maintenance mode (staff can still play during it, so
+    the app can be checked before it reopens)
+  - promo codes: pick credits / XP / both, type any amount, set max uses
+  - announcements: site-wide, or addressed to one account by name
+  - analytics, and an append-only audit log
+
+WHAT THE DASHBOARD DELIBERATELY CANNOT DO
+  - No field anywhere reaches a paytable, a house edge or an RNG. Staff can
+    close a table and bound its stakes; they cannot re-price it. A dashboard
+    that could would make every published RTP in the project unverifiable.
+  - No direct balance writes; admin money moves through the ledger.
+
+ACCOUNTABILITY
+  Every mutating action writes an audit row — old value, new value, actor, and
+  a reason — inside the same database transaction as the change itself, so a
+  change cannot exist without its audit entry. Dangerous actions additionally
+  require an explicit confirmation flag. Below OWNER, the reason is mandatory;
+  an OWNER may leave it blank, and the entry is still written with the reason
+  recording that none was given, so the trail never has a silent gap.
+
+PROOF, NOT ASSERTION
+  `npm run security` drives 48 checks over HTTP against a running server. It
+  never imports a route handler and never grants itself a role through an admin
+  route — roles are written straight to the database, the way the seed script
+  does. It covers: anonymous and player refusal on all seven admin routes and on
+  a self-grant; SUPPORT reading but refused on the economy; MODERATOR able to
+  suspend but not to touch money or configure a game; ADMIN refused on role
+  changes; equal-rank staff blocked from each other; missing reason and missing
+  confirmation both rejected; an owner grant that moves the balance by exactly
+  the right amount, writes one ADMIN ledger row, reconciles the running-balance
+  chain and leaves a complete audit row; and suspension, a closed table and
+  maintenance mode each actually refusing a bet.
+
+
+--------------------------------------------------------------------------------
+10. PLAYER-FACING FEATURES AND UX
+--------------------------------------------------------------------------------
+
+  - Anonymous browsing: the lobby, category pages, every game page and its
+    paytable are open without an account. Only placing a real bet requires
+    signing in — gated where the bet happens, and re-enforced server-side by
+    every API route regardless of what the client shows.
+  - Message inbox: a bell in the header with an unread count. Read state is a
+    database row, not browser storage, so a message stays read across devices.
+  - Celebrations: win animations, level-up toasts, achievement/VIP/reputation/
+    challenge award toasts, a death overlay, and an event modal.
+  - Roulette: clicking a corner or street highlights every number that would
+    win, and when the ball lands every winning bet on the layout lights up.
+  - Rewards page: daily bonus with a visible streak ladder, promo redemption,
+    and the referral panel with your code, a copy-link button and your earnings.
+  - Career page, achievements page, bet history, settings.
+  - Deliberately smooth visual style — the brief was explicitly "less
+    digitalised", so it avoids hard neon-on-black arcade styling.
+
+PAGES
+  Player:  /  /category/[category]  /game/[slug]  /rewards  /achievements
+           /life  /history  /settings  /login  /signup
+  Staff:   /admin  /admin/accounts  /admin/accounts/[id]  /admin/games
+           /admin/site  /admin/audit
+
+
+--------------------------------------------------------------------------------
+11. DESIGN PRINCIPLES WORTH QUOTING
+--------------------------------------------------------------------------------
+
+  1. No published number without proof. Every RTP is either exactly derived or
+     labelled as simulated with a confidence interval from measured variance.
+  2. The ledger reconciles from zero, for every account, with no exceptions and
+     no privileged write path.
+  3. Authorisation is a server property. The UI is never the control.
+  4. No knob reaches a paytable. Operability must not cost verifiability.
+  5. Nothing shown as functional is fake. Unfinished things say they are
+     unfinished (the two live-dealer tiles) rather than pretending.
+  6. Fake currency only, with no payment path anywhere in the codebase.
+  7. Every consequential change is auditable, with old value, new value and
+     reason, written atomically with the change.
+
+
+--------------------------------------------------------------------------------
+12. WHAT IS NOT BUILT YET
+--------------------------------------------------------------------------------
+
+  - Tournaments
+  - Persistent NPCs and rivals (rivals currently appear only as random events)
+  - Limited-time events
+  - Live dealer games (the two lobby tiles are honest placeholders)
+  - No referral cap: a player can create accounts to farm the referral bonus
+    beyond the same-connection rule. It is fake currency so nothing is stolen,
+    but it does let someone skip early progression.
+  - The database is SQLite. On an ephemeral or serverless host the file does not
+    persist between deploys; a real deployment should move to Postgres.
+
+================================================================================
