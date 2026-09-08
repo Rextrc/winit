@@ -22,8 +22,22 @@ export type Award =
   | { id: number; kind: "reputation"; name: string; blurb: string }
   | { id: number; kind: "challenge"; name: string; period: string };
 
+/** The nearest open goal, as scored by nextGoals(). */
+export type GoalView = {
+  kind: string;
+  title: string;
+  detail: string;
+  progress: number;
+  href: string;
+};
+
 type Wallet = {
   balanceCents: number | null;
+  /** The single nearest goal, for the strip under the header. */
+  goal: GoalView | null;
+  /** False only for an account that has never seen the first-run explainer. */
+  onboarded: boolean;
+  markOnboarded: () => void;
   bonus: BonusStatus | null;
   progression: Progression | null;
   career: CareerState | null;
@@ -55,6 +69,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [bonus, setBonus] = useState<BonusStatus | null>(null);
   const [progression, setProgression] = useState<Progression | null>(null);
+  const [goal, setGoal] = useState<GoalView | null>(null);
+  // Defaults to true so the explainer can never flash up on an account that
+  // has already done it while the first fetch is still in flight.
+  const [onboarded, setOnboarded] = useState(true);
   const [career, setCareer] = useState<CareerState | null>(null);
   const [levelUp, setLevelUp] = useState<LevelUpToast>(null);
   const levelUpId = useRef(0);
@@ -76,6 +94,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setBonus(null);
         setProgression(null);
         setCareer(null);
+        setGoal(null);
         return;
       }
       const data = await res.json();
@@ -83,6 +102,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBonus(data.bonus);
       setProgression(data.progression ?? null);
       setCareer(data.career ?? null);
+      setGoal(data.goal ?? null);
+      setOnboarded(data.onboarded !== false);
       // An event left PENDING by a previous session is still owed a decision.
       try {
         const ev = await fetch("/api/life/event", { cache: "no-store" });
@@ -110,6 +131,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBonus(null);
       setProgression(null);
       setCareer(null);
+      setGoal(null);
+      setOnboarded(true);
       setLoading(false);
       return;
     }
@@ -210,6 +233,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const markOnboarded = useCallback(() => setOnboarded(true), []);
   const dismissLevelUp = useCallback(() => setLevelUp(null), []);
   const dismissDeath = useCallback(() => setDeath(null), []);
   const clearPendingEvent = useCallback(() => setPendingEvent(null), []);
@@ -243,6 +267,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       lastDelta,
       applyResult,
       applyProgress,
+      goal,
+      onboarded,
+      markOnboarded,
       levelUp,
       dismissLevelUp,
       death,
@@ -264,6 +291,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       lastDelta,
       applyResult,
       applyProgress,
+      goal,
+      onboarded,
+      markOnboarded,
       levelUp,
       dismissLevelUp,
       death,

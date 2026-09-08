@@ -9,6 +9,8 @@ import WinCelebration from "@/components/WinCelebration";
 import DeathOverlay from "@/components/DeathOverlay";
 import EventModal from "@/components/EventModal";
 import AwardToasts from "@/components/AwardToasts";
+import GoalBar from "@/components/GoalBar";
+import Onboarding from "@/components/onboarding/Onboarding";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -19,6 +21,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onOpenMenu={() => setMenuOpen(true)} />
+        <GoalBar />
         <main className="flex-1 px-4 py-6 lg:px-6">
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
@@ -28,6 +31,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <DeathOverlay />
         <EventModal />
         <AwardToasts />
+        <Onboarding />
       </div>
     </div>
   );

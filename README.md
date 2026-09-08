@@ -393,6 +393,29 @@ An earlier version of that last check measured the single best event instead
 and made a balanced catalogue look like a 24x-per-day exploit. The check was
 wrong, but fixing it is what surfaced the stake-farming hole that was real.
 
+## First-run onboarding
+
+A new account sees a four-screen explainer once, on first login: the bankroll
+and the finite life, what a settled bet costs in days, what levels and venues
+unlock, and then a landing on Coinflip — one decision, no rules to read, and
+exactly 99% RTP, so the first bet demonstrates the fairness claim rather than
+just asserting it.
+
+It is skippable from every step and closes on Escape. `onboardedAt` on User is
+null until it is finished or skipped; existing accounts were backfilled at the
+migration, so nobody sees it retroactively. The route that stamps it grants
+nothing — the sign-up grant remains the only credit a new account receives.
+
+Every figure in the copy is imported from the constant that defines it
+(`LIFE_DAYS`, `DAYS_PER_BET`, `MAX_LEVEL`, `VENUES.length`, the stake bounds),
+so an explainer that tells a player their life is 22,630 days long cannot drift
+into being the most visible lie in the product.
+
+Afterwards the nearest open goal stays on screen everywhere as a strip under the
+header. It is the same `nextGoals()` the career page uses, reduced to one and
+delivered on the `/api/me` response the header balance already fetches, so the
+strip and the `/life` list can never disagree.
+
 ## Referrals
 
 Every account owns one shareable code, minted on sign-up (and on first request

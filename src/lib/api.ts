@@ -39,6 +39,8 @@ export type CurrentUser = {
   /** Set while the account is suspended; betting is refused. */
   suspendedReason: string | null;
   suspended: boolean;
+  /** Null until the first-run explainer has been finished or skipped. */
+  onboardedAt: Date | null;
 };
 
 /** Loads the caller, or returns a 401 response to bail out with. */
@@ -105,6 +107,7 @@ export async function requireUser(): Promise<
       adminRole: row.adminRole,
       suspendedReason: row.suspendedReason,
       suspended: row.suspendedAt !== null,
+      onboardedAt: row.onboardedAt,
     },
     response: null,
   };

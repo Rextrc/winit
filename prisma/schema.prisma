@@ -100,6 +100,10 @@ model User {
   deletedAt       DateTime?
   // Throttled presence stamp, for "online now" and daily-active counts.
   lastSeenAt      DateTime?
+  // When the first-run explainer was finished or skipped. Null means the
+  // account has never seen it. A timestamp rather than a boolean because
+  // "when" costs nothing to store and answers questions a flag cannot.
+  onboardedAt     DateTime?
 
   transactions Transaction[]
   rounds       Round[]
