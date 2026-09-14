@@ -232,6 +232,30 @@ export function kenoMinPayingHits(picks: number): number {
   return picks - 2;
 }
 
+export const KENO_RISKS = ["classic", "low", "medium", "high"] as const;
+export type KenoRisk = (typeof KENO_RISKS)[number];
+
+/**
+ * Risk changes the SHAPE of the paytable, never the edge.
+ *
+ * `offset` moves the first hit count that pays anything, and `ratio` is how
+ * steeply each further hit multiplies the one below it. Low pays earlier and
+ * flatter; high pays almost nothing until you are near-perfect and then pays
+ * enormously. Because every row is rescaled afterwards so the exact
+ * hypergeometric expectation lands on TARGET_RTP, all four risks return the
+ * same 99% — the player is choosing variance, not a better or worse deal.
+ *
+ * A narrow paying window at a high pick count produces very large top
+ * multipliers, because a 1-in-10-million outcome has to carry the whole 99%
+ * on its own. That is the arithmetic being honest, not a bug.
+ */
+const KENO_RISK_SHAPE: Record<KenoRisk, { offset: number; ratio: number }> = {
+  classic: { offset: 0, ratio: 4 },
+  low: { offset: -1, ratio: 2 },
+  medium: { offset: 0, ratio: 5 },
+  high: { offset: 1, ratio: 6 },
+};
+
 /**
  * The paytable is derived, not hand-written. Pays rise geometrically from the
  * minimum paying hit count, then the whole row is scaled so the exact
@@ -239,15 +263,18 @@ export function kenoMinPayingHits(picks: number): number {
  * after scaling, and `kenoExactRtp` re-derives the return from those rounded
  * numbers so the published figure is the one that is actually paid.
  */
-export function kenoPaytable(picks: number): number[] {
-  const min = kenoMinPayingHits(picks);
-  const shape = Array.from({ length: picks + 1 }, (_, h) => (h < min ? 0 : 4 ** (h - min)));
+export function kenoPaytable(picks: number, risk: KenoRisk = "classic"): number[] {
+  const { offset, ratio } = KENO_RISK_SHAPE[risk];
+  // Clamped so a row always has at least one paying hit count, and so nothing
+  // ever pays for hitting none of your own numbers.
+  const min = Math.min(picks, Math.max(1, kenoMinPayingHits(picks) + offset));
+  const shape = Array.from({ length: picks + 1 }, (_, h) => (h < min ? 0 : ratio ** (h - min)));
   const raw = shape.reduce((sum, w, h) => sum + w * kenoHitProbability(picks, h), 0);
   const scale = TARGET_RTP / raw;
   return shape.map((w) => (w === 0 ? 0 : roundMultiplier(w * scale)));
 }
 
-export function kenoExactRtp(picks: number): number {
-  const table = kenoPaytable(picks);
+export function kenoExactRtp(picks: number, risk: KenoRisk = "classic"): number {
+  const table = kenoPaytable(picks, risk);
   return table.reduce((sum, m, h) => sum + m * kenoHitProbability(picks, h), 0);
 }

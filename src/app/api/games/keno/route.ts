@@ -5,13 +5,23 @@ import { validateBet, formatCents } from "@/lib/money";
 import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
 import { shuffle } from "@/lib/rng";
-import { KENO_DRAWN, KENO_MAX_PICKS, KENO_POOL, kenoPaytable, payoutFor } from "@/lib/games/originals";
+import {
+  KENO_DRAWN,
+  KENO_MAX_PICKS,
+  KENO_POOL,
+  KENO_RISKS,
+  kenoPaytable,
+  payoutFor,
+} from "@/lib/games/originals";
 
 export const runtime = "nodejs";
 
 const schema = z.object({
   betCents: z.number().int(),
   picks: z.array(z.number().int().min(1).max(KENO_POOL)).min(1).max(KENO_MAX_PICKS),
+  // Risk only reshapes the paytable — every level returns the same 99%, so
+  // this is a variance choice and never an edge the client can pick.
+  risk: z.enum(KENO_RISKS).default("classic"),
 });
 
 export async function POST(req: Request) {
@@ -44,7 +54,7 @@ export async function POST(req: Request) {
     const drawnSet = new Set(drawn);
     const hits = picks.filter((n) => drawnSet.has(n)).length;
 
-    const table = kenoPaytable(picks.length);
+    const table = kenoPaytable(picks.length, parsed.data.risk);
     const multiplier = table[hits] ?? 0;
     const payoutCents = payoutFor(bet.cents, multiplier);
 
@@ -58,7 +68,7 @@ export async function POST(req: Request) {
         payoutCents > 0
           ? `${hits}/${picks.length} hits — paid ${formatCents(payoutCents)}`
           : `${hits}/${picks.length} hits — no pay`,
-      detail: { picks, drawn, hits, multiplier },
+      detail: { picks, drawn, hits, multiplier, risk: parsed.data.risk },
     });
 
     return NextResponse.json({
@@ -66,6 +76,7 @@ export async function POST(req: Request) {
       drawn,
       hits,
       multiplier,
+      risk: parsed.data.risk,
       payoutCents,
       netCents: settled.netCents,
       balanceCents: settled.balanceCents,

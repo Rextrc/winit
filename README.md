@@ -416,6 +416,20 @@ header. It is the same `nextGoals()` the career page uses, reduced to one and
 delivered on the `/api/me` response the header balance already fetches, so the
 strip and the `/life` list can never disagree.
 
+## Keno risk levels
+
+Keno has four risk levels — classic, low, medium, high — and they change the
+*shape* of the paytable, never the edge. `offset` moves the first hit count that
+pays anything and `ratio` is how steeply each further hit multiplies the one
+below it; every row is then rescaled so the exact hypergeometric expectation
+lands back on 99%. The player is buying variance, not a better or worse deal,
+and `npm run rtp` checks all four levels at all ten pick counts rather than
+taking that on trust.
+
+A narrow paying window at a high pick count produces very large top multipliers,
+because a one-in-ten-million outcome has to carry the whole 99% by itself. That
+is the arithmetic being honest, not a bug.
+
 ## Referrals
 
 Every account owns one shareable code, minted on sign-up (and on first request

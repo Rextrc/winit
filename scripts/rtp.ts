@@ -451,7 +451,16 @@ const PLINKO_SIM = 400_000;
 // within a few multiplier-rounding-widths of TARGET_RTP, not exactly on it.
 const KENO_ROUNDING_TOLERANCE = 5e-5;
 for (const picks of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
-  check(`keno ${picks} picks`, Orig.kenoExactRtp(picks), Orig.TARGET_RTP, KENO_ROUNDING_TOLERANCE);
+  // Risk reshapes the paytable but must never move the edge: every risk level
+  // at every pick count has to land on the same 99%.
+  for (const risk of Orig.KENO_RISKS) {
+    check(
+      `keno ${picks} picks (${risk})`,
+      Orig.kenoExactRtp(picks, risk),
+      Orig.TARGET_RTP,
+      KENO_ROUNDING_TOLERANCE,
+    );
+  }
   let sum = 0;
   for (let h = 0; h <= picks; h++) sum += Orig.kenoHitProbability(picks, h);
   check(`keno ${picks} picks hit-probabilities sum to 1`, sum, 1, 1e-9);
