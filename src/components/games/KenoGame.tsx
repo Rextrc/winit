@@ -8,6 +8,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { wait } from "@/lib/dealTiming";
 import {
   KENO_MAX_PICKS,
   KENO_POOL,
@@ -27,6 +28,14 @@ type Resp = {
   risk: KenoRisk;
   progress: import("@/lib/ledger").ProgressUpdate;
 };
+
+/**
+ * Pace of the number-by-number draw reveal. It is a grid highlight rather
+ * than a flying card, so it can run brisker than the card games' stagger
+ * while still reading as one draw at a time instead of all ten landing in
+ * the same frame.
+ */
+const DRAW_STAGGER_MS = 90;
 
 const RISK_LABEL: Record<KenoRisk, string> = {
   classic: "Classic",
@@ -52,6 +61,10 @@ export default function KenoGame({ game }: { game: GameDef }) {
   const [picks, setPicks] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<Resp | null>(null);
+  // Which of this round's ten drawn numbers have appeared so far — grows
+  // one at a time so the board highlights them as a draw in progress,
+  // rather than a completed result appearing all at once.
+  const [revealed, setRevealed] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
 
@@ -73,6 +86,7 @@ export default function KenoGame({ game }: { game: GameDef }) {
     (n: number) => {
       if (busy) return;
       setLast(null);
+      setRevealed([]);
       setPicks((p) => {
         if (p.includes(n)) return p.filter((x) => x !== n);
         if (p.length >= KENO_MAX_PICKS) return p;
@@ -86,6 +100,7 @@ export default function KenoGame({ game }: { game: GameDef }) {
     if (busy) return;
     setPicks([]);
     setLast(null);
+    setRevealed([]);
   }, [busy]);
 
   /** Fills the board to the maximum with numbers drawn uniformly at random. */
@@ -97,6 +112,7 @@ export default function KenoGame({ game }: { game: GameDef }) {
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     setLast(null);
+    setRevealed([]);
     setPicks(pool.slice(0, KENO_MAX_PICKS).sort((a, b) => a - b));
   }, [busy]);
 
@@ -113,6 +129,19 @@ export default function KenoGame({ game }: { game: GameDef }) {
       return null;
     }
     const payload = data as Resp;
+
+    // The draw is already decided the instant this response arrives, but
+    // showing all ten numbers — and the multiplier they add up to — in one
+    // frame is what made this feel like it "just popped up". So the numbers
+    // are revealed one at a time here, on the client, before anything about
+    // the result (the card, the hit count, the balance) is shown.
+    setRevealed([]);
+    for (const n of payload.drawn) {
+      await wait(DRAW_STAGGER_MS);
+      setRevealed((r) => [...r, n]);
+    }
+    await wait(DRAW_STAGGER_MS * 2);
+
     setLast(payload);
     applyResult(payload.balanceCents, payload.netCents);
     applyProgress(payload.progress);
@@ -165,7 +194,7 @@ export default function KenoGame({ game }: { game: GameDef }) {
         if (net === null) break;
         setAutoDone((d) => d + 1);
         setAutoNetCents((t) => t + net);
-        await new Promise((r) => setTimeout(r, 420));
+        await wait(220);
       }
     } catch {
       setError("Network error — the run stopped.");
@@ -192,7 +221,10 @@ export default function KenoGame({ game }: { game: GameDef }) {
         : "Pick numbers on the board.",
   });
 
-  const drawnSet = useMemo(() => new Set(last?.drawn ?? []), [last]);
+  // Highlighting follows the reveal in progress, not the final `last`
+  // payload, so a tile lights up the moment its number is drawn rather
+  // than all ten lighting up together once the round is fully settled.
+  const drawnSet = useMemo(() => new Set(revealed), [revealed]);
   const showingResult = last !== null;
   const won = last !== null && last.netCents > 0;
 
@@ -354,6 +386,7 @@ export default function KenoGame({ game }: { game: GameDef }) {
                 onClick={() => {
                   setRisk(r);
                   setLast(null);
+                  setRevealed([]);
                 }}
                 className={`rounded-xl py-2.5 text-[12px] font-black transition disabled:opacity-50 ${
                   on ? tone.active : `bg-base-700/70 ${tone.text} hover:bg-base-600/70`

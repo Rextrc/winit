@@ -8,6 +8,7 @@ import PlayingCard from "@/components/games/PlayingCard";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { CARD_DEAL_MS, CARD_STAGGER_MS, wait } from "@/lib/dealTiming";
 import type { Card } from "@/lib/games/blackjack";
 import type { Direction } from "@/lib/games/hilo";
 import type { ProgressUpdate } from "@/lib/ledger";
@@ -36,6 +37,12 @@ export default function HiloGame({ game }: { game: GameDef }) {
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  // The card the server drew for this guess, shown beside the one that was
+  // already showing, before either the streak ticks up or the round settles.
+  // The server only sends a separate `revealed` card on a loss — on a correct
+  // or deck-clearing guess it just advances `current` in place — so this is
+  // built client-side from whichever of the two the response actually gives.
+  const [revealPair, setRevealPair] = useState<{ base: Card; drawn: Card } | null>(null);
 
   useEffect(() => {
     fetch("/api/games/hilo")
@@ -97,6 +104,7 @@ export default function HiloGame({ game }: { game: GameDef }) {
       if (busy || !inPlay || !roundId || !view) return;
       setBusy(true);
       setError(null);
+      const beforeCard = view.current;
       try {
         const res = await fetch("/api/games/hilo", {
           method: "POST",
@@ -109,6 +117,16 @@ export default function HiloGame({ game }: { game: GameDef }) {
           setBusy(false);
           return;
         }
+
+        // On a loss the server hands back the wrong card as `revealed` and
+        // leaves `current` as the one you guessed against; on anything else
+        // it has already advanced `current` to the card it drew. Either way,
+        // this is the card that needs to visibly land next to the old one
+        // before the guess is allowed to resolve.
+        const drawnCard = data.view.status === "LOST" ? data.view.revealed! : data.view.current;
+        setRevealPair({ base: beforeCard, drawn: drawnCard });
+        await wait(CARD_STAGGER_MS + CARD_DEAL_MS);
+
         if (data.view.status === "LOST") {
           applyOutcome(data, `Guessed ${direction}`, -view.betCents);
         } else if (data.view.status === "WON_OUT") {
@@ -117,6 +135,7 @@ export default function HiloGame({ game }: { game: GameDef }) {
         } else {
           setView(data.view);
         }
+        setRevealPair(null);
       } catch {
         setError("Network error.");
       } finally {
@@ -143,6 +162,9 @@ export default function HiloGame({ game }: { game: GameDef }) {
         return;
       }
       const payout = Math.round(view.betCents * view.streakMultiplier);
+      // A beat before the number lands, matching every other settle in the
+      // game rather than snapping the header balance up instantly.
+      await wait(CARD_DEAL_MS);
       applyOutcome(data, `Cashed out at ${view.streakMultiplier.toFixed(2)}×`, payout - view.betCents);
     } catch {
       setError("Network error.");
@@ -174,8 +196,22 @@ export default function HiloGame({ game }: { game: GameDef }) {
       )}
 
       <div className="flex items-center justify-center gap-4">
-        <PlayingCard card={view?.current} small={false} />
-        {view?.revealed && <PlayingCard card={view.revealed} small={false} />}
+        {revealPair ? (
+          <>
+            <PlayingCard card={revealPair.base} small={false} />
+            <PlayingCard
+              key={`${revealPair.drawn.r}${revealPair.drawn.s}`}
+              card={revealPair.drawn}
+              small={false}
+              delayMs={CARD_STAGGER_MS}
+            />
+          </>
+        ) : (
+          <>
+            <PlayingCard card={view?.current} small={false} />
+            {view?.revealed && <PlayingCard card={view.revealed} small={false} />}
+          </>
+        )}
       </div>
 
       <div className="mt-6 min-h-[60px]">
@@ -189,6 +225,8 @@ export default function HiloGame({ game }: { game: GameDef }) {
           </p>
         ) : view?.status === "CASHED_OUT" ? (
           <p className="num-win animate-pop-in text-2xl">Cashed out at {view.streakMultiplier.toFixed(2)}×</p>
+        ) : revealPair ? (
+          <p className="text-sm text-slate-400">Drew {revealPair.drawn.r}…</p>
         ) : inPlay ? (
           <p className="text-sm text-slate-400">Will the next card be higher or lower than {view!.current.r}?</p>
         ) : (

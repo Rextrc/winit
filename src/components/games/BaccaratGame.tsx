@@ -7,6 +7,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { CARD_STAGGER_MS, dealDurationMs, wait } from "@/lib/dealTiming";
 import { DECKS, PAYOUT, type BetType, type HandResult } from "@/lib/games/baccarat";
 import type { ProgressUpdate } from "@/lib/ledger";
 
@@ -39,6 +40,7 @@ export default function BaccaratGame({ game }: { game: GameDef }) {
 
   const [bet, setBet] = useState<BetType>("player");
   const [busy, setBusy] = useState(false);
+  const [hand, setHand] = useState<HandResult | null>(null);
   const [last, setLast] = useState<Resp | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
@@ -52,6 +54,8 @@ export default function BaccaratGame({ game }: { game: GameDef }) {
 
     setBusy(true);
     setError(null);
+    setLast(null);
+    setHand(null);
     try {
       const res = await fetch("/api/games/baccarat", {
         method: "POST",
@@ -65,6 +69,13 @@ export default function BaccaratGame({ game }: { game: GameDef }) {
         return;
       }
       const payload = data as Resp;
+      // The cards render the instant `hand` is set, so they deal in one by
+      // one on their own CSS stagger. Everything that gives the result away —
+      // the winner, the payout, the balance — waits for that to finish, or it
+      // would just appear next to the first card and spoil the rest.
+      setHand(payload.hand);
+      const cardCount = payload.hand.playerCards.length + payload.hand.bankerCards.length;
+      await wait(dealDurationMs(cardCount));
       setLast(payload);
       applyResult(payload.balanceCents, payload.netCents);
       applyProgress(payload.progress);
@@ -97,24 +108,24 @@ export default function BaccaratGame({ game }: { game: GameDef }) {
         <div className="text-center">
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Player</p>
           <div className="flex min-h-[74px] items-center justify-center gap-1.5">
-            {last?.hand.playerCards.map((v, i) => <Pip key={i} value={v} delayMs={i * 120} />) ?? (
+            {hand?.playerCards.map((v, i) => <Pip key={i} value={v} delayMs={i * CARD_STAGGER_MS} />) ?? (
               <div className="grid h-[74px] w-[52px] place-items-center rounded-xl border border-dashed border-white/10 text-slate-700">
                 ·
               </div>
             )}
           </div>
-          {last && <p className="num mt-2 text-2xl font-black text-white">{last.hand.playerTotal}</p>}
+          {hand && <p className="num mt-2 text-2xl font-black text-white">{hand.playerTotal}</p>}
         </div>
         <div className="text-center">
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Banker</p>
           <div className="flex min-h-[74px] items-center justify-center gap-1.5">
-            {last?.hand.bankerCards.map((v, i) => <Pip key={i} value={v} delayMs={i * 120} />) ?? (
+            {hand?.bankerCards.map((v, i) => <Pip key={i} value={v} delayMs={i * CARD_STAGGER_MS} />) ?? (
               <div className="grid h-[74px] w-[52px] place-items-center rounded-xl border border-dashed border-white/10 text-slate-700">
                 ·
               </div>
             )}
           </div>
-          {last && <p className="num mt-2 text-2xl font-black text-white">{last.hand.bankerTotal}</p>}
+          {hand && <p className="num mt-2 text-2xl font-black text-white">{hand.bankerTotal}</p>}
         </div>
       </div>
 
@@ -126,7 +137,7 @@ export default function BaccaratGame({ game }: { game: GameDef }) {
               {last.netCents === 0 ? "Push" : formatSignedCents(last.netCents)}
             </p>
           </div>
-        ) : (
+        ) : hand ? null : (
           <p className="text-sm text-slate-500">Pick Player, Banker or Tie, then deal.</p>
         )}
         {error && <p className="mt-2 text-sm font-semibold text-loss">{error}</p>}

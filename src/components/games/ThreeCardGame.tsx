@@ -8,6 +8,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { CARD_STAGGER_MS, dealDurationMs, wait } from "@/lib/dealTiming";
 import {
   HAND_LABELS,
   exactRtp,
@@ -65,7 +66,7 @@ export default function ThreeCardGame({ game }: { game: GameDef }) {
       }
 
       const payload = data as Resp;
-      await new Promise((r) => setTimeout(r, 700));
+      await wait(dealDurationMs(payload.result.cards.length));
       setDealing(false);
       setLast(payload);
       applyResult(payload.balanceCents, payload.netCents);
@@ -101,7 +102,7 @@ export default function ThreeCardGame({ game }: { game: GameDef }) {
             rank={cards?.[i]?.r}
             suit={cards?.[i]?.s}
             hidden={!cards || dealing}
-            delayMs={i * 130}
+            delayMs={i * CARD_STAGGER_MS}
             highlighted={!!last && last.result.multiplier > 0}
           />
         ))}

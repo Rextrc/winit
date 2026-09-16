@@ -97,7 +97,13 @@ const config: Config = {
       animation: {
         "reel-spin": "reel-spin 0.28s linear infinite",
         "pop-in": "pop-in 0.25s ease-out",
-        "card-deal": "card-deal 0.35s ease-out",
+        // `backwards` matters as much as the delay itself: without it, a card
+        // with a positive animation-delay renders at its normal resting
+        // opacity (1, in place) for the whole delay instead of staying hidden
+        // until its turn — which is what silently made every staggered
+        // per-card delayMs across the app invisible, and every hand look like
+        // it dealt in one frame no matter what delay was passed in.
+        "card-deal": "card-deal 0.35s ease-out backwards",
         "float-up": "float-up 1.6s ease-out forwards",
         marquee: "marquee 26s linear infinite",
         "confetti-fall": "confetti-fall linear forwards",

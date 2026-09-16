@@ -430,6 +430,39 @@ A narrow paying window at a high pick count produces very large top multipliers,
 because a one-in-ten-million outcome has to carry the whole 99% by itself. That
 is the arithmetic being honest, not a bug.
 
+## Card and number reveals
+
+Every card and card-like game now settles in two visibly separate steps: the
+cards (or, for Keno, the drawn numbers) land one at a time, and only once that
+has actually finished does anything that gives the hand away — a WIN/LOSS
+badge, the settle banner, the balance tick, the bet-feed entry — appear.
+`src/lib/dealTiming.ts` holds the shared constants (`CARD_STAGGER_MS`,
+`CARD_DEAL_MS`) and two helpers (`dealDurationMs`, `wait`) used the same way
+in Blackjack, Baccarat, War, Three Card, Draw Poker, Hi-Lo and Keno.
+
+The staggering itself was silently broken before this: `animate-card-deal`
+used a positive `animation-delay` with no `animation-fill-mode`, and without
+`backwards` an element with a pending animation-delay renders at its normal
+resting opacity (1, in place) for the whole delay rather than staying hidden
+until its turn. Every per-card `delayMs` in every game was doing nothing
+visible — confirmed by measuring computed `opacity` through a stand/deal
+sequence before and after adding `backwards` to the animation. That single
+missing keyword is most of why a hand used to look like it dealt in one
+frame no matter what delay was passed in; the per-game sequencing above is
+what stops the *outcome* from arriving before the reveal finishes, now that
+the reveal is something a player can actually see happening.
+
+Two more specific fixes fell out of the same pass. Draw Poker's replaced
+cards were keyed by board position, so drawing a new card into a held-empty
+slot changed the same DOM node's text without remounting it — no animation
+ever played on a draw, only on the initial deal. They are now keyed by the
+card's own rank and suit, so a replaced card is a new element and genuinely
+deals in. And Blackjack's dealer total was computed from `view.dealerTotal`
+the instant the response arrived, which (once the hole card and any hits are
+in the payload) announces a bust or a strong hand before the cards showing it
+have appeared — it now reads "…" for the same window the WIN/LOSS badge is
+hidden, so the number can't get there first.
+
 ## Referrals
 
 Every account owns one shareable code, minted on sign-up (and on first request

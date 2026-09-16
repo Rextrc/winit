@@ -8,6 +8,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { CARD_STAGGER_MS, dealDurationMs, wait } from "@/lib/dealTiming";
 import { HAND_LABELS, HAND_ORDER, PAYTABLE, type Card, type HandClass } from "@/lib/games/videopoker";
 
 type View = {
@@ -107,8 +108,16 @@ export default function VideoPokerGame({ game }: { game: GameDef }) {
       }
 
       const payload = data as Resp;
+      // The replaced cards render immediately (dealt() renders them via a key
+      // tied to rank+suit, so a card that changed genuinely remounts and
+      // plays its deal animation rather than silently swapping face). What
+      // waits is the hand it adds up to: showing that before the last
+      // replacement has landed would spoil the draw.
       setView(payload.view);
       setRoundId(null);
+
+      const replaced = 5 - held.length;
+      await wait(Math.max(dealDurationMs(replaced), 450));
 
       const payout = Math.round(payload.view.betCents * (payload.view.multiplier ?? 0));
       const netCents = payout - payload.view.betCents;
@@ -171,10 +180,15 @@ export default function VideoPokerGame({ game }: { game: GameDef }) {
                 aria-label={card ? `${card.r}${card.s}${isHeld ? " (held)" : ""}` : "Card"}
               >
                 <SuitCard
+                  // Keyed by the card itself (not just position `i`): a card
+                  // that gets replaced on draw is a genuinely new element by
+                  // this key, so it remounts and plays the deal animation
+                  // instead of silently changing face on the same node.
+                  key={card ? `${card.r}${card.s}` : `empty-${i}`}
                   rank={card?.r}
                   suit={card?.s}
                   hidden={!card}
-                  delayMs={i * 90}
+                  delayMs={i * CARD_STAGGER_MS}
                   highlighted={dealt && isHeld}
                   dimmed={dealt && held.length > 0 && !isHeld}
                 />

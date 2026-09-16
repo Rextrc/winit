@@ -8,6 +8,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { CARD_DEAL_MS, CARD_STAGGER_MS, wait } from "@/lib/dealTiming";
 import { exactRtp, type Card, type WarOutcome } from "@/lib/games/war";
 
 type Hand = {
@@ -68,15 +69,15 @@ export default function WarGame({ game }: { game: GameDef }) {
       }
 
       const payload = data as Resp;
-      await new Promise((r) => setTimeout(r, 550));
+      await wait(CARD_STAGGER_MS + CARD_DEAL_MS);
       setDealing(false);
       setLast(payload);
 
       // A war gets its own beat, so the tie reads before the second pair lands.
       if (payload.hand.war) {
-        await new Promise((r) => setTimeout(r, 900));
+        await wait(900);
         setShowWar(true);
-        await new Promise((r) => setTimeout(r, 500));
+        await wait(CARD_STAGGER_MS + CARD_DEAL_MS);
       }
 
       applyResult(payload.balanceCents, payload.netCents);
@@ -118,7 +119,7 @@ export default function WarGame({ game }: { game: GameDef }) {
         <div className="grid h-[104px] place-items-center">
           <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">vs</span>
         </div>
-        {row("House", hand?.dealer, 120)}
+        {row("House", hand?.dealer, CARD_STAGGER_MS)}
       </div>
 
       {atWar && (
@@ -131,7 +132,7 @@ export default function WarGame({ game }: { game: GameDef }) {
             <div className="grid h-[104px] place-items-center">
               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">vs</span>
             </div>
-            {row("House", showWar ? hand!.war!.dealer : undefined, 120)}
+            {row("House", showWar ? hand!.war!.dealer : undefined, CARD_STAGGER_MS)}
           </div>
         </div>
       )}

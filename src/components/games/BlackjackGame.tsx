@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import type { Action, BlackjackView } from "@/lib/games/blackjack";
 import GameFrame from "@/components/games/GameFrame";
@@ -9,6 +9,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { CARD_STAGGER_MS, dealDurationMs, wait } from "@/lib/dealTiming";
 
 const ACTION_LABEL: Record<Action, string> = {
   hit: "Hit",
@@ -25,6 +26,16 @@ const OUTCOME_TEXT: Record<string, string> = {
   BUST: "Bust",
 };
 
+/** How many dealer + player cards in `next` are not already in `prev`. */
+function newCardCount(prev: BlackjackView | null, next: BlackjackView): number {
+  const newDealer = Math.max(0, next.dealer.length - (prev?.dealer.length ?? 0));
+  const newPlayer = next.hands.reduce((sum, h, i) => {
+    const prevLen = prev?.hands[i]?.cards.length ?? 0;
+    return sum + Math.max(0, h.cards.length - prevLen);
+  }, 0);
+  return newDealer + newPlayer;
+}
+
 export default function BlackjackGame({ game }: { game: GameDef }) {
   const { effectiveBet, betError, pushFlash } = useBet();
   const { applyResult, applyProgress } = useWallet();
@@ -35,8 +46,19 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
   const [settledNet, setSettledNet] = useState<number | null>(null);
+  // Gates the per-hand WIN/LOSS/PUSH/BUST badges specifically: `view` itself
+  // is set the instant a response arrives (that's what lets the cards start
+  // flying in), but the verdict printed on each hand has to wait for that
+  // reveal to actually finish, or the badge would just appear alongside the
+  // first card and give the hand away.
+  const [resultsShown, setResultsShown] = useState(true);
+  const viewRef = useRef<BlackjackView | null>(null);
 
   const inPlay = view !== null && view.phase !== "DONE";
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
   // Pick a hand back up after a refresh — the shoe lives on the server.
   useEffect(() => {
@@ -83,6 +105,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     setBusy(true);
     setError(null);
     setSettledNet(null);
+    setResultsShown(true);
     setView(null);
 
     try {
@@ -99,10 +122,24 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
       }
 
       setRoundId(data.roundId);
-      setView(data.view);
-      applyResult(data.balanceCents, data.view.phase === "DONE" ? data.view.payoutCents - data.view.totalStakeCents : undefined);
-      if (data.progress) applyProgress(data.progress);
-      if (data.view.phase === "DONE") settle(data.view);
+      const nextView = data.view as BlackjackView;
+      const done = nextView.phase === "DONE";
+
+      if (done) {
+        // A natural blackjack settles on the opening two cards — the deal
+        // still has to be seen landing before the verdict prints under it.
+        setResultsShown(false);
+        setView(nextView);
+        await wait(dealDurationMs(newCardCount(null, nextView)));
+        setResultsShown(true);
+        applyResult(data.balanceCents, nextView.payoutCents - nextView.totalStakeCents);
+        if (data.progress) applyProgress(data.progress);
+        settle(nextView);
+      } else {
+        setView(nextView);
+        applyResult(data.balanceCents);
+        if (data.progress) applyProgress(data.progress);
+      }
     } catch {
       setError("Network error — the hand was not dealt.");
     } finally {
@@ -129,11 +166,26 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
           return;
         }
 
-        setView(data.view);
-        const done = data.view.phase === "DONE";
-        applyResult(data.balanceCents, done ? data.view.payoutCents - data.view.totalStakeCents : undefined);
-        if (data.progress) applyProgress(data.progress);
-        if (done) settle(data.view);
+        const nextView = data.view as BlackjackView;
+        const done = nextView.phase === "DONE";
+        const previous = viewRef.current;
+
+        if (done) {
+          // Standing can mean the dealer draws several cards to reach 17 —
+          // every one of those, plus the hole card, is "new" here and has to
+          // finish landing before any hand prints WIN/LOSS/PUSH/BUST.
+          setResultsShown(false);
+          setView(nextView);
+          await wait(dealDurationMs(newCardCount(previous, nextView)));
+          setResultsShown(true);
+          applyResult(data.balanceCents, nextView.payoutCents - nextView.totalStakeCents);
+          if (data.progress) applyProgress(data.progress);
+          settle(nextView);
+        } else {
+          setView(nextView);
+          applyResult(data.balanceCents);
+          if (data.progress) applyProgress(data.progress);
+        }
       } catch {
         setError("Network error — your move may not have been applied.");
       } finally {
@@ -158,7 +210,13 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
   const dealerTotalText = view
     ? view.dealerHoleHidden
       ? `${view.dealerTotal} + ?`
-      : String(view.dealerTotal)
+      : // The hole is flipped and any extra cards are drawn server-side before
+        // this response ever arrives, so the number is known immediately —
+        // showing it the instant the cards land would announce a bust before
+        // the cards revealing that bust have actually finished appearing.
+        !resultsShown
+        ? "…"
+        : String(view.dealerTotal)
     : "—";
 
   const canvas = (
@@ -175,9 +233,9 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
           {view ? (
             <>
               {view.dealer.map((c, i) => (
-                <PlayingCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * 90} />
+                <PlayingCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * CARD_STAGGER_MS} />
               ))}
-              {view.dealerHoleHidden && <PlayingCard hidden delayMs={90} />}
+              {view.dealerHoleHidden && <PlayingCard hidden delayMs={CARD_STAGGER_MS} />}
             </>
           ) : (
             <div className="grid h-[104px] w-[74px] place-items-center rounded-xl border border-dashed border-white/10 text-slate-700">
@@ -215,7 +273,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
                       DOUBLED
                     </span>
                   )}
-                  {hand.result && (
+                  {hand.result && resultsShown && (
                     <span
                       className={`rounded-md px-1.5 py-0.5 text-[10px] font-black uppercase ${
                         hand.result.outcome === "BUST" || hand.result.outcome === "LOSS"
@@ -231,7 +289,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
                 </div>
                 <div className="flex gap-2">
                   {hand.cards.map((c, ci) => (
-                    <PlayingCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * 90} />
+                    <PlayingCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * CARD_STAGGER_MS} />
                   ))}
                 </div>
               </div>
@@ -245,7 +303,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
       </div>
 
       <div className="mt-6 min-h-[52px] text-center">
-        {settledNet !== null && view?.phase === "DONE" && (
+        {settledNet !== null && resultsShown && view?.phase === "DONE" && (
           <div className="animate-pop-in">
             <p className={settledNet > 0 ? "num-win text-3xl" : settledNet === 0 ? "num text-3xl text-slate-300" : "num-loss text-3xl"}>
               {settledNet === 0 ? "PUSH" : formatSignedCents(settledNet)}
