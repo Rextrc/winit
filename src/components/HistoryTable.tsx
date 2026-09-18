@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { TxRow } from "@/components/BetFeed";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { ENGINE_KEY, PLAYABLE } from "@/lib/games/registry";
@@ -81,6 +82,7 @@ export default function HistoryTable({ rows }: { rows: TxRow[] }) {
               <th className="px-4 py-2.5 text-right font-bold">Payout</th>
               <th className="px-4 py-2.5 text-right font-bold">Net</th>
               <th className="px-4 py-2.5 text-right font-bold">Balance</th>
+              <th className="px-4 py-2.5 text-right font-bold" />
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -114,6 +116,13 @@ export default function HistoryTable({ rows }: { rows: TxRow[] }) {
                   </td>
                   <td className="num px-4 py-2.5 text-right font-bold text-white">
                     {formatCents(t.balanceAfterCents)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {win && t.kind === "BET" && (
+                      <Link href={`/share/${t.id}`} className="text-[10px] font-bold text-volt hover:underline">
+                        Share
+                      </Link>
+                    )}
                   </td>
                 </tr>
               );
