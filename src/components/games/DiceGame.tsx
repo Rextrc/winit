@@ -7,6 +7,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { wait } from "@/lib/dealTiming";
 import {
   DICE_MAX_CHANCE,
   DICE_MIN_CHANCE,
@@ -38,6 +39,10 @@ export default function DiceGame({ game }: { game: GameDef }) {
   const [target, setTarget] = useState(5000); // 50.00
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<Resp | null>(null);
+  // The marker's own position, separate from `last`: it needs to exist and
+  // move for a beat *before* the roll it belongs to is revealed, which a
+  // value derived straight from `last` can't do.
+  const [markerPos, setMarkerPos] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
 
@@ -63,7 +68,16 @@ export default function DiceGame({ game }: { game: GameDef }) {
 
     setBusy(true);
     setError(null);
+    setLast(null);
+
     try {
+      // A quick decoy jitter before the real number is even known, so the
+      // dot is already moving the instant the bet resolves rather than
+      // sitting still and then jumping straight to the answer.
+      setMarkerPos((p) => p ?? 50);
+      await wait(30);
+      setMarkerPos(10 + Math.random() * 80);
+
       const res = await fetch("/api/games/dice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,18 +86,20 @@ export default function DiceGame({ game }: { game: GameDef }) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Couldn't place that bet.");
-        setBusy(false);
         return;
       }
       const payload = data as Resp;
+
+      // The dot settles on its real landing spot — a CSS transition carries
+      // it there from wherever the jitter left it — and only once it has
+      // actually arrived does the number and the payout print underneath it.
+      setMarkerPos((payload.roll / DICE_OUTCOMES) * 100);
+      await wait(550);
+
       setLast(payload);
       applyResult(payload.balanceCents, payload.netCents);
       applyProgress(payload.progress);
-      pushFlash(
-        game.name,
-        payload.netCents,
-        payload.won ? `Rolled ${(payload.roll / 100).toFixed(2)}` : `Rolled ${(payload.roll / 100).toFixed(2)}`,
-      );
+      pushFlash(game.name, payload.netCents, `Rolled ${(payload.roll / 100).toFixed(2)}`);
       setFeedVersion((v) => v + 1);
     } catch {
       setError("Network error — the bet was not placed.");
@@ -121,11 +137,12 @@ export default function DiceGame({ game }: { game: GameDef }) {
           className="absolute top-1/2 h-6 w-1.5 -translate-y-1/2 rounded-full bg-white shadow"
           style={{ left: `calc(${markerPct}% - 3px)` }}
         />
-        {last && (
+        {markerPos !== null && (
           <div
-            key={last.roll}
-            className="animate-pop-in absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-base-900 bg-volt shadow-volt"
-            style={{ left: `${(last.roll / DICE_OUTCOMES) * 100}%` }}
+            className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 shadow-volt transition-[left] duration-500 ease-out ${
+              last ? (last.won ? "border-base-900 bg-win" : "border-base-900 bg-loss") : "border-base-900 bg-volt"
+            }`}
+            style={{ left: `${markerPos}%` }}
           />
         )}
       </div>
@@ -138,6 +155,8 @@ export default function DiceGame({ game }: { game: GameDef }) {
               {formatSignedCents(last.netCents)}
             </p>
           </div>
+        ) : busy ? (
+          <p className="text-sm text-slate-500">Rolling…</p>
         ) : (
           <p className="text-sm text-slate-500">Set a direction and target, then roll.</p>
         )}

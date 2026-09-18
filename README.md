@@ -517,6 +517,31 @@ pages only — nothing behind a session, and the two unplayable tiles are
 deliberately left out since there's nothing on them to index), and a proper
 page title on every route instead of every tab reading identically.
 
+## The animation sweep, game by game
+
+"All of them" meant actually opening every game and checking, not assuming.
+Most already had a real reveal — Wheel and Roulette both spin with proper
+easing and a multi-second landing, Coinflip flips and holds for a beat,
+Craps and Sic Bo tumble their dice before settling, Lottery and Keno already
+stream their draws one number at a time, Crash is a live requestAnimationFrame
+line by nature, and Mines/Towers are click-to-reveal games where an added
+delay would just be friction. Two were real gaps:
+
+- **Dice had no animation at all** — the marker used to teleport straight to
+  the landing spot the instant the response arrived. It now jitters to a
+  decoy position the moment you roll, then glides to its real spot on a CSS
+  transition, coloured by the outcome — verified by reading its rendered
+  pixel position frame by frame through the transition, not just the style
+  attribute (which updates instantly regardless of how long the visual
+  glide takes — checking that instead would have "confirmed" a fix that
+  wasn't there).
+- **Limbo's count-up was a crude 16-step linear ramp**, capped at 50x and
+  then jumping straight to the real result for anything higher — a visible
+  teleport on exactly the bets with the biggest number to reveal. It now
+  runs on requestAnimationFrame, eased, and counts in log space so a 2x
+  target and a 200x target both feel like they climb for the same length of
+  time rather than the animation being a blur until the last few percent.
+
 ## Referrals
 
 Every account owns one shareable code, minted on sign-up (and on first request

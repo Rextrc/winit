@@ -64,13 +64,24 @@ export default function LimboGame({ game }: { game: GameDef }) {
       }
       const payload = data as Resp;
 
-      // Count up to the result for a beat before revealing the outcome.
-      const steps = 16;
-      const shown = Math.min(payload.result, 50);
-      for (let i = 1; i <= steps; i++) {
-        await new Promise((r) => setTimeout(r, 30));
-        setAnimated(1 + ((shown - 1) * i) / steps);
-      }
+      // Counts up in log space rather than linearly, so a target of 2x and a
+      // target of 200x both feel like they climb for the same length of time
+      // instead of the animation being all blur until the last few percent —
+      // and it runs to the real result directly, so there is no cap-then-jump
+      // for a big multiplier the way a fixed ceiling on the ramp would cause.
+      const DURATION_MS = 650;
+      const logTarget = Math.log(payload.result);
+      const start = performance.now();
+      await new Promise<void>((resolve) => {
+        const step = (now: number) => {
+          const t = Math.min(1, (now - start) / DURATION_MS);
+          const eased = 1 - (1 - t) ** 3;
+          setAnimated(Math.exp(logTarget * eased));
+          if (t < 1) requestAnimationFrame(step);
+          else resolve();
+        };
+        requestAnimationFrame(step);
+      });
       setAnimated(payload.result);
 
       setLast(payload);
