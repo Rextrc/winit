@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import BetControls from "@/components/BetControls";
@@ -30,6 +30,41 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
 
+  const coinRef = useRef<HTMLDivElement | null>(null);
+  const rotationRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+
+  const spin = useCallback((targetSide: CoinSide, durationMs: number, onDone?: () => void) => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+
+    const start = rotationRef.current;
+    // Land exactly face-on: heads = 0deg (mod 360), tails = 180deg (mod 360).
+    const faceOffset = targetSide === "heads" ? 0 : 180;
+    const currentMod = ((start % 360) + 360) % 360;
+    let delta = faceOffset - currentMod;
+    if (delta < 0) delta += 360;
+    // A few full spins on top so it visibly tumbles rather than just nudging into place.
+    const target = start + delta + 360 * 4;
+
+    const t0 = performance.now();
+    const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - t0) / durationMs);
+      const eased = easeOutCubic(p);
+      const angle = start + (target - start) * eased;
+      rotationRef.current = angle;
+      if (coinRef.current) coinRef.current.style.transform = `rotateY(${angle}deg)`;
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+        onDone?.();
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
   const flip = useCallback(async () => {
     if (busy) return;
     if (betError || effectiveBet <= 0) {
@@ -41,6 +76,10 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
     setFlipping(true);
     setError(null);
     setLast(null);
+
+    // Tumble immediately on tap, guessing the called side, so the coin is
+    // already mid-air by the time the server answers — no dead pause first.
+    spin(side, 900);
 
     try {
       const res = await fetch("/api/games/coinflip", {
@@ -57,7 +96,9 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
       }
       const payload = data as Resp;
 
-      await new Promise((r) => setTimeout(r, 850));
+      // Re-target the spin onto the real result and let it settle there,
+      // rather than teleporting the face once the network call resolves.
+      await new Promise<void>((resolve) => spin(payload.result, 550, resolve));
       setFlipping(false);
       setLast(payload);
       applyResult(payload.balanceCents, payload.netCents);
@@ -70,7 +111,7 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
     } finally {
       setBusy(false);
     }
-  }, [busy, betError, effectiveBet, side, applyResult, applyProgress, pushFlash, game.name]);
+  }, [busy, betError, effectiveBet, side, spin, applyResult, applyProgress, pushFlash, game.name]);
 
   useBetSlipHook({
     slug: game.slug,
@@ -82,23 +123,24 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
     note: `Calling ${side} · ${COINFLIP_MULTIPLIER}× on a win`,
   });
 
-  const shown = last?.result ?? side;
+  const faceClass = (face: CoinSide) =>
+    `absolute inset-0 grid place-items-center rounded-full border-4 text-4xl font-black shadow-volt [backface-visibility:hidden] ${
+      !flipping && last
+        ? last.won
+          ? "border-win bg-win/15 text-win"
+          : "border-loss bg-loss/15 text-loss"
+        : "border-volt bg-volt/10 text-volt"
+    } ${face === "tails" ? "[transform:rotateY(180deg)]" : ""}`;
 
   const canvas = (
     <div className="mx-auto w-full max-w-sm text-center">
       <div className="mx-auto grid h-40 w-40 place-items-center [perspective:800px]">
         <div
-          className={`grid h-32 w-32 place-items-center rounded-full border-4 text-4xl font-black shadow-volt transition-transform duration-500 ${
-            flipping ? "animate-[spin_0.6s_linear_infinite]" : ""
-          } ${
-            last
-              ? last.won
-                ? "border-win bg-win/15 text-win"
-                : "border-loss bg-loss/15 text-loss"
-              : "border-volt bg-volt/10 text-volt"
-          }`}
+          ref={coinRef}
+          className="relative h-32 w-32 [transform-style:preserve-3d] will-change-transform"
         >
-          {shown === "heads" ? "H" : "T"}
+          <div className={faceClass("heads")}>H</div>
+          <div className={faceClass("tails")}>T</div>
         </div>
       </div>
 
