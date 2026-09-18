@@ -4,6 +4,7 @@ import { currentUserId } from "@/lib/auth";
 import LoginForm from "@/components/LoginForm";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Log in" };
 
 export default async function LoginPage({
   searchParams,

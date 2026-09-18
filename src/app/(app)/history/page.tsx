@@ -6,6 +6,7 @@ import { fromDb } from "@/lib/bigmoney";
 import HistoryTable from "@/components/HistoryTable";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Bet history" };
 
 export default async function HistoryPage() {
   const userId = await currentUserId();

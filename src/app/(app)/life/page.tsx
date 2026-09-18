@@ -4,7 +4,7 @@ import { currentUserId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Life — WinIt" };
+export const metadata = { title: "Life" };
 
 export default async function LifePage() {
   // The lobby and every game are open to anyone; a career only exists on an

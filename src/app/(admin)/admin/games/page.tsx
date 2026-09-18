@@ -2,6 +2,7 @@ import GameConfigPanel from "@/components/admin/GameConfigPanel";
 import { staffViewer } from "@/lib/admin/viewer";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Games" };
 
 export default async function AdminGamesPage() {
   const me = await staffViewer();

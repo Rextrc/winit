@@ -1,6 +1,7 @@
 import AccountSearch from "@/components/admin/AccountSearch";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Accounts" };
 
 export default function AdminAccountsPage() {
   return (

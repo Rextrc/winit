@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import BetControls from "@/components/BetControls";
@@ -34,8 +35,15 @@ export default function MinesGame({ game }: { game: GameDef }) {
   const [feedVersion, setFeedVersion] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
+  const { status: sessionStatus } = useSession();
+
   // Resume an in-progress round on load, same as blackjack.
   useEffect(() => {
+    if (sessionStatus === "loading") return;
+    if (sessionStatus === "unauthenticated") {
+      setLoaded(true);
+      return;
+    }
     fetch("/api/games/mines")
       .then((r) => r.json())
       .then((data) => {
@@ -46,7 +54,7 @@ export default function MinesGame({ game }: { game: GameDef }) {
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, []);
+  }, [sessionStatus]);
 
   const inPlay = view?.status === "ACTIVE";
 

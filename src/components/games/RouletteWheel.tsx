@@ -14,18 +14,32 @@ const R = 100;
 const INNER = 62;
 const SPIN_MS = 3400;
 
+/**
+ * `Math.cos`/`Math.sin` are not guaranteed bit-identical between Node's V8
+ * (server-rendering this) and the browser's (hydrating it) — different libm
+ * builds can legitimately differ in the last bit, which is invisible to the
+ * eye but not to React: it string-diffs the SSR markup against the first
+ * client render and warns on any mismatch, right down to a trailing digit.
+ * Three decimal places is far more precision than an SVG a few hundred
+ * pixels across can show, and rounding to it makes server and client agree
+ * on the string every time regardless of that last bit.
+ */
+function r3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
 function sectorPath(index: number): string {
   const start = ((index * SECTOR - SECTOR / 2 - 90) * Math.PI) / 180;
   const end = ((index * SECTOR + SECTOR / 2 - 90) * Math.PI) / 180;
 
-  const x1 = R + R * Math.cos(start);
-  const y1 = R + R * Math.sin(start);
-  const x2 = R + R * Math.cos(end);
-  const y2 = R + R * Math.sin(end);
-  const x3 = R + INNER * Math.cos(end);
-  const y3 = R + INNER * Math.sin(end);
-  const x4 = R + INNER * Math.cos(start);
-  const y4 = R + INNER * Math.sin(start);
+  const x1 = r3(R + R * Math.cos(start));
+  const y1 = r3(R + R * Math.sin(start));
+  const x2 = r3(R + R * Math.cos(end));
+  const y2 = r3(R + R * Math.sin(end));
+  const x3 = r3(R + INNER * Math.cos(end));
+  const y3 = r3(R + INNER * Math.sin(end));
+  const x4 = r3(R + INNER * Math.cos(start));
+  const y4 = r3(R + INNER * Math.sin(start));
 
   return `M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${INNER} ${INNER} 0 0 0 ${x4} ${y4} Z`;
 }
@@ -122,14 +136,14 @@ export default function RouletteWheel({
               <g key={n}>
                 <path d={sectorPath(i)} fill={FILL[colorOf(n)]} stroke="#0a0b11" strokeWidth="0.6" />
                 <text
-                  x={100 + labelR * Math.cos(rad)}
-                  y={100 + labelR * Math.sin(rad)}
+                  x={r3(100 + labelR * Math.cos(rad))}
+                  y={r3(100 + labelR * Math.sin(rad))}
                   fill="#f5f0e0"
                   fontSize="7.5"
                   fontWeight="800"
                   textAnchor="middle"
                   dominantBaseline="central"
-                  transform={`rotate(${angle} ${100 + labelR * Math.cos(rad)} ${100 + labelR * Math.sin(rad)})`}
+                  transform={`rotate(${angle} ${r3(100 + labelR * Math.cos(rad))} ${r3(100 + labelR * Math.sin(rad))})`}
                 >
                   {n}
                 </text>
@@ -142,8 +156,8 @@ export default function RouletteWheel({
             return (
               <circle
                 key={i}
-                cx={100 + R * Math.cos(rad)}
-                cy={100 + R * Math.sin(rad)}
+                cx={r3(100 + R * Math.cos(rad))}
+                cy={r3(100 + R * Math.sin(rad))}
                 r="1.3"
                 fill="#e0ab3d"
               />

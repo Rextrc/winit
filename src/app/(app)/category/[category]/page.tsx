@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import GameTile from "@/components/GameTile";
 import { CATEGORY_LABELS, gamesByCategory, type Category } from "@/lib/games/registry";
@@ -11,8 +12,14 @@ const BLURBS: Record<Category, string> = {
   slots: "Weighted reel strips, published paytables, exact enumerated RTP.",
   table: "Blackjack and roulette dealt from crypto-shuffled decks and true-odds wheels.",
   live: "Simulated studio tables. Nothing here streams anywhere — this is a portfolio build.",
-  originals: "House-built game ideas. Most of these are still in the workshop.",
+  originals: "House-built game ideas — every one playable, every paytable derived rather than guessed.",
 };
+
+export function generateMetadata({ params }: { params: { category: string } }): Metadata {
+  const category = params.category as Category;
+  if (!VALID.includes(category)) return { title: "Not found" };
+  return { title: CATEGORY_LABELS[category], description: BLURBS[category] };
+}
 
 export default function CategoryPage({ params }: { params: { category: string } }) {
   const category = params.category as Category;

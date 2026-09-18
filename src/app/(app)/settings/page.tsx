@@ -13,6 +13,7 @@ import { fromDb } from "@/lib/bigmoney";
 import { MAX_LEVEL, MAX_REBIRTHS, maxBetCents } from "@/lib/progression";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const user = await currentUser();

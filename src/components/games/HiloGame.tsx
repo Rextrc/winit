@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import BetControls from "@/components/BetControls";
@@ -44,7 +45,14 @@ export default function HiloGame({ game }: { game: GameDef }) {
   // built client-side from whichever of the two the response actually gives.
   const [revealPair, setRevealPair] = useState<{ base: Card; drawn: Card } | null>(null);
 
+  const { status: sessionStatus } = useSession();
+
   useEffect(() => {
+    if (sessionStatus === "loading") return;
+    if (sessionStatus === "unauthenticated") {
+      setLoaded(true);
+      return;
+    }
     fetch("/api/games/hilo")
       .then((r) => r.json())
       .then((data) => {
@@ -55,7 +63,7 @@ export default function HiloGame({ game }: { game: GameDef }) {
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, []);
+  }, [sessionStatus]);
 
   const inPlay = view?.status === "ACTIVE";
 

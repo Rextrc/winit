@@ -463,6 +463,60 @@ in the payload) announces a bust or a strong hand before the cards showing it
 have appeared — it now reads "…" for the same window the WIN/LOSS badge is
 hidden, so the number can't get there first.
 
+## Plinko: multi-ball, and the board it actually falls on
+
+Dropping more than one ball fires that many independent bets at once — each
+is staked, settled and paid the instant it's placed, exactly like a single
+drop; the board just reveals each ball on its own schedule so a burst of
+fifty visibly cascades rather than queueing. A concurrent 25-ball drop was
+verified against the ledger directly (not just eyeballed): every one of the
+25 settlements chains correctly against the balance recorded immediately
+before it, so nothing about firing bets concurrently risks a lost update.
+
+The board itself is no longer a decorative backdrop the ball floats over. Peg
+positions are computed analytically from the same row/column math that
+determines the ball's path — row r has r + 2 pegs, and after r bounces the
+ball sits in the slot indexed by how many of those bounces went right, which
+is also the column of the peg it just hit — so the ball is drawn passing
+through the actual pegs its path implies, with each one flashing on contact.
+The fall itself runs on requestAnimationFrame rather than timed CSS
+transitions: eased movement between pegs, a small gravity-like sag mid-hop, a
+squash-and-stretch on impact, and rotation tracking horizontal speed so it
+reads as rolling rather than sliding. None of this touches the outcome —
+`routeFor()` only re-derives the *drawn shape* of an already-settled path.
+
+## The publish-readiness pass
+
+Two systematic crawls (every anonymous page, then the same set signed in,
+39–31 pages) checked for console errors, failed requests and dead links
+rather than relying on spot-checks. What that surfaced and fixed:
+
+- **`/game/studio-one` and `/game/studio-two` 404'd.** They're not reachable
+  through the lobby (`GameTile` never links a non-playable game), but typing
+  the URL hit a bare Next.js error page instead of the same honest
+  "not built yet" the tile already shows. They now render that message.
+- **Every game page fired authenticated requests for anonymous visitors** —
+  the inbox, the bet-history feed, and the "resume a round in progress" check
+  on Blackjack, Hi-Lo, Mines, Towers and Draw Poker all fetched unconditionally
+  on mount, each logging a 401 no one needed to see. All five now check
+  `useSession()` first and skip the request entirely when signed out.
+- **A hydration warning on every roulette page load.** `Math.cos`/`Math.sin`
+  are not guaranteed bit-identical between Node's V8 (rendering the wheel on
+  the server) and the browser's (hydrating it) — a last-bit difference in a
+  transcendental function is enough for React to flag the SVG path string as
+  mismatched. Rounded to 3 decimal places, which is far more precision than
+  a wheel a few hundred pixels across can show and removes the mismatch
+  outright rather than silencing the warning.
+- **The Originals category blurb said "most of these are still in the
+  workshop."** All 13 are playable. Fixed to say so.
+
+Also added for the parts that matter once this has a real audience: a
+favicon and social-share image built from the existing mark (`icon.svg`,
+`opengraph-image.tsx`), `robots.txt` and `sitemap.xml` (game and category
+pages only — nothing behind a session, and the two unplayable tiles are
+deliberately left out since there's nothing on them to index), and a proper
+page title on every route instead of every tab reading identically.
+
 ## Referrals
 
 Every account owns one shareable code, minted on sign-up (and on first request

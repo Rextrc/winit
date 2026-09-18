@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import type { Action, BlackjackView } from "@/lib/games/blackjack";
 import GameFrame from "@/components/games/GameFrame";
@@ -60,8 +61,13 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     viewRef.current = view;
   }, [view]);
 
-  // Pick a hand back up after a refresh — the shoe lives on the server.
+  const { status: sessionStatus } = useSession();
+
+  // Pick a hand back up after a refresh — the shoe lives on the server. Only
+  // worth asking once there is a session to ask it for; otherwise this fires
+  // on every anonymous visit to the page and draws a 401 nobody needs.
   useEffect(() => {
+    if (sessionStatus !== "authenticated") return;
     let cancelled = false;
     (async () => {
       try {
@@ -79,7 +85,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionStatus]);
 
   const settle = useCallback(
     (next: BlackjackView) => {

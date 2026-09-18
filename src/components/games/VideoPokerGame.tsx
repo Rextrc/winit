@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import SuitCard from "@/components/games/SuitCard";
@@ -39,8 +40,11 @@ export default function VideoPokerGame({ game }: { game: GameDef }) {
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
 
+  const { status: sessionStatus } = useSession();
+
   // A dealt hand survives a refresh — it has already been paid for.
   useEffect(() => {
+    if (sessionStatus !== "authenticated") return;
     (async () => {
       try {
         const res = await fetch("/api/games/videopoker", { cache: "no-store" });
@@ -54,7 +58,7 @@ export default function VideoPokerGame({ game }: { game: GameDef }) {
         /* nothing in play */
       }
     })();
-  }, []);
+  }, [sessionStatus]);
 
   const deal = useCallback(async () => {
     if (busy || roundId) return;

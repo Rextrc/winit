@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import BetControls from "@/components/BetControls";
@@ -46,8 +47,11 @@ export default function TowersGame({ game }: { game: GameDef }) {
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
 
+  const { status: sessionStatus } = useSession();
+
   // A climb survives a refresh, so pick it back up on mount.
   useEffect(() => {
+    if (sessionStatus !== "authenticated") return;
     (async () => {
       try {
         const res = await fetch("/api/games/towers", { cache: "no-store" });
@@ -61,7 +65,7 @@ export default function TowersGame({ game }: { game: GameDef }) {
         /* nothing in play — the fresh state below is correct */
       }
     })();
-  }, []);
+  }, [sessionStatus]);
 
   const send = useCallback(
     async (body: Record<string, unknown>) => {

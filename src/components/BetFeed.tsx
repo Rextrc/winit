@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { formatCents, formatSignedCents } from "@/lib/money";
 
 export type TxRow = {
@@ -66,17 +67,29 @@ export default function BetFeed({
   title?: string;
   showBalance?: boolean;
 }) {
+  const { status } = useSession();
   const [rows, setRows] = useState<TxRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signedOut, setSignedOut] = useState(false);
 
   const load = useCallback(async () => {
+    // Anonymous browsing is expected here, not a failure — there is no
+    // history to show without an account, so say that instead of erroring.
+    // Checked before the fetch, not just after a 401, so an anonymous visit
+    // to any game page doesn't spend a request on a call already known to
+    // fail — it would still be handled correctly, but it would also leave a
+    // red "401" in the browser console for no reason on every single load.
+    if (status === "unauthenticated") {
+      setSignedOut(true);
+      setError(null);
+      setRows(null);
+      return;
+    }
+    if (status === "loading") return;
     try {
       const params = new URLSearchParams({ take: String(take) });
       if (game) params.set("game", game);
       const res = await fetch(`/api/transactions?${params}`, { cache: "no-store" });
-      // Anonymous browsing is expected here, not a failure — there is no
-      // history to show without an account, so say that instead of erroring.
       if (res.status === 401) {
         setSignedOut(true);
         setError(null);
@@ -90,7 +103,7 @@ export default function BetFeed({
     } catch {
       setError("Couldn't load history.");
     }
-  }, [game, take]);
+  }, [game, take, status]);
 
   useEffect(() => {
     void load();

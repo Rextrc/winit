@@ -1,6 +1,7 @@
 import AuditPanel from "@/components/admin/AuditPanel";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Audit log" };
 
 export default function AdminAuditPage() {
   return (

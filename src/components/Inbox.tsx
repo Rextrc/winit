@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { IconBell, IconClose } from "@/components/Icons";
 
 type Message = {
@@ -36,12 +37,18 @@ function ago(iso: string) {
  * player's other devices too.
  */
 export default function Inbox() {
+  // Header only renders this once signed in, but that check itself depends
+  // on the session resolving — for the one render while it is still
+  // "loading", firing this unconditionally would mean an anonymous visitor
+  // briefly mounts it anyway and draws a 401 no one is going to see.
+  const { status } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
+    if (status !== "authenticated") return;
     try {
       const res = await fetch("/api/me/messages", { cache: "no-store" });
       if (!res.ok) return;
@@ -51,7 +58,7 @@ export default function Inbox() {
     } catch {
       // A failed poll is not worth showing: the bell simply keeps its last count.
     }
-  }, []);
+  }, [status]);
 
   useEffect(() => {
     void load();

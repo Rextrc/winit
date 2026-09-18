@@ -2,6 +2,7 @@ import SitePanel from "@/components/admin/SitePanel";
 import { staffViewer } from "@/lib/admin/viewer";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Site" };
 
 export default async function AdminSitePage() {
   const me = await staffViewer();

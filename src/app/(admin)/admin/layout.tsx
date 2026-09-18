@@ -6,7 +6,7 @@ import { capabilitiesOf, isRole, type Capability } from "@/lib/admin/roles";
 import AdminNav from "@/components/admin/AdminNav";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "WinIt — staff" };
+export const metadata = { title: { default: "Staff", template: "%s — Staff · WinIt" } };
 
 /**
  * The dashboard shell.

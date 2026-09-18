@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ENGINE_KEY, gameBySlug } from "@/lib/games/registry";
+import { IconLive } from "@/components/Icons";
 import CandyGame from "@/components/games/CandyGame";
 import BlackjackGame from "@/components/games/BlackjackGame";
 import RouletteGame from "@/components/games/RouletteGame";
@@ -25,9 +28,41 @@ import ThreeCardGame from "@/components/games/ThreeCardGame";
 
 export const dynamic = "force-dynamic";
 
+export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
+  const game = gameBySlug(params.slug);
+  if (!game) return { title: "Game not found" };
+  return {
+    title: game.name,
+    description: game.playable
+      ? `${game.tagline} ${game.rtp !== null ? `Published RTP ${(game.rtp * 100).toFixed(2)}%.` : game.rtpNote}`
+      : `${game.tagline} ${game.rtpNote}`,
+  };
+}
+
 export default function GamePage({ params }: { params: { slug: string } }) {
   const game = gameBySlug(params.slug);
-  if (!game || !game.playable) notFound();
+  // A slug that isn't in the registry at all is a genuine 404. One that is —
+  // Studio One and Studio Two, today — is a game the lobby already shows and
+  // labels honestly as not built yet; landing here by typing the URL should
+  // find the same honest answer, not a blank Next.js error page.
+  if (!game) notFound();
+  if (!game.playable) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-white/5 text-slate-500">
+          <IconLive className="h-6 w-6" />
+        </div>
+        <h1 className="font-display text-2xl font-black tracking-tight text-white">{game.name}</h1>
+        <p className="mt-2 text-sm text-slate-400">{game.tagline}</p>
+        <p className="mt-4 rounded-xl border border-white/5 bg-base-900/60 p-4 text-[13px] leading-relaxed text-slate-500">
+          {game.rtpNote}
+        </p>
+        <Link href={`/category/${game.category}`} className="btn-ghost mt-6 inline-flex px-5 py-2.5 text-sm">
+          Back to {game.category}
+        </Link>
+      </div>
+    );
+  }
 
   switch (ENGINE_KEY[game.slug]) {
     case "slots":

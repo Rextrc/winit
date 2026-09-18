@@ -3,7 +3,7 @@ import { currentUserId } from "@/lib/auth";
 import AchievementsPanel from "@/components/life/AchievementsPanel";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Achievements — WinIt" };
+export const metadata = { title: "Achievements" };
 
 export default async function AchievementsPage() {
   if (!(await currentUserId())) redirect("/login?callbackUrl=/achievements");

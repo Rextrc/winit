@@ -1,6 +1,7 @@
 import AnalyticsPanel from "@/components/admin/AnalyticsPanel";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Overview" };
 
 export default function AdminOverviewPage() {
   return (

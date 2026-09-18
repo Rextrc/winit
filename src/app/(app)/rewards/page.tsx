@@ -15,6 +15,10 @@ import {
 import { IconRewards } from "@/components/Icons";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Rewards",
+  description: "The daily bonus, promo codes and referrals — the only ways credits enter your balance after sign-up.",
+};
 
 export default async function RewardsPage() {
   const user = await currentUser();
