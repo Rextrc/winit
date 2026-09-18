@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { currentUserId } from "@/lib/auth";
 import AchievementsPanel from "@/components/life/AchievementsPanel";
+import { pageMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Achievements" };
+
+export const metadata = pageMetadata("Achievements");
 
 export default async function AchievementsPage() {
   if (!(await currentUserId())) redirect("/login?callbackUrl=/achievements");

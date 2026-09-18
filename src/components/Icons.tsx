@@ -152,3 +152,23 @@ export const IconBell = (p: P) => (
     <path d="M10.3 20a2 2 0 0 0 3.4 0" />
   </S>
 );
+
+export const IconSoundOn = (p: P) => (
+  <S {...p}>
+    <path d="M4 9v6h4l5 4V5L8 9H4z" />
+    <path d="M17.5 8.5a5 5 0 0 1 0 7M20 6a8.5 8.5 0 0 1 0 12" />
+  </S>
+);
+
+export const IconSoundOff = (p: P) => (
+  <S {...p}>
+    <path d="M4 9v6h4l5 4V5L8 9H4z" />
+    <path d="M17 9l5 6M22 9l-5 6" />
+  </S>
+);
+
+export const IconChat = (p: P) => (
+  <S {...p}>
+    <path d="M4 5h16v11H8l-4 4V5z" />
+  </S>
+);

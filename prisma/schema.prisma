@@ -43,6 +43,8 @@ model User {
   strikes      Int       @default(0)
   bannedAt     DateTime?
   bannedReason String?
+
+  chatMessages ChatMessage[]
   bonusStreak  Int      @default(0)
   createdAt    DateTime @default(now())
 
@@ -432,4 +434,23 @@ model Strike {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// A public lobby chat message. Soft-deleted rather than removed outright, so
+// a moderation action still has a row for the audit trail to point at.
+model ChatMessage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Denormalized: the message is a record of what was said and by whom at the
+  // time, not a live join — a later rename or deletion shouldn't rewrite it.
+  username String
+  body     String
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  deletedBy String?
+
+  @@index([createdAt])
 }

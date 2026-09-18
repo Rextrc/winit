@@ -4,6 +4,7 @@ import { useState } from "react";
 import { IconGift } from "@/components/Icons";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents } from "@/lib/money";
+import sfx from "@/lib/sound";
 
 function countdown(ms: number): string {
   const total = Math.ceil(ms / 1000);
@@ -28,6 +29,7 @@ export default function ClaimBonusButton({ full = false }: { full?: boolean }) {
     setError(null);
     const res = await claimBonus();
     if (!res.ok) setError(res.error ?? "Couldn't claim right now.");
+    else sfx.coin();
   };
 
   return (

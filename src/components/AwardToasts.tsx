@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useWallet, type Award } from "@/components/WalletProvider";
 import { TIER_COLOURS } from "@/lib/life/achievements";
+import sfx from "@/lib/sound";
 
 /** How long each celebration stays up before it dismisses itself. */
 const LIFETIME_MS = 5200;
@@ -95,6 +96,19 @@ function Toast({ award, onDone }: { award: Award; onDone: () => void }) {
 /** Stacked celebrations for achievements, VIP, reputation and challenges. */
 export default function AwardToasts() {
   const { awards, dismissAward } = useWallet();
+  // Plays once per award id, tracked in a set rather than by array position —
+  // awards are appended and dismissed independently of when the sound should
+  // fire, so position or length alone can't tell "new" from "still here."
+  const played = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    for (const a of awards) {
+      if (!played.current.has(a.id)) {
+        played.current.add(a.id);
+        sfx.award();
+      }
+    }
+  }, [awards]);
+
   if (awards.length === 0) return null;
 
   return (

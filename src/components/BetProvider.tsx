@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_MAX_BET_CENTS, MIN_BET_CENTS, clampBet } from "@/lib/money";
+import sfx from "@/lib/sound";
 import { useWallet } from "@/components/WalletProvider";
 
 /**
@@ -158,8 +159,15 @@ export function BetProvider({ children }: { children: React.ReactNode }) {
         if (tier) {
           celebrationId.current += 1;
           setCelebration({ id: celebrationId.current, game, tier, multiplier, netCents });
+          sfx.bigWin(tier);
+        } else {
+          sfx.win();
         }
+      } else if (netCents < 0) {
+        sfx.lose();
       }
+      // A push (netCents === 0) gets neither — nothing actually happened to
+      // the balance, so nothing needs to announce itself.
     },
     [effectiveBet],
   );

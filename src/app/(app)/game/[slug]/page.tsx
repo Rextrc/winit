@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ENGINE_KEY, gameBySlug } from "@/lib/games/registry";
 import { IconLive } from "@/components/Icons";
+import { pageMetadata } from "@/lib/metadata";
 import CandyGame from "@/components/games/CandyGame";
 import BlackjackGame from "@/components/games/BlackjackGame";
 import RouletteGame from "@/components/games/RouletteGame";
@@ -31,12 +32,12 @@ export const dynamic = "force-dynamic";
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const game = gameBySlug(params.slug);
   if (!game) return { title: "Game not found" };
-  return {
-    title: game.name,
-    description: game.playable
+  return pageMetadata(
+    game.name,
+    game.playable
       ? `${game.tagline} ${game.rtp !== null ? `Published RTP ${(game.rtp * 100).toFixed(2)}%.` : game.rtpNote}`
       : `${game.tagline} ${game.rtpNote}`,
-  };
+  );
 }
 
 export default function GamePage({ params }: { params: { slug: string } }) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatCents } from "@/lib/money";
+import sfx from "@/lib/sound";
 
 /**
  * Redeems a promo code created in the staff dashboard. Every rule that decides
@@ -34,6 +35,7 @@ export default function RedeemCode() {
         setError(data.error ?? "That code could not be redeemed.");
       } else {
         setWon({ cents: data.grantCents ?? 0, xp: data.grantXp ?? 0 });
+        sfx.coin();
         setCode("");
         // The balance and level live in the server-rendered shell.
         router.refresh();

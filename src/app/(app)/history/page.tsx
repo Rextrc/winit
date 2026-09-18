@@ -4,9 +4,11 @@ import { currentUserId } from "@/lib/auth";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { fromDb } from "@/lib/bigmoney";
 import HistoryTable from "@/components/HistoryTable";
+import { pageMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Bet history" };
+
+export const metadata = pageMetadata("Bet history");
 
 export default async function HistoryPage() {
   const userId = await currentUserId();

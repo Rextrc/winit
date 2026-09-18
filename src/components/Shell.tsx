@@ -11,6 +11,7 @@ import EventModal from "@/components/EventModal";
 import AwardToasts from "@/components/AwardToasts";
 import GoalBar from "@/components/GoalBar";
 import Onboarding from "@/components/onboarding/Onboarding";
+import Chat from "@/components/Chat";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -32,6 +33,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <EventModal />
         <AwardToasts />
         <Onboarding />
+        <Chat />
       </div>
     </div>
   );

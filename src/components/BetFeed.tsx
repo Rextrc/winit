@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import { GAME_LABELS } from "@/lib/gameLabels";
+import Link from "next/link";
 
 export type TxRow = {
   id: string;
@@ -17,33 +19,7 @@ export type TxRow = {
   createdAt: string;
 };
 
-const GAME_LABELS: Record<string, string> = {
-  slots: "Candy Cascade",
-  blackjack: "Blackjack",
-  roulette: "European Roulette",
-  dice: "Dice",
-  limbo: "Limbo",
-  coinflip: "Coinflip",
-  wheel: "Wheel",
-  plinko: "Plinko",
-  keno: "Keno",
-  baccarat: "Baccarat",
-  mines: "Mines",
-  hilo: "Hi-Lo",
-  crash: "Crash",
-  towers: "Towers",
-  videopoker: "Draw Poker",
-  craps: "Craps",
-  sicbo: "Sic Bo",
-  scratch: "Scratch Cards",
-  lottery: "Lottery",
-  racing: "Silks",
-  war: "War",
-  threecard: "Three Card",
-  bonus: "Daily bonus",
-  signup: "Welcome grant",
-  life: "Life",
-};
+
 
 function timeOf(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -168,6 +144,11 @@ export default function BetFeed({
                   </p>
                   {showBalance && (
                     <p className="num text-[10px] text-slate-500">bal {formatCents(t.balanceAfterCents)}</p>
+                  )}
+                  {win && t.kind === "BET" && (
+                    <Link href={`/share/${t.id}`} className="text-[10px] font-bold text-volt hover:underline">
+                      Share
+                    </Link>
                   )}
                 </div>
               </li>

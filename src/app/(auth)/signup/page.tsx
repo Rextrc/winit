@@ -5,10 +5,12 @@ import SignupForm from "@/components/SignupForm";
 import { formatCents, STARTING_BALANCE_CENTS } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
-export const metadata = {
-  title: "Sign up",
-  description: "Create a free account and start with 100,000.00 in play credits. No deposit, ever.",
-};
+import { pageMetadata } from "@/lib/metadata";
+
+export const metadata = pageMetadata(
+  "Sign up",
+  "Create a free account and start with 100,000.00 in play credits. No deposit, ever.",
+);
 
 export default async function SignupPage({
   searchParams,

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { pageMetadata } from "@/lib/metadata";
 import GameTile from "@/components/GameTile";
 import { CATEGORY_LABELS, gamesByCategory, type Category } from "@/lib/games/registry";
 import CategoryTabs from "@/components/CategoryTabs";
@@ -18,7 +19,7 @@ const BLURBS: Record<Category, string> = {
 export function generateMetadata({ params }: { params: { category: string } }): Metadata {
   const category = params.category as Category;
   if (!VALID.includes(category)) return { title: "Not found" };
-  return { title: CATEGORY_LABELS[category], description: BLURBS[category] };
+  return pageMetadata(CATEGORY_LABELS[category], BLURBS[category]);
 }
 
 export default function CategoryPage({ params }: { params: { category: string } }) {

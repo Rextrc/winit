@@ -46,6 +46,8 @@ export type Capability =
   | "site.config"
   /** Global announcements and direct messages to a player. */
   | "site.announce"
+  /** Delete a lobby chat message. */
+  | "chat.moderate"
   /** Create and revoke promo codes. */
   | "promo.manage"
   /** The analytics dashboard. */
@@ -66,6 +68,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "games.config": "Configure games",
   "site.config": "Maintenance mode and feature flags",
   "site.announce": "Announcements and player messages",
+  "chat.moderate": "Delete chat messages",
   "promo.manage": "Promo codes",
   "analytics.view": "Analytics",
   "audit.view": "Audit log",
@@ -91,7 +94,7 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
 
   // Player conduct only: read accounts, suspend, message. No economy, no
   // progression, no configuration.
-  MODERATOR: ["accounts.view", "accounts.suspend", "site.announce", "audit.view"],
+  MODERATOR: ["accounts.view", "accounts.suspend", "site.announce", "chat.moderate", "audit.view"],
 
   // Builds and tests the game itself: configuration, flags, test accounts and
   // the analytics behind them. Deliberately NOT able to suspend or delete a

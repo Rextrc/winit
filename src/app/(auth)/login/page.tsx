@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUserId } from "@/lib/auth";
 import LoginForm from "@/components/LoginForm";
+import { pageMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Log in" };
+
+export const metadata = pageMetadata("Log in");
 
 export default async function LoginPage({
   searchParams,

@@ -9,6 +9,7 @@ import ClaimBonusButton from "@/components/ClaimBonusButton";
 import SearchBox from "@/components/SearchBox";
 import AvatarMenu from "@/components/AvatarMenu";
 import Inbox from "@/components/Inbox";
+import SoundToggle from "@/components/SoundToggle";
 import LevelBar from "@/components/LevelBar";
 import Link from "next/link";
 
@@ -41,6 +42,7 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <div className="ml-auto flex items-center gap-2.5">
           {signedOut ? (
             <>
+              <SoundToggle />
               <Link href={`/login${callbackUrl}`} className="btn-ghost px-4 py-2 text-sm">
                 Log in
               </Link>
@@ -53,6 +55,7 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
               <LevelBar />
               <BalanceDisplay />
               <ClaimBonusButton />
+              <SoundToggle />
               <Inbox />
               <AvatarMenu />
             </>

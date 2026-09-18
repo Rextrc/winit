@@ -542,6 +542,54 @@ delay would just be friction. Two were real gaps:
   target and a 200x target both feel like they climb for the same length of
   time rather than the animation being a blur until the last few percent.
 
+## Sound, chat, and sharing a win
+
+Three separate features, none touching the ledger or the odds.
+
+**Sound** is synthesized, not shipped as files — `src/lib/sound.ts` builds
+every effect from short oscillator envelopes, consistent with the rest of
+the app already drawing its own icons and card faces rather than importing
+assets. It hooks into the small number of places that already see every
+game's outcome rather than being wired into all 22 individually: `pushFlash`
+(win, loss, and the existing tiered celebration) in BetProvider, the level-up
+toast, the award toasts, and the two credit moments (daily bonus, promo
+redemption). A speaker icon in the header mutes it, stored in `localStorage`
+only — there is nothing server-side to sync.
+
+**Chat** is one public lobby room: readable by anyone browsing the site,
+postable only by a signed-in account in good standing. It polls rather than
+holding a socket open, the same way the balance, the bet feed and the inbox
+already do — there is no latency requirement here a few seconds of polling
+can't meet. Posting is rate-limited server-side (one message per 2 seconds
+per account, checked against the last row in the database, not just a
+disabled button) and a suspended account is refused the same as it would be
+refused a bet. A new capability, `chat.moderate` (granted to MODERATOR and
+above), lets staff soft-delete a message with a reason — the row stays for
+the audit trail, the same append-only pattern as every other admin action.
+
+**Sharing a win** generates a public card for one settled, winning bet —
+`/share/[transactionId]`, with its own `opengraph-image` so pasting the link
+into Discord or X actually shows the win, not the generic site card. The
+lookup (`src/lib/share.ts`) is deliberately narrow: only a `BET`-kind
+transaction with a positive net renders anything, so a losing bet's id or a
+guessed one gets the same graceful "not found" as a page that never existed
+— nothing about an account beyond that one already-public-by-choice result
+is ever exposed. The share page's own Share button uses the platform's native
+share sheet where one exists (`navigator.share`) and falls back to copying
+the link.
+
+Building the share page surfaced a real bug in the metadata added during the
+publish-readiness pass: once the root layout declares its own `openGraph`
+block, a child page that sets only a plain `title` doesn't get picked up by
+platforms at all — Next inherits the *entire* parent `openGraph` object
+rather than falling back to the child's title, so every page's link preview
+was silently showing the generic site-wide card regardless of which page was
+shared. Fixed with a small `pageMetadata()` helper (`src/lib/metadata.ts`)
+that sets `openGraph` and `twitter` explicitly alongside `title`, now used
+everywhere a page sets a custom one — confirmed by reading the actual
+rendered `og:title` for a shared win and for a game page, not just the
+`<title>` tag, which was already correct and would have hidden the bug.
+
 ## Referrals
 
 Every account owns one shareable code, minted on sign-up (and on first request

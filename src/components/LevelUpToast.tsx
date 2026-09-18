@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import sfx from "@/lib/sound";
 import Link from "next/link";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents } from "@/lib/money";
@@ -16,6 +17,7 @@ export default function LevelUpToast() {
 
   useEffect(() => {
     if (!levelUp) return;
+    sfx.levelUp();
     const timer = setTimeout(dismissLevelUp, 7000);
     return () => clearTimeout(timer);
   }, [levelUp, dismissLevelUp]);

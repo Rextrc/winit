@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import LifePanel from "@/components/LifePanel";
 import { currentUserId } from "@/lib/auth";
+import { pageMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Life" };
+
+export const metadata = pageMetadata("Life");
 
 export default async function LifePage() {
   // The lobby and every game are open to anyone; a career only exists on an
