@@ -31,6 +31,7 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
   const [feedVersion, setFeedVersion] = useState(0);
 
   const coinRef = useRef<HTMLDivElement | null>(null);
+  const shadowRef = useRef<HTMLDivElement | null>(null);
   const rotationRef = useRef(0);
   const rafRef = useRef<number | null>(null);
 
@@ -45,6 +46,7 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
     if (delta < 0) delta += 360;
     // A few full spins on top so it visibly tumbles rather than just nudging into place.
     const target = start + delta + 360 * 4;
+    const bounceHeight = 26;
 
     const t0 = performance.now();
     const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -54,7 +56,17 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
       const eased = easeOutCubic(p);
       const angle = start + (target - start) * eased;
       rotationRef.current = angle;
-      if (coinRef.current) coinRef.current.style.transform = `rotateY(${angle}deg)`;
+      // A single hop synced to the tumble: up on the way out, down on landing,
+      // with a shrinking, fading shadow so it reads as leaving the ground.
+      const hop = Math.sin(Math.min(1, p) * Math.PI) * bounceHeight;
+      if (coinRef.current) {
+        coinRef.current.style.transform = `translateY(${-hop}px) rotateY(${angle}deg)`;
+      }
+      if (shadowRef.current) {
+        const shrink = 1 - (hop / bounceHeight) * 0.4;
+        shadowRef.current.style.transform = `scale(${shrink})`;
+        shadowRef.current.style.opacity = `${1 - (hop / bounceHeight) * 0.6}`;
+      }
       if (p < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
@@ -123,14 +135,17 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
     note: `Calling ${side} · ${COINFLIP_MULTIPLIER}× on a win`,
   });
 
-  const faceClass = (face: CoinSide) =>
-    `absolute inset-0 grid place-items-center rounded-full border-4 text-4xl font-black shadow-volt [backface-visibility:hidden] ${
+  const faceClass = (face: CoinSide) => {
+    const ring =
       !flipping && last
         ? last.won
-          ? "border-win bg-win/15 text-win"
-          : "border-loss bg-loss/15 text-loss"
-        : "border-volt bg-volt/10 text-volt"
-    } ${face === "tails" ? "[transform:rotateY(180deg)]" : ""}`;
+          ? "border-win from-win/40 via-win/15 to-win/5 text-win"
+          : "border-loss from-loss/40 via-loss/15 to-loss/5 text-loss"
+        : "border-volt from-volt/40 via-volt/15 to-volt/5 text-volt";
+    return `absolute inset-0 grid place-items-center rounded-full border-4 bg-gradient-to-br text-4xl font-black shadow-volt [backface-visibility:hidden] ${ring} ${
+      face === "tails" ? "[transform:rotateY(180deg)]" : ""
+    }`;
+  };
 
   const canvas = (
     <div className="mx-auto w-full max-w-sm text-center">
@@ -139,10 +154,23 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
           ref={coinRef}
           className="relative h-32 w-32 [transform-style:preserve-3d] will-change-transform"
         >
-          <div className={faceClass("heads")}>H</div>
-          <div className={faceClass("tails")}>T</div>
+          <div className={faceClass("heads")}>
+            <span className="grid h-[70%] w-[70%] place-items-center rounded-full border-2 border-current/30 bg-black/10">
+              H
+            </span>
+          </div>
+          <div className={faceClass("tails")}>
+            <span className="grid h-[70%] w-[70%] place-items-center rounded-full border-2 border-current/30 bg-black/10">
+              T
+            </span>
+          </div>
         </div>
       </div>
+      <div
+        ref={shadowRef}
+        className="mx-auto -mt-2 h-5 w-28 rounded-full bg-black/70 blur-md"
+        aria-hidden
+      />
 
       <p className="mt-4 text-sm text-slate-500">
         {flipping ? "Flipping…" : last ? (last.won ? "It landed your way" : "Landed the other side") : "Pick a side and flip."}
