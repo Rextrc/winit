@@ -44,6 +44,10 @@ export default function HiloGame({ game }: { game: GameDef }) {
   // or deck-clearing guess it just advances `current` in place — so this is
   // built client-side from whichever of the two the response actually gives.
   const [revealPair, setRevealPair] = useState<{ base: Card; drawn: Card } | null>(null);
+  // The climb so far, purely for the history strip — the server only keeps
+  // the current card and the cumulative multiplier, not every card along the
+  // way, so this is rebuilt client-side as the round progresses.
+  const [history, setHistory] = useState<{ card: Card; label: string }[]>([]);
 
   const { status: sessionStatus } = useSession();
 
@@ -59,6 +63,8 @@ export default function HiloGame({ game }: { game: GameDef }) {
         if (data.round) {
           setRoundId(data.round.id);
           setView(data.round.view);
+          const v = data.round.view as View;
+          setHistory([{ card: v.current, label: v.steps === 0 ? "Start card" : `${v.streakMultiplier.toFixed(2)}×` }]);
         }
         setLoaded(true);
       })
@@ -100,6 +106,7 @@ export default function HiloGame({ game }: { game: GameDef }) {
       }
       setRoundId(data.roundId);
       setView(data.view);
+      setHistory([{ card: data.view.current, label: "Start card" }]);
     } catch {
       setError("Network error — the bet was not placed.");
     } finally {
@@ -137,11 +144,16 @@ export default function HiloGame({ game }: { game: GameDef }) {
 
         if (data.view.status === "LOST") {
           applyOutcome(data, `Guessed ${direction}`, -view.betCents);
-        } else if (data.view.status === "WON_OUT") {
-          const payout = Math.round(view.betCents * data.view.streakMultiplier);
-          applyOutcome(data, "Ran the deck out", payout - view.betCents);
         } else {
-          setView(data.view);
+          // Any non-loss outcome here was a correct guess that advanced the
+          // climb, so the drawn card joins the history strip either way.
+          setHistory((h) => [...h, { card: data.view.current, label: `${data.view.streakMultiplier.toFixed(2)}×` }]);
+          if (data.view.status === "WON_OUT") {
+            const payout = Math.round(view.betCents * data.view.streakMultiplier);
+            applyOutcome(data, "Ran the deck out", payout - view.betCents);
+          } else {
+            setView(data.view);
+          }
         }
         setRevealPair(null);
       } catch {
@@ -152,6 +164,37 @@ export default function HiloGame({ game }: { game: GameDef }) {
     },
     [busy, inPlay, roundId, view, applyOutcome],
   );
+
+  const skip = useCallback(async () => {
+    if (busy || !inPlay || !roundId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/games/hilo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "skip", roundId }),
+      });
+      const data = (await res.json()) as Resp & { error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't skip that card.");
+        setBusy(false);
+        return;
+      }
+      setView(data.view);
+      // The skipped card was never a completed step, so it replaces the
+      // last entry in the strip rather than adding a new one.
+      setHistory((h) => {
+        const copy = h.slice(0, -1);
+        copy.push({ card: data.view.current, label: h[h.length - 1]?.label ?? "Start card" });
+        return copy;
+      });
+    } catch {
+      setError("Network error.");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, inPlay, roundId]);
 
   const cashOut = useCallback(async () => {
     if (busy || !inPlay || !roundId || !view || view.steps === 0) return;
@@ -194,8 +237,35 @@ export default function HiloGame({ game }: { game: GameDef }) {
     autoplay: false,
   });
 
+  const ringClass =
+    view?.status === "LOST" ? "ring-loss" : view?.status === "CASHED_OUT" || view?.status === "WON_OUT" ? "ring-win" : "ring-volt";
+
+  const tile = (direction: Direction) => {
+    const win = direction === "higher";
+    const multiplier = win ? view?.higherMultiplier : view?.lowerMultiplier;
+    const disabled = busy || !inPlay || !!revealPair || multiplier == null;
+    return (
+      <button
+        type="button"
+        onClick={() => guess(direction)}
+        disabled={disabled}
+        className={`flex w-24 shrink-0 flex-col items-center justify-between gap-2 rounded-2xl border-2 px-2 py-4 transition sm:w-32 sm:py-5 ${
+          win ? "border-win/50 bg-win/10 hover:enabled:border-win" : "border-loss/50 bg-loss/10 hover:enabled:border-loss"
+        } disabled:cursor-not-allowed disabled:opacity-30`}
+      >
+        <span className={`text-2xl ${win ? "text-win" : "text-loss"}`}>{win ? "▲" : "▼"}</span>
+        <span className={`text-center text-[10px] font-black uppercase leading-tight tracking-wide sm:text-[11px] ${win ? "text-win" : "text-loss"}`}>
+          {win ? "Higher / Same" : "Lower / Same"}
+        </span>
+        <span className="num rounded-lg bg-base-900/60 px-2 py-1 text-xs font-bold text-white sm:text-sm">
+          {multiplier != null ? `${multiplier.toFixed(2)}×` : "—"}
+        </span>
+      </button>
+    );
+  };
+
   const canvas = (
-    <div className="mx-auto w-full max-w-md text-center">
+    <div className="mx-auto w-full max-w-lg text-center">
       {view && (
         <div className="mb-4 flex items-center justify-between text-[11px] font-bold uppercase tracking-wide">
           <span className="text-slate-500">{view.cardsLeft} cards left</span>
@@ -203,23 +273,37 @@ export default function HiloGame({ game }: { game: GameDef }) {
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-4">
-        {revealPair ? (
-          <>
-            <PlayingCard card={revealPair.base} small={false} />
-            <PlayingCard
-              key={`${revealPair.drawn.r}${revealPair.drawn.s}`}
-              card={revealPair.drawn}
-              small={false}
-              delayMs={CARD_STAGGER_MS}
-            />
-          </>
-        ) : (
-          <>
-            <PlayingCard card={view?.current} small={false} />
-            {view?.revealed && <PlayingCard card={view.revealed} small={false} />}
-          </>
-        )}
+      <div className="flex items-center justify-center gap-2 sm:gap-5">
+        {tile("higher")}
+
+        <div className="flex items-center justify-center gap-4">
+          {revealPair ? (
+            <>
+              <PlayingCard card={revealPair.base} small={false} />
+              <PlayingCard
+                key={`${revealPair.drawn.r}${revealPair.drawn.s}`}
+                card={revealPair.drawn}
+                small={false}
+                delayMs={CARD_STAGGER_MS}
+              />
+            </>
+          ) : (
+            <div className="relative">
+              {inPlay && (
+                <>
+                  <div className="absolute inset-0 h-[104px] w-[74px] translate-x-1.5 translate-y-1.5 rounded-xl border border-white/10 bg-base-700" />
+                  <div className="absolute inset-0 h-[104px] w-[74px] translate-x-0.5 translate-y-0.5 rounded-xl border border-white/10 bg-base-700" />
+                </>
+              )}
+              <div className={`relative rounded-xl ${inPlay ? `ring-2 ring-offset-2 ring-offset-base-900 ${ringClass}` : ""}`}>
+                <PlayingCard card={view?.current} small={false} />
+              </div>
+              {view?.revealed && <PlayingCard card={view.revealed} small={false} />}
+            </div>
+          )}
+        </div>
+
+        {tile("lower")}
       </div>
 
       <div className="mt-6 min-h-[60px]">
@@ -242,6 +326,25 @@ export default function HiloGame({ game }: { game: GameDef }) {
         )}
         {error && <p className="mt-2 text-sm font-semibold text-loss">{error}</p>}
       </div>
+
+      {history.length > 0 && (
+        <div className="mt-2 flex justify-center">
+          <div className="flex max-w-full gap-3 overflow-x-auto rounded-xl border border-white/10 bg-base-900/40 p-3">
+            {history.map((h, i) => (
+              <div key={i} className="flex flex-col items-center gap-1.5">
+                <PlayingCard card={h.card} small />
+                <span
+                  className={`whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                    i === 0 ? "bg-white/10 text-slate-300" : "bg-win/15 text-win"
+                  }`}
+                >
+                  {h.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -251,30 +354,17 @@ export default function HiloGame({ game }: { game: GameDef }) {
 
       {inPlay ? (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => guess("lower")}
-              disabled={busy || view!.lowerMultiplier === null}
-              className="rounded-xl border border-loss/40 bg-loss/5 py-3 text-[13px] font-black uppercase tracking-wide text-loss transition hover:border-loss/70 disabled:opacity-40"
-            >
-              Lower
-              {view!.lowerMultiplier !== null && (
-                <span className="num mt-0.5 block text-[11px] font-bold">{view!.lowerMultiplier.toFixed(2)}×</span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => guess("higher")}
-              disabled={busy || view!.higherMultiplier === null}
-              className="rounded-xl border border-win/40 bg-win/5 py-3 text-[13px] font-black uppercase tracking-wide text-win transition hover:border-win/70 disabled:opacity-40"
-            >
-              Higher
-              {view!.higherMultiplier !== null && (
-                <span className="num mt-0.5 block text-[11px] font-bold">{view!.higherMultiplier.toFixed(2)}×</span>
-              )}
-            </button>
-          </div>
+          <p className="text-center text-[12px] text-slate-500">
+            Pick Higher/Same or Lower/Same beside the card — or skip it for a fresh one.
+          </p>
+          <button
+            type="button"
+            onClick={skip}
+            disabled={busy || !!revealPair}
+            className="w-full rounded-xl border border-white/15 py-3 text-[13px] font-black uppercase tracking-wide text-slate-300 transition hover:border-white/30 disabled:opacity-40"
+          >
+            Skip card
+          </button>
           <button
             type="button"
             onClick={cashOut}
@@ -296,8 +386,9 @@ export default function HiloGame({ game }: { game: GameDef }) {
     <>
       <p>
         One 52-card deck, freshly shuffled every round with a crypto Fisher-Yates shuffle. Guess
-        whether the next card ranks higher or lower than the one showing — a tie counts as a loss for
-        both directions. Rank order is A (low) through K (high).
+        whether the next card ranks higher or lower than the one showing — Higher/Same and
+        Lower/Same both win on a tie, so the two win chances overlap. Rank order is A (low) through
+        K (high).
       </p>
       <p>
         Because it is a real deck with no replacement, the exact count of cards left that would win

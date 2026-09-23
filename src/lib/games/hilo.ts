@@ -5,24 +5,26 @@ import { RANKS, SUITS, type Card, type Rank } from "@/lib/games/blackjack";
  * WINIT HI-LO — card climb
  * ===========================================================================
  * One 52-card deck, freshly shuffled every round. A card is revealed; guess
- * whether the next one is higher or lower. Guess right and a fair multiplier
- * is added to the pot; guess wrong (or tie — see below) and the round ends
- * with nothing. Cash out any time.
+ * whether the next one is higher-or-same or lower-or-same. Guess right and a
+ * fair multiplier is added to the pot; guess wrong and the round ends with
+ * nothing. Cash out any time.
  *
  * Rank order is A (low) through K (high) — 13 ranks, A=1 ... K=13. A tie
- * (the next card matches the current rank exactly) counts as a loss for
- * both directions, the standard convention, so every round has exactly two
- * outcomes at each step: you were right, or you weren't.
+ * (the next card matches the current rank exactly) counts as a WIN for
+ * whichever direction you called — "Higher" really means "higher or same"
+ * and "Lower" really means "lower or same" — so the two directions' win
+ * probabilities overlap on ties and can sum to more than 100%.
  *
  * THE EXACT MATHS
  * ---------------------------------------------------------------------------
  * Because the deck is a real 52 cards drawn without replacement, the exact
  * number of ranks higher/lower/equal to the current card is known precisely
  * from what has already been dealt this round — no shortcuts, no assumed
- * distribution. At each step:
+ * distribution. At each step, with ties folded into whichever side was
+ * called:
  *
- *     P(next is higher) = (cards left ranked higher) / (cards left)
- *     multiplier         = 0.99 / P(next is higher)     [or lower, symmetrically]
+ *     P(win calling higher) = (cards left ranked higher-or-equal) / (cards left)
+ *     multiplier             = 0.99 / P(win)     [or lower, symmetrically]
  *
  * paid only on a correct guess. That is exactly fair for that single
  * decision, and — by the same optional-stopping argument used for Limbo and
@@ -64,17 +66,21 @@ export function remainingSplit(remaining: Card[], value: number): { higher: numb
 
 export type Direction = "higher" | "lower";
 
+/** Cards left that would win a guess of `direction` — ties count for whichever side was called. */
+function favourableCount(remaining: Card[], value: number, direction: Direction): number {
+  const { higher, equal, lower } = remainingSplit(remaining, value);
+  return (direction === "higher" ? higher : lower) + equal;
+}
+
 /** Fair multiplier for guessing `direction`, given what's left in the deck. */
 export function multiplierFor(remaining: Card[], value: number, direction: Direction): number {
-  const { higher, lower } = remainingSplit(remaining, value);
-  const favourable = direction === "higher" ? higher : lower;
+  const favourable = favourableCount(remaining, value, direction);
   if (favourable <= 0 || remaining.length === 0) return 0;
   return roundMultiplier(TARGET_RTP / (favourable / remaining.length));
 }
 
 export function directionAvailable(remaining: Card[], value: number, direction: Direction): boolean {
-  const { higher, lower } = remainingSplit(remaining, value);
-  return (direction === "higher" ? higher : lower) > 0;
+  return favourableCount(remaining, value, direction) > 0;
 }
 
 export type HiloState = {

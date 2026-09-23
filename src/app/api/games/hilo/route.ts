@@ -14,6 +14,7 @@ const schema = z.union([
   z.object({ action: z.literal("start"), betCents: z.number().int() }),
   z.object({ action: z.literal("guess"), roundId: z.string().min(1), direction: z.enum(["higher", "lower"]) }),
   z.object({ action: z.literal("cashout"), roundId: z.string().min(1) }),
+  z.object({ action: z.literal("skip"), roundId: z.string().min(1) }),
 ]);
 
 function parseState(raw: string): HiloState {
@@ -98,6 +99,18 @@ export async function POST(req: Request) {
         return { view: toView(state), balanceCents, progress, roundId: round.id };
       }
 
+      if (action === "skip") {
+        // Burns the showing card for a fresh one from the same deck, without
+        // touching steps or the streak — useful when neither direction pays
+        // well. Still exactly fair: it's just one fewer card left to draw
+        // from, priced into whatever guess is made afterward.
+        if (state.deck.length === 0) throw new Error("No cards left to skip to.");
+        state.current = state.deck.shift()!;
+        await tx.round.update({ where: { id: round.id }, data: { state: JSON.stringify(state) } });
+        const fresh = await tx.user.findUniqueOrThrow({ where: { id: user.id }, select: { balanceCents: true } });
+        return { view: toView(state), balanceCents: fromDb(fresh.balanceCents), progress: null, roundId: round.id };
+      }
+
       // guess
       const direction = (parsed.data as { direction: Direction }).direction;
       const value = RANK_VALUE[state.current.r];
@@ -108,7 +121,10 @@ export async function POST(req: Request) {
       const stepMultiplier = multiplierFor(state.deck, value, direction);
       const next = state.deck.shift()!;
       const nextValue = RANK_VALUE[next.r];
-      const correct = direction === "higher" ? nextValue > value : nextValue < value;
+      // A tie wins for whichever side was called — "higher" means "higher or
+      // same" and "lower" means "lower or same" — matching the odds already
+      // priced into stepMultiplier via favourableCount.
+      const correct = direction === "higher" ? nextValue >= value : nextValue <= value;
 
       if (!correct) {
         state.status = "LOST";
