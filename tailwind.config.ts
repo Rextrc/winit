@@ -81,6 +81,10 @@ const config: Config = {
           "25%": { transform: "translate(0.6px, -0.6px)" },
           "75%": { transform: "translate(-0.6px, 0.6px)" },
         },
+        flag: {
+          "0%, 100%": { transform: "skewY(0deg) scaleX(1)" },
+          "50%": { transform: "skewY(-4deg) scaleX(0.94)" },
+        },
         boom: {
           "0%": { transform: "translate(-50%, -50%) scale(0.2)", opacity: "1" },
           "100%": { transform: "translate(-50%, -50%) scale(2.6)", opacity: "0" },
@@ -154,6 +158,7 @@ const config: Config = {
         "rocket-shake": "rocket-shake 0.12s linear infinite",
         "star-drift": "star-drift 3s linear infinite",
         boom: "boom 0.75s ease-out forwards",
+        flag: "flag 2.4s ease-in-out infinite",
         shard: "shard 0.9s cubic-bezier(0.2,0.7,0.3,1) forwards",
       },
     },

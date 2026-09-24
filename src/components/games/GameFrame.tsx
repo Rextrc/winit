@@ -35,31 +35,11 @@ export default function GameFrame({
 
   return (
     <>
-      <nav className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-        <Link href="/" className="hover:text-volt">
-          Lobby
-        </Link>
-        <span>/</span>
-        <Link href={`/category/${game.category}`} className="hover:text-volt">
-          {game.tags[0]}
-        </Link>
-        <span>/</span>
-        <span className="text-slate-300">{game.name}</span>
-      </nav>
-
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-black tracking-tight text-white">{game.name}</h1>
-          <p className="mt-0.5 text-sm text-slate-400">{game.tagline}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="num rounded-lg bg-base-700 px-2.5 py-1 text-xs font-bold text-gold">
-            RTP {game.rtp === null ? "—" : `${(game.rtp * 100).toFixed(2)}%`}
-          </span>
-          {/* Balance is repeated here so it is on screen even when the header
-              scrolls — but there is none to show until you have an account. */}
-          {!signedOut && <BalanceDisplay size="sm" />}
-        </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-black tracking-tight text-white">{game.name}</h1>
+        {/* Balance is repeated here so it is on screen even when the header
+            scrolls — but there is none to show until you have an account. */}
+        {!signedOut && <BalanceDisplay size="sm" />}
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">

@@ -153,60 +153,99 @@ export default function TowersGame({ game }: { game: GameDef }) {
   });
 
   const canvas = (
-    <div className="mx-auto w-full max-w-sm">
-      <div className="flex flex-col-reverse gap-1.5">
-        {Array.from({ length: shape.floors }).map((_, floor) => {
-          const done = floor < (view?.picks.length ?? 0);
-          const active = climbing && floor === (view?.picks.length ?? 0);
-          const pickedCol = view?.picks[floor];
-          const safeCols = view?.safeTiles?.[floor] ?? null;
-
-          return (
-            <div key={floor} className="flex items-center gap-2">
-              <span className="num w-10 shrink-0 text-right text-[10px] font-bold text-slate-600">
-                {multiplierAt(view?.difficulty ?? difficulty, floor + 1).toFixed(2)}x
-              </span>
-              <div className="grid flex-1 gap-1.5" style={{ gridTemplateColumns: `repeat(${shape.cols}, minmax(0,1fr))` }}>
-                {Array.from({ length: shape.cols }).map((_, col) => {
-                  const isPick = done && pickedCol === col;
-                  const revealedSafe = safeCols?.includes(col) ?? false;
-                  const revealedBad = safeCols !== null && !revealedSafe;
-
-                  return (
-                    <button
-                      key={col}
-                      type="button"
-                      onClick={() => pick(col)}
-                      disabled={!active || busy}
-                      className={`h-9 rounded-lg border text-[12px] font-black transition-all duration-200 ${
-                        active
-                          ? "border-volt/40 bg-volt/5 text-volt hover:-translate-y-0.5 hover:border-volt"
-                          : "cursor-default"
-                      } ${
-                        isPick && view?.status === "FELL" && !revealedSafe
-                          ? "border-loss bg-loss/25 text-loss"
-                          : isPick
-                            ? "border-win bg-win/20 text-win"
-                            : revealedSafe
-                              ? "border-white/10 bg-white/5 text-slate-500"
-                              : revealedBad
-                                ? "border-loss/20 bg-loss/5 text-loss/50"
-                                : done
-                                  ? "border-white/5 bg-white/[0.03] text-slate-700"
-                                  : "border-white/10 bg-white/5 text-slate-600"
-                      }`}
-                    >
-                      {isPick ? (view?.status === "FELL" && !revealedSafe ? "✕" : "✓") : revealedSafe ? "·" : revealedBad ? "✕" : ""}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+    <div className="mx-auto w-full max-w-md">
+      {/* Battlements and flag */}
+      <div className="relative mx-3">
+        <svg viewBox="0 0 40 34" className="absolute -top-[46px] left-1/2 h-12 -translate-x-1/2" aria-hidden="true">
+          <line x1="8" y1="4" x2="8" y2="34" stroke="#8b93a3" strokeWidth="2" />
+          <path d="M9 5 C 18 1, 24 11, 36 6 L 36 18 C 24 23, 18 13, 9 17 Z" fill={view?.status === "FELL" ? "#ff5a6e" : "#8f5cff"} className="animate-flag" style={{ transformOrigin: "9px 11px", transformBox: "view-box" }} />
+        </svg>
+        <div className="flex justify-between">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <span key={i} className="h-4 w-[8%] rounded-t-sm border border-b-0 border-black/40 bg-[#3a3f4f]" />
+          ))}
+        </div>
       </div>
 
-      <div className="mt-4 text-center">
+      <div
+        className="relative rounded-b-xl border border-black/40 px-3 pb-3 pt-3 shadow-[inset_0_0_40px_rgba(0,0,0,0.6)]"
+        style={{
+          backgroundColor: "#2e3342",
+          backgroundImage:
+            "linear-gradient(#262a37 2px, transparent 2px), linear-gradient(90deg, #262a37 2px, transparent 2px), linear-gradient(90deg, #262a37 2px, transparent 2px)",
+          backgroundSize: "100% 22px, 44px 44px, 44px 44px",
+          backgroundPosition: "0 0, 0 0, 22px 22px",
+        }}
+      >
+        <div className="flex flex-col-reverse gap-2">
+          {Array.from({ length: shape.floors }).map((_, floor) => {
+            const done = floor < (view?.picks.length ?? 0);
+            const active = climbing && floor === (view?.picks.length ?? 0);
+            const pickedCol = view?.picks[floor];
+            const safeCols = view?.safeTiles?.[floor] ?? null;
+            const reached = floor < climbed;
+
+            return (
+              <div
+                key={floor}
+                className={`flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors duration-500 ${
+                  active ? "bg-[radial-gradient(ellipse_at_center,rgba(255,197,61,0.22),transparent_70%)]" : ""
+                }`}
+              >
+                <span
+                  className={`num w-14 shrink-0 rounded-md border px-1 py-1 text-center text-[11px] font-black ${
+                    reached
+                      ? "border-gold/60 bg-gold/15 text-gold"
+                      : active
+                        ? "border-gold/40 bg-black/30 text-gold/90"
+                        : "border-black/40 bg-black/25 text-slate-500"
+                  }`}
+                >
+                  {multiplierAt(view?.difficulty ?? difficulty, floor + 1).toFixed(2)}x
+                </span>
+                <div className="grid flex-1 gap-2" style={{ gridTemplateColumns: `repeat(${shape.cols}, minmax(0,1fr))` }}>
+                  {Array.from({ length: shape.cols }).map((_, col) => {
+                    const isPick = done && pickedCol === col;
+                    const revealedSafe = safeCols?.includes(col) ?? false;
+                    const revealedBad = safeCols !== null && !revealedSafe;
+                    const fell = isPick && view?.status === "FELL" && !revealedSafe;
+
+                    return (
+                      <button
+                        key={col}
+                        type="button"
+                        onClick={() => pick(col)}
+                        disabled={!active || busy}
+                        aria-label={`Floor ${floor + 1}, window ${col + 1}`}
+                        className={`relative grid h-11 place-items-center rounded-t-[999px] rounded-b-md border-2 transition-all duration-300 ${
+                          fell
+                            ? "animate-pop-in border-loss bg-loss/30 shadow-[0_0_18px_rgba(255,90,110,0.55)]"
+                            : isPick
+                              ? "animate-pop-in border-win bg-win/25 shadow-[0_0_16px_rgba(34,221,122,0.5)]"
+                              : active
+                                ? "border-gold/50 bg-[#141824] hover:-translate-y-0.5 hover:border-gold hover:bg-[#1c2130] hover:shadow-[0_0_14px_rgba(255,197,61,0.35)]"
+                                : revealedBad
+                                  ? "border-loss/25 bg-[#161a24]"
+                                  : "border-black/40 bg-[#10131b]"
+                        } ${!active ? "cursor-default" : ""}`}
+                      >
+                        {isPick && !fell && <Gem />}
+                        {fell && <Spikes />}
+                        {!isPick && revealedSafe && <Gem faint />}
+                        {!isPick && revealedBad && <Spikes faint />}
+                        {!isPick && !safeCols && !active && <span className="absolute inset-x-3 bottom-1 h-px bg-white/5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mx-[-6px] h-3 rounded-b-lg bg-gradient-to-b from-[#3a3f4f] to-[#22262f]" />
+
+      <div className="mt-5 min-h-[64px] text-center">
         {last ? (
           <div className="animate-pop-in">
             <p className={last.netCents > 0 ? "num-win text-3xl" : "num-loss text-3xl"}>
@@ -217,9 +256,9 @@ export default function TowersGame({ game }: { game: GameDef }) {
             </p>
           </div>
         ) : climbing ? (
-          <p className="num text-2xl font-black text-white">{view!.currentMultiplier.toFixed(2)}x banked</p>
+          <p className="num text-2xl font-black text-gold">{view!.currentMultiplier.toFixed(2)}x banked</p>
         ) : (
-          <p className="text-sm text-slate-500">Pick a safe tile on each floor and climb.</p>
+          <p className="text-sm text-slate-500">Pick a safe window on each floor and climb.</p>
         )}
         {error && <p className="mt-2 text-sm font-semibold text-loss">{error}</p>}
       </div>
@@ -297,4 +336,22 @@ export default function TowersGame({ game }: { game: GameDef }) {
   );
 
   return <GameFrame game={game} engineKey="towers" feedVersion={feedVersion} canvas={canvas} panel={panel} rules={rules} />;
+}
+
+function Gem({ faint = false }: { faint?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 20" className={`h-5 w-6 ${faint ? "opacity-30" : "drop-shadow-[0_0_6px_rgba(34,221,122,0.8)]"}`} aria-hidden="true">
+      <path d="M6 1 H18 L23 7 L12 19 L1 7 Z" fill="#22dd7a" />
+      <path d="M6 1 L9 7 H15 L18 1 Z M1 7 H23" fill="#7ff0b5" stroke="#0f7a44" strokeWidth="0.6" />
+      <path d="M9 7 L12 19 L15 7" fill="none" stroke="#0f7a44" strokeWidth="0.6" />
+    </svg>
+  );
+}
+
+function Spikes({ faint = false }: { faint?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 18" className={`h-5 w-6 ${faint ? "opacity-30" : "drop-shadow-[0_0_6px_rgba(255,90,110,0.8)]"}`} aria-hidden="true">
+      <path d="M1 17 L5 4 L8 17 L12 1 L16 17 L19 4 L23 17 Z" fill="#ff5a6e" stroke="#8a1a28" strokeWidth="0.8" strokeLinejoin="round" />
+    </svg>
+  );
 }
