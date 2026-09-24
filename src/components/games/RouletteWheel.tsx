@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { colorOf } from "@/lib/games/roulette";
 
 /** Physical pocket order of a European single-zero wheel. */
@@ -9,181 +9,229 @@ export const WHEEL_ORDER = [
   31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
 ];
 
+/** From launch to the ball coming to rest in its pocket. */
+export const BALL_MS = 7200;
+
 const SECTOR = 360 / WHEEL_ORDER.length;
-const R = 100;
-const INNER = 62;
-const SPIN_MS = 3400;
+const C = 120;
+const WHEEL_DEG_PER_MS = 0.04; // the rotor never stops, like a live table
+
+// Radii, outside in.
+const BOWL = 118;
+const TRACK_OUT = 110;
+const TRACK_IN = 94;
+const BALL_TRACK = 102;
+const NUM_OUT = 90;
+const NUM_IN = 76;
+const POCKET_IN = 62;
+const BALL_POCKET = 69;
+
+const FILL = { red: "#d42a3c", black: "#1b2030", zero: "#1f9d55" } as const;
 
 /**
- * `Math.cos`/`Math.sin` are not guaranteed bit-identical between Node's V8
- * (server-rendering this) and the browser's (hydrating it) — different libm
- * builds can legitimately differ in the last bit, which is invisible to the
- * eye but not to React: it string-diffs the SSR markup against the first
- * client render and warns on any mismatch, right down to a trailing digit.
- * Three decimal places is far more precision than an SVG a few hundred
- * pixels across can show, and rounding to it makes server and client agree
- * on the string every time regardless of that last bit.
+ * `Math.cos`/`Math.sin` are not guaranteed bit-identical between the server
+ * and the browser, and React string-diffs SSR markup on hydration. Rounding
+ * to three decimals makes both sides agree regardless of the last bit.
  */
 function r3(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
-function sectorPath(index: number): string {
-  const start = ((index * SECTOR - SECTOR / 2 - 90) * Math.PI) / 180;
-  const end = ((index * SECTOR + SECTOR / 2 - 90) * Math.PI) / 180;
-
-  const x1 = r3(R + R * Math.cos(start));
-  const y1 = r3(R + R * Math.sin(start));
-  const x2 = r3(R + R * Math.cos(end));
-  const y2 = r3(R + R * Math.sin(end));
-  const x3 = r3(R + INNER * Math.cos(end));
-  const y3 = r3(R + INNER * Math.sin(end));
-  const x4 = r3(R + INNER * Math.cos(start));
-  const y4 = r3(R + INNER * Math.sin(start));
-
-  return `M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${INNER} ${INNER} 0 0 0 ${x4} ${y4} Z`;
+function polar(r: number, deg: number): [number, number] {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return [r3(C + r * Math.cos(rad)), r3(C + r * Math.sin(rad))];
 }
 
-const FILL = { red: "#d4183d", black: "#14151c", zero: "#1668d8" } as const;
-const EASE = "cubic-bezier(0.12, 0.7, 0.16, 1)";
+function band(r1: number, r2: number, a0: number, a1: number): string {
+  const [x1, y1] = polar(r2, a0);
+  const [x2, y2] = polar(r2, a1);
+  const [x3, y3] = polar(r1, a1);
+  const [x4, y4] = polar(r1, a0);
+  return `M ${x1} ${y1} A ${r2} ${r2} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${r1} ${r1} 0 0 0 ${x4} ${y4} Z`;
+}
+
+const mod360 = (a: number) => ((a % 360) + 360) % 360;
+const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+type Flight = { t0: number; rel0: number; relDelta: number };
 
 /**
- * The wheel. When `pocket` changes it spins several full turns and decelerates
- * onto the winning number — the visual only, the result is already decided
- * server-side before this ever animates.
- *
- * A ball orbits a fixed outer track independently of the wheel — spinning the
- * opposite way, on the same timing curve — so it visually drops into place at
- * the pointer exactly as the wheel settles, the way a real wheel reads.
+ * A live wheel. The rotor turns continuously from the moment the page opens.
+ * When `pocket` arrives (already decided server-side) a ball is launched onto
+ * the track against the spin, bleeds off speed, drops through the deflectors
+ * and settles into that pocket, then rides round with the rotor until the next
+ * launch. The ball's angle is computed relative to the rotor, so it always
+ * ends exactly in the right pocket however fast the rotor happens to be.
  */
-export default function RouletteWheel({
-  pocket,
-  spinning,
-}: {
-  pocket: number | null;
-  spinning: boolean;
-}) {
-  const [rotation, setRotation] = useState(0);
-  const [ballRotation, setBallRotation] = useState(0);
-  const turns = useRef(0);
-  const ballTurns = useRef(0);
+export default function RouletteWheel({ pocket, launchKey }: { pocket: number | null; launchKey: number }) {
+  const rotorRef = useRef<SVGGElement | null>(null);
+  const ballRef = useRef<SVGCircleElement | null>(null);
+  const shadowRef = useRef<SVGEllipseElement | null>(null);
+  const start = useRef<number>(0);
+  const flight = useRef<Flight | null>(null);
+  const resting = useRef<number | null>(null); // relative angle once in a pocket
 
+  const wheelAngle = (now: number) => (now - start.current) * WHEEL_DEG_PER_MS;
+
+  // Launch a ball whenever a new result comes in.
   useEffect(() => {
     if (pocket === null) return;
-    const index = WHEEL_ORDER.indexOf(pocket);
-    if (index < 0) return;
+    const idx = WHEEL_ORDER.indexOf(pocket);
+    if (idx < 0) return;
+    const now = performance.now();
+    // Enter from wherever the ball is (or the top of the track on the first spin).
+    const rel0 = resting.current ?? mod360(0 - wheelAngle(now));
+    const target = idx * SECTOR;
+    // Travel against the rotor for several laps, landing exactly on `target`.
+    const relDelta = -(mod360(rel0 - target) + 360 * 7);
+    resting.current = null;
+    flight.current = { t0: now, rel0, relDelta };
+  }, [launchKey]);
 
-    // Always add whole turns so consecutive identical pockets still spin.
-    turns.current += 5;
-    ballTurns.current += 7;
-    setRotation(turns.current * 360 - index * SECTOR);
-    // The ball spins the opposite way and always settles back at the fixed
-    // pointer (angle 0) — independent of the wheel's own rotation.
-    setBallRotation(-(ballTurns.current * 360));
-  }, [pocket]);
+  useEffect(() => {
+    start.current = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const w = wheelAngle(now);
+      rotorRef.current?.setAttribute("transform", `rotate(${r3(w)} ${C} ${C})`);
 
-  const resultColor = pocket === null ? null : FILL[colorOf(pocket)];
+      let rel: number | null = null;
+      let radius = BALL_TRACK;
+      const f = flight.current;
+      if (f) {
+        const p = Math.min(1, (now - f.t0) / BALL_MS);
+        rel = f.rel0 + f.relDelta * easeOutCubic(p);
+        // Rides the track, then spirals in; a few hops as it hits the
+        // deflectors and the pocket frets, each smaller than the last.
+        if (p < 0.5) radius = BALL_TRACK;
+        else if (p < 0.8) {
+          const q = (p - 0.5) / 0.3;
+          radius = BALL_TRACK - (BALL_TRACK - (NUM_IN + 4)) * q * q + Math.abs(Math.sin(q * Math.PI * 3)) * 5 * (1 - q);
+        } else {
+          const q = (p - 0.8) / 0.2;
+          radius = NUM_IN + 4 - (NUM_IN + 4 - BALL_POCKET) * easeOutCubic(q) + Math.abs(Math.sin(q * Math.PI * 4)) * 3.5 * (1 - q);
+        }
+        if (p >= 1) {
+          resting.current = f.rel0 + f.relDelta;
+          flight.current = null;
+        }
+      } else if (resting.current !== null) {
+        rel = resting.current;
+        radius = BALL_POCKET;
+      }
+
+      if (rel === null) {
+        ballRef.current?.setAttribute("opacity", "0");
+        shadowRef.current?.setAttribute("opacity", "0");
+      } else {
+        const [x, y] = polar(radius, w + rel);
+        ballRef.current?.setAttribute("cx", String(x));
+        ballRef.current?.setAttribute("cy", String(y));
+        ballRef.current?.setAttribute("opacity", "1");
+        shadowRef.current?.setAttribute("cx", String(r3(x + 1.2)));
+        shadowRef.current?.setAttribute("cy", String(r3(y + 1.8)));
+        shadowRef.current?.setAttribute("opacity", "0.45");
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[280px]">
-      {/* Pointer */}
-      <div
-        className="absolute left-1/2 top-0 z-20 h-0 w-0 -translate-x-1/2 border-x-[7px] border-t-[13px] border-x-transparent border-t-[#f0c75e] drop-shadow-[0_2px_2px_rgba(0,0,0,0.6)]"
-        aria-hidden="true"
-      />
+    <div className="relative mx-auto -my-10 w-full max-w-[400px] [perspective:900px] sm:-my-14">
+      <div className="[transform:rotateX(48deg)] [transform-style:preserve-3d]">
+        <svg viewBox="0 0 240 240" className="h-auto w-full drop-shadow-[0_24px_24px_rgba(0,0,0,0.55)]" aria-label="Roulette wheel">
+          <defs>
+            <radialGradient id="rw-bowl" cx="50%" cy="45%" r="60%">
+              <stop offset="70%" stopColor="#3a4258" />
+              <stop offset="100%" stopColor="#1c2130" />
+            </radialGradient>
+            <radialGradient id="rw-track" cx="50%" cy="50%" r="50%">
+              <stop offset="80%" stopColor="#262d3f" />
+              <stop offset="100%" stopColor="#3b445c" />
+            </radialGradient>
+            <radialGradient id="rw-cone" cx="45%" cy="40%" r="60%">
+              <stop offset="0%" stopColor="#5a6480" />
+              <stop offset="100%" stopColor="#2c3347" />
+            </radialGradient>
+            <radialGradient id="rw-gold" cx="35%" cy="30%" r="80%">
+              <stop offset="0%" stopColor="#ffe9a8" />
+              <stop offset="50%" stopColor="#f0b43c" />
+              <stop offset="100%" stopColor="#a8701a" />
+            </radialGradient>
+            <radialGradient id="rw-ball" cx="35%" cy="30%" r="70%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="70%" stopColor="#dfe3ea" />
+              <stop offset="100%" stopColor="#9aa1ae" />
+            </radialGradient>
+          </defs>
 
-      <svg viewBox="0 0 200 200" className="h-full w-full">
-        <defs>
-          <radialGradient id="rim-gold" cx="35%" cy="30%" r="75%">
-            <stop offset="0%" stopColor="#fff3c4" />
-            <stop offset="45%" stopColor="#e0ab3d" />
-            <stop offset="100%" stopColor="#8a5f18" />
-          </radialGradient>
-          <radialGradient id="hub-metal" cx="35%" cy="30%" r="75%">
-            <stop offset="0%" stopColor="#3a3f52" />
-            <stop offset="60%" stopColor="#1a1d29" />
-            <stop offset="100%" stopColor="#0a0b11" />
-          </radialGradient>
-        </defs>
-
-        {/* Outer gold rim + fixed ball track */}
-        <circle cx="100" cy="100" r="99" fill="url(#rim-gold)" />
-        <circle cx="100" cy="100" r="93" fill="#070c1a" stroke="rgba(255,255,255,0.08)" />
-
-        {/* Ball, orbiting the fixed track independently of the wheel */}
-        <g
-          style={{
-            transform: `rotate(${ballRotation}deg)`,
-            transformOrigin: "100px 100px",
-            transition: spinning || pocket !== null ? `transform ${SPIN_MS}ms ${EASE}` : "none",
-          }}
-        >
-          <circle cx="100" cy="8" r="3.4" fill="#fdfdfd" stroke="#8a5f18" strokeWidth="0.5" />
-        </g>
-
-        <g
-          style={{
-            transform: `rotate(${rotation}deg)`,
-            transformOrigin: "100px 100px",
-            transition: `transform ${SPIN_MS}ms ${EASE}`,
-          }}
-        >
-          {WHEEL_ORDER.map((n, i) => {
-            const angle = i * SECTOR;
-            const labelR = (R + INNER) / 2 - 4;
-            const rad = ((angle - 90) * Math.PI) / 180;
-            return (
-              <g key={n}>
-                <path d={sectorPath(i)} fill={FILL[colorOf(n)]} stroke="#0a0b11" strokeWidth="0.6" />
-                <text
-                  x={r3(100 + labelR * Math.cos(rad))}
-                  y={r3(100 + labelR * Math.sin(rad))}
-                  fill="#f5f0e0"
-                  fontSize="7.5"
-                  fontWeight="800"
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  transform={`rotate(${angle} ${r3(100 + labelR * Math.cos(rad))} ${r3(100 + labelR * Math.sin(rad))})`}
-                >
-                  {n}
-                </text>
-              </g>
-            );
+          {/* Bowl and fixed ball track */}
+          <circle cx={C} cy={C} r={BOWL} fill="url(#rw-bowl)" />
+          <circle cx={C} cy={C} r={TRACK_OUT} fill="url(#rw-track)" stroke="#4a5470" strokeWidth="1" />
+          <circle cx={C} cy={C} r={TRACK_IN} fill="#20263a" />
+          {/* Deflector diamonds on the track */}
+          {Array.from({ length: 8 }, (_, i) => {
+            const a = i * 45 + 22.5;
+            const [x, y] = polar((TRACK_IN + BALL_TRACK) / 2 - 1, a);
+            return <rect key={i} x={x - 2.4} y={y - 2.4} width="4.8" height="4.8" fill="url(#rw-gold)" transform={`rotate(${a + 45} ${x} ${y})`} />;
           })}
-          {/* Metal separator pins between pockets, for a machined look */}
-          {WHEEL_ORDER.map((_, i) => {
-            const rad = ((i * SECTOR - SECTOR / 2 - 90) * Math.PI) / 180;
-            return (
-              <circle
-                key={i}
-                cx={r3(100 + R * Math.cos(rad))}
-                cy={r3(100 + R * Math.sin(rad))}
-                r="1.3"
-                fill="#e0ab3d"
-              />
-            );
-          })}
-          <circle cx="100" cy="100" r={INNER} fill="url(#hub-metal)" stroke="#e0ab3d" strokeWidth="1.2" />
-          {/* Hub spokes */}
-          {[0, 60, 120, 180, 240, 300].map((a) => (
-            <rect key={a} x="98.5" y="70" width="3" height="30" rx="1.5" fill="#2a2e3d" transform={`rotate(${a} 100 100)`} />
-          ))}
-        </g>
 
-        {/* Center cap / result readout */}
-        <circle cx="100" cy="100" r="32" fill="url(#hub-metal)" stroke="#e0ab3d" strokeWidth="1.4" />
-        <text
-          x="100"
-          y="100"
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontSize={pocket !== null && !spinning ? "28" : "12"}
-          fontWeight="900"
-          fill={spinning ? "#8a8fa8" : pocket === null ? "#5a5f75" : resultColor === "#14151c" ? "#f5f0e0" : resultColor!}
-        >
-          {spinning ? "…" : pocket === null ? "SPIN" : pocket}
-        </text>
-      </svg>
+          {/* Rotor */}
+          <g ref={rotorRef}>
+            {WHEEL_ORDER.map((n, i) => {
+              const a0 = i * SECTOR - SECTOR / 2;
+              const a1 = i * SECTOR + SECTOR / 2;
+              const fill = FILL[colorOf(n)];
+              const [tx, ty] = polar((NUM_OUT + NUM_IN) / 2, i * SECTOR);
+              return (
+                <g key={n}>
+                  <path d={band(NUM_IN, NUM_OUT, a0, a1)} fill={fill} />
+                  <path d={band(POCKET_IN, NUM_IN, a0, a1)} fill={fill} opacity="0.78" />
+                  <text
+                    x={tx}
+                    y={ty}
+                    fill="#f7f4ea"
+                    fontSize="7"
+                    fontWeight="800"
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    transform={`rotate(${r3(i * SECTOR)} ${tx} ${ty})`}
+                  >
+                    {n}
+                  </text>
+                </g>
+              );
+            })}
+            {/* Frets between pockets */}
+            {WHEEL_ORDER.map((_, i) => {
+              const [x1, y1] = polar(POCKET_IN, i * SECTOR - SECTOR / 2);
+              const [x2, y2] = polar(NUM_IN, i * SECTOR - SECTOR / 2);
+              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#c9d0dd" strokeWidth="0.7" opacity="0.7" />;
+            })}
+            <circle cx={C} cy={C} r={NUM_OUT} fill="none" stroke="#c9d0dd" strokeOpacity="0.35" strokeWidth="0.8" />
+            <circle cx={C} cy={C} r={NUM_IN} fill="none" stroke="#c9d0dd" strokeOpacity="0.5" strokeWidth="0.8" />
+            {/* Cone and turret */}
+            <circle cx={C} cy={C} r={POCKET_IN} fill="url(#rw-cone)" stroke="#6b7594" strokeWidth="1" />
+            {[0, 90, 180, 270].map((a) => {
+              const [x, y] = polar(20, a);
+              return (
+                <g key={a}>
+                  <line x1={C} y1={C} x2={x} y2={y} stroke="url(#rw-gold)" strokeWidth="3.2" strokeLinecap="round" />
+                  <circle cx={x} cy={y} r="3.2" fill="url(#rw-gold)" />
+                </g>
+              );
+            })}
+            <circle cx={C} cy={C} r="8" fill="url(#rw-gold)" stroke="#8a5a14" strokeWidth="0.6" />
+            <circle cx={C - 2} cy={C - 2} r="2.4" fill="#fff4cf" opacity="0.8" />
+          </g>
+
+          {/* Ball */}
+          <ellipse ref={shadowRef} rx="3.4" ry="2.4" fill="#000" opacity="0" />
+          <circle ref={ballRef} r="3.6" fill="url(#rw-ball)" opacity="0" />
+        </svg>
+      </div>
     </div>
   );
 }

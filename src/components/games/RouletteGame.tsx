@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
-import RouletteWheel from "@/components/games/RouletteWheel";
+import RouletteWheel, { BALL_MS } from "@/components/games/RouletteWheel";
 import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
@@ -77,6 +77,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
   const [placed, setPlaced] = useState<Placed[]>([]);
   const [busy, setBusy] = useState(false);
   const [pocket, setPocket] = useState<number | null>(null);
+  const [launchKey, setLaunchKey] = useState(0);
   const [last, setLast] = useState<SpinResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
@@ -197,8 +198,9 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
       const payload = data as SpinResponse;
       setPocket(payload.result.pocket);
+      setLaunchKey((k) => k + 1);
 
-      // Hold the result back until the wheel has finished decelerating.
+      // Hold the result back until the ball has come to rest.
       setTimeout(() => {
         setLast(payload);
         setRecent((r) => [payload.result.pocket, ...r].slice(0, 12));
@@ -207,7 +209,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
         pushFlash(game.name, payload.netCents, payload.result.summary);
         setFeedVersion((v) => v + 1);
         setBusy(false);
-      }, 3500);
+      }, BALL_MS + 400);
     } catch {
       setError("Network error — the bet was not placed.");
       setBusy(false);
@@ -298,10 +300,10 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
   const canvas = (
     <div className="mx-auto w-full max-w-2xl">
-      <div className="mb-5 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <RouletteWheel pocket={pocket} spinning={busy && pocket === null} />
+      <div className="mb-5 flex flex-col items-center gap-3">
+        <RouletteWheel pocket={pocket} launchKey={launchKey} />
 
-        <div className="min-w-0 flex-1 text-center sm:text-right">
+        <div className="min-h-[56px] min-w-0 text-center">
           {last ? (
             <div className="animate-pop-in">
               <p className={last.netCents > 0 ? "num-win text-3xl" : last.netCents === 0 ? "num text-3xl text-slate-300" : "num-loss text-3xl"}>
