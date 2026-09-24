@@ -44,25 +44,33 @@ const ROW_MS = 170;
 const SETTLE_MS = 550;
 
 // ---------------------------------------------------------------------------
-// The board's geometry, computed analytically rather than laid out with flex
-// and margins, so the ball's flight path can be expressed in the exact same
-// coordinate system as the pegs it is supposedly bouncing off. Row r has
-// r + 2 pegs; the classic Galton-board fact this leans on is that after r
-// bounces the ball sits in one of r + 1 slots, indexed by how many of those
-// bounces went right, and that slot IS the column of the peg it hits on row
-// r. Percentages are of the board's own box, not the viewport.
+// The board's geometry, computed analytically so the ball's flight path is in
+// the exact same coordinate system as the pegs. Every row shares ONE peg
+// spacing, which is what makes the board a true triangle with straight
+// sides. Row r has r + 3 pegs; after r bounces with k of them to the right,
+// the ball is on peg k + 1 of row r, and it finally drops into bucket k —
+// the gap between pegs k and k + 1 of the last row. Percentages are of the
+// board's own box.
 // ---------------------------------------------------------------------------
 
 const TOP_MARGIN = 6;
 const BOTTOM_MARGIN = 14;
+const BOARD_WIDTH = 96;
 
-function pegX(row: number, col: number): number {
-  const pegsInRow = row + 2;
-  return ((col + 1) / (pegsInRow + 1)) * 100;
+function spacing(rows: number): number {
+  return BOARD_WIDTH / (rows + 1);
+}
+
+function pegX(row: number, col: number, rows: number): number {
+  return 50 + (col - (row + 2) / 2) * spacing(rows);
 }
 
 function pegY(row: number, rows: number): number {
   return TOP_MARGIN + (row / Math.max(1, rows - 1)) * (100 - TOP_MARGIN - BOTTOM_MARGIN);
+}
+
+function bucketCenterX(bucket: number, rows: number): number {
+  return 50 + (bucket - rows / 2) * spacing(rows);
 }
 
 type Waypoint = { x: number; y: number; row: number; col: number };
@@ -72,12 +80,10 @@ function routeFor(path: ("L" | "R")[], rows: number): { hits: Waypoint[]; bucket
   const hits: Waypoint[] = [];
   let right = 0;
   for (let row = 0; row < path.length; row++) {
-    hits.push({ x: pegX(row, right), y: pegY(row, rows), row, col: right });
+    hits.push({ x: pegX(row, right + 1, rows), y: pegY(row, rows), row, col: right + 1 });
     if (path[row] === "R") right += 1;
   }
-  const bucket = right;
-  const bucketX = ((bucket + 0.5) / (rows + 1)) * 100;
-  return { hits, bucket, bucketX };
+  return { hits, bucket: right, bucketX: bucketCenterX(right, rows) };
 }
 
 function easeInOutCubic(t: number): number {
@@ -278,9 +284,9 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
 
   const canvas = (
     <div className="mx-auto w-full max-w-xl">
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 bg-base-900/60 p-4">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 bg-base-900/60">
         {pegRows.map((r) =>
-          Array.from({ length: r + 2 }, (_, c) => {
+          Array.from({ length: r + 3 }, (_, c) => {
             const hot = hotPegs.has(`${r}-${c}`);
             return (
               <span
@@ -288,7 +294,7 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
                 className={`absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[background-color,box-shadow] duration-150 ${
                   hot ? "bg-volt shadow-[0_0_10px_2px_rgba(143,92,255,0.8)]" : "bg-white/25"
                 }`}
-                style={{ left: `${pegX(r, c)}%`, top: `${pegY(r, rows)}%` }}
+                style={{ left: `${pegX(r, c, rows)}%`, top: `${pegY(r, rows)}%` }}
               />
             );
           }),
@@ -307,7 +313,7 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
           />
         ))}
 
-        <div className="absolute inset-x-2 bottom-2 flex gap-0.5">
+        <div className="absolute inset-x-0 bottom-2 h-6">
           {table.map((m, i) => {
             const justHit = frames.some(
               (f) => f.frame.opacity > 0.6 && f.frame.y > 100 - BOTTOM_MARGIN && Math.round(f.ball.bucket) === i,
@@ -315,7 +321,8 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
             return (
               <div
                 key={i}
-                className={`num flex-1 rounded border py-1 text-center text-[9px] font-black transition ${
+                style={{ left: `${bucketCenterX(i, rows)}%`, width: `calc(${spacing(rows)}% - 3px)` }}
+                className={`num absolute -translate-x-1/2 rounded border py-1 text-center text-[9px] font-black transition ${
                   justHit || last?.bucket === i ? "border-volt bg-volt/15" : "border-white/5"
                 } ${bucketColor(m, maxMult)}`}
               >
