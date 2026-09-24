@@ -11,7 +11,7 @@ export type GoalRow = {
 };
 
 const KIND_COLOURS: Record<string, string> = {
-  level: "#2e8bff",
+  level: "#8f5cff",
   reputation: "#2ee6b8",
   vip: "#f0c75e",
   venue: "#c98bff",
@@ -42,7 +42,7 @@ export default function NextGoals({ goals }: { goals: GoalRow[] }) {
 
       <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {goals.map((g) => {
-          const colour = KIND_COLOURS[g.kind] ?? "#2e8bff";
+          const colour = KIND_COLOURS[g.kind] ?? "#8f5cff";
           const pct = Math.round(Math.max(0, Math.min(1, g.progress)) * 100);
           return (
             <Link

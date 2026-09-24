@@ -15,7 +15,7 @@ const TIER_STYLE: Record<
   EPIC: { label: "Epic Win", from: "#ff8ad4", to: "#e8449f", glow: "rgba(255,138,212,0.7)", duration: 4800, pieces: 90 },
 };
 
-const CONFETTI_COLORS = ["#2e8bff", "#7fd8ff", "#2ee6b8", "#ffcf5c", "#c98bff", "#a3ceff"];
+const CONFETTI_COLORS = ["#8f5cff", "#7fd8ff", "#2ee6b8", "#ffcf5c", "#c98bff", "#a3ceff"];
 
 /**
  * A tier-scaled celebration for outsized wins, triggered from anywhere a game

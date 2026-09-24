@@ -286,7 +286,7 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
               <span
                 key={`${r}-${c}`}
                 className={`absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[background-color,box-shadow] duration-150 ${
-                  hot ? "bg-volt shadow-[0_0_10px_2px_rgba(46,139,255,0.8)]" : "bg-white/25"
+                  hot ? "bg-volt shadow-[0_0_10px_2px_rgba(143,92,255,0.8)]" : "bg-white/25"
                 }`}
                 style={{ left: `${pegX(r, c)}%`, top: `${pegY(r, rows)}%` }}
               />
@@ -361,7 +361,7 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
               onClick={() => setRisk(r)}
               disabled={running}
               className={`rounded-xl border py-2 text-[11px] font-black uppercase tracking-wide transition disabled:opacity-50 ${
-                risk === r ? "border-volt bg-volt/10 text-volt" : "border-white/10 text-slate-400"
+                risk === r ? "border-transparent bg-base-500 text-white" : "border-transparent bg-base-900 text-slate-400 hover:text-white"
               }`}
             >
               {r}
@@ -380,7 +380,7 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
               onClick={() => setRows(r)}
               disabled={running}
               className={`rounded-xl border py-2 text-[11px] font-black transition disabled:opacity-50 ${
-                rows === r ? "border-volt bg-volt/10 text-volt" : "border-white/10 text-slate-400"
+                rows === r ? "border-transparent bg-base-500 text-white" : "border-transparent bg-base-900 text-slate-400 hover:text-white"
               }`}
             >
               {r}

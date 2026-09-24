@@ -175,7 +175,7 @@ export default function DiceGame({ game }: { game: GameDef }) {
             onClick={() => setDirection(d)}
             disabled={busy}
             className={`rounded-xl border py-2 text-[12px] font-black uppercase tracking-wide transition ${
-              direction === d ? "border-volt bg-volt/10 text-volt" : "border-white/10 text-slate-400"
+              direction === d ? "border-transparent bg-base-500 text-white" : "border-transparent bg-base-900 text-slate-400 hover:text-white"
             }`}
           >
             Roll {d}

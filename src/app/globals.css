@@ -18,8 +18,8 @@ html {
 body {
   @apply bg-base-900 text-slate-200 antialiased;
   background-image:
-    radial-gradient(900px 500px at 15% -10%, rgba(46, 139, 255, 0.10), transparent 60%),
-    radial-gradient(700px 400px at 100% 0%, rgba(0, 200, 255, 0.07), transparent 55%);
+    radial-gradient(900px 500px at 15% -10%, rgba(124, 58, 255, 0.07), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(34, 221, 122, 0.04), transparent 55%);
   background-attachment: fixed;
 }
 
@@ -27,10 +27,26 @@ body {
   /* A soft ambient shadow + a hairline top highlight, so panels read as
      gently raised surfaces instead of flat, hard-edged boxes. */
   .panel {
-    @apply rounded-2xl border border-white/[0.06] bg-base-800/80 backdrop-blur;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.03),
-      0 12px 32px -20px rgba(0, 0, 0, 0.7);
+    @apply rounded-2xl border border-white/[0.05] bg-base-800;
+    box-shadow: 0 12px 32px -22px rgba(0, 0, 0, 0.8);
+  }
+
+  /* The game stage: a slightly deeper surface with a soft spotlight. */
+  .stage {
+    @apply relative rounded-2xl border border-white/[0.05] bg-base-800;
+    background-image: radial-gradient(70% 60% at 50% 40%, rgba(124, 58, 255, 0.07), transparent 70%);
+  }
+
+  /* Segmented control (Manual / Auto, Heads / Tails, risk levels…). */
+  .seg {
+    @apply grid gap-1 rounded-xl bg-base-900 p-1;
+  }
+  .seg-item {
+    @apply rounded-lg py-2.5 text-[13px] font-bold text-slate-400 transition-colors duration-200 hover:text-white
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .seg-item-on {
+    @apply seg-item bg-base-500 text-white shadow-[0_1px_0_rgba(255,255,255,0.06)_inset];
   }
 
   .btn {
@@ -41,9 +57,8 @@ body {
   /* A gentle gradient and lift rather than a flat fill — matches the soft
      glow every other accent surface in the app already uses. */
   .btn-primary {
-    @apply btn bg-gradient-to-b from-volt-300 to-volt text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(46,139,255,0.65)]
-           hover:-translate-y-px hover:shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_10px_24px_-8px_rgba(46,139,255,0.8)]
-           active:translate-y-0 active:scale-[0.98];
+    @apply btn bg-brand font-bold text-white shadow-[0_1px_0_rgba(255,255,255,0.18)_inset,0_10px_24px_-10px_rgba(124,58,255,0.8)]
+           hover:bg-brand-400 active:scale-[0.98];
   }
 
   .btn-ghost {
@@ -51,15 +66,14 @@ body {
   }
 
   .btn-chip {
-    @apply rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold uppercase
-           tracking-wide text-slate-300 transition-all duration-200 ease-out hover:border-volt/40 hover:text-volt
-           disabled:cursor-not-allowed disabled:opacity-40;
+    @apply rounded-lg bg-base-500 px-3 py-1.5 text-xs font-bold text-slate-200 transition-colors duration-200
+           hover:bg-base-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40;
   }
 
   .field {
-    @apply w-full rounded-xl border border-white/10 bg-base-900/80 px-3.5 py-2.5 text-sm text-slate-100
-           outline-none transition-all duration-200 ease-out placeholder:text-slate-500 focus:border-volt/60
-           focus:ring-2 focus:ring-volt/20;
+    @apply w-full rounded-xl border border-white/[0.06] bg-base-900 px-3.5 py-2.5 text-sm text-slate-100
+           outline-none transition-all duration-200 ease-out placeholder:text-slate-500 focus:border-brand/60
+           focus:ring-2 focus:ring-brand/20;
   }
 
   /* A <select> using .field: keep the dark ground, and make the native option
@@ -74,7 +88,7 @@ body {
   }
 
   .label {
-    @apply mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400;
+    @apply mb-1.5 block text-[13px] font-semibold text-slate-300;
   }
 
   .num {
@@ -84,7 +98,7 @@ body {
   /* High-contrast win/loss numerals. */
   .num-win {
     @apply num font-bold text-win;
-    text-shadow: 0 0 24px rgba(46, 230, 184, 0.35);
+    text-shadow: 0 0 24px rgba(34, 221, 122, 0.35);
   }
 
   .num-loss {

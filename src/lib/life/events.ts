@@ -49,7 +49,7 @@ export const RARITY_LABELS: Record<Rarity, string> = {
 export const RARITY_COLOURS: Record<Rarity, string> = {
   common: "#94a3b8",
   uncommon: "#2ee6b8",
-  rare: "#2e8bff",
+  rare: "#8f5cff",
   legendary: "#c98bff",
 };
 

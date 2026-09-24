@@ -33,7 +33,7 @@ export default function BetControls({
       {!compact && (
         <div className="flex items-baseline justify-between">
           <label htmlFor="bet-amount" className="label mb-0">
-            Bet amount
+            Bet Amount
           </label>
           <span className="num text-[11px] text-slate-500">
             {formatCents(MIN_BET_CENTS)} – {formatCents(maxBetCents)}
@@ -41,41 +41,41 @@ export default function BetControls({
         </div>
       )}
 
-      <div className="flex items-stretch gap-2">
-        <div className="relative flex-1">
-          <input
-            id="bet-amount"
-            inputMode="decimal"
-            value={text}
-            disabled={disabled}
-            onFocus={() => setEditing(true)}
-            onChange={(e) => {
-              setText(e.target.value);
-              const cents = parseAmountToCents(e.target.value);
-              if (cents !== null) setBetCents(cents);
-            }}
-            onBlur={() => {
-              setEditing(false);
-              const cents = parseAmountToCents(text);
-              const next = cents === null ? MIN_BET_CENTS : Math.max(MIN_BET_CENTS, cents);
-              setBetCents(Math.min(next, maxBetCents));
-            }}
-            className={`field num pr-2 font-bold ${betError ? "!border-loss/60" : ""}`}
-            aria-label="Bet amount"
-          />
-        </div>
-
-        <div className="flex items-stretch gap-1.5">
-          <button type="button" className="btn-chip" onClick={halve} disabled={disabled || betCents <= MIN_BET_CENTS}>
-            ½
-          </button>
-          <button type="button" className="btn-chip" onClick={double} disabled={disabled || atMax}>
-            2×
-          </button>
-          <button type="button" className="btn-chip" onClick={max} disabled={disabled || atMax}>
-            Max
-          </button>
-        </div>
+      <div
+        className={`flex items-center gap-2 rounded-xl border bg-base-900 py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-brand/60 ${
+          betError ? "border-loss/60" : "border-white/[0.06]"
+        } ${disabled ? "opacity-60" : ""}`}
+      >
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-win text-[11px] font-black text-base-900">$</span>
+        <input
+          id="bet-amount"
+          inputMode="decimal"
+          value={text}
+          disabled={disabled}
+          onFocus={() => setEditing(true)}
+          onChange={(e) => {
+            setText(e.target.value);
+            const cents = parseAmountToCents(e.target.value);
+            if (cents !== null) setBetCents(cents);
+          }}
+          onBlur={() => {
+            setEditing(false);
+            const cents = parseAmountToCents(text);
+            const next = cents === null ? MIN_BET_CENTS : Math.max(MIN_BET_CENTS, cents);
+            setBetCents(Math.min(next, maxBetCents));
+          }}
+          className="num min-w-0 flex-1 bg-transparent py-1.5 text-[15px] font-bold text-white outline-none"
+          aria-label="Bet amount"
+        />
+        <button type="button" className="btn-chip" onClick={halve} disabled={disabled || betCents <= MIN_BET_CENTS}>
+          ½
+        </button>
+        <button type="button" className="btn-chip" onClick={double} disabled={disabled || atMax}>
+          2×
+        </button>
+        <button type="button" className="btn-chip" onClick={max} disabled={disabled || atMax}>
+          Max
+        </button>
       </div>
 
       {betError && <p className="text-[11px] font-semibold text-loss">{betError}</p>}

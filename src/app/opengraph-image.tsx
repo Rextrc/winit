@@ -28,7 +28,7 @@ export default function OpengraphImage() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
           <svg width="120" height="120" viewBox="0 0 40 40">
-            <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="#0b1426" stroke="rgba(46,139,255,0.55)" strokeWidth="1.5" />
+            <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="#0b1426" stroke="rgba(143,92,255,0.55)" strokeWidth="1.5" />
             <path
               d="M8 12.5 13.5 27 20 17.5 26.5 27 32 12.5"
               fill="none"
@@ -37,10 +37,10 @@ export default function OpengraphImage() {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <circle cx="32" cy="9.5" r="3" fill="#2e8bff" />
+            <circle cx="32" cy="9.5" r="3" fill="#8f5cff" />
           </svg>
           <div style={{ display: "flex", fontSize: 108, fontWeight: 900, color: "white", letterSpacing: -2 }}>
-            Win<span style={{ color: "#2e8bff" }}>It</span>
+            Win<span style={{ color: "#8f5cff" }}>It</span>
           </div>
         </div>
         <div style={{ display: "flex", marginTop: 28, fontSize: 32, color: "#94a3b8" }}>

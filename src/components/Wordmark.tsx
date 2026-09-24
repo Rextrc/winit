@@ -8,7 +8,7 @@ export function Mark({ className = "h-9 w-9" }: { className?: string }) {
           <stop offset="100%" stopColor="#0d6ef0" />
         </linearGradient>
       </defs>
-      <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="#0b1426" stroke="rgba(46,139,255,0.40)" />
+      <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="#0b1426" stroke="rgba(143,92,255,0.40)" />
       {/* A "W" drawn as a rising bet line, with the dot of the "i" as the payout. */}
       <path
         d="M8 12.5 13.5 27 20 17.5 26.5 27 32 12.5"
@@ -18,7 +18,7 @@ export function Mark({ className = "h-9 w-9" }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="32" cy="9.5" r="3" fill="#2e8bff" />
+      <circle cx="32" cy="9.5" r="3" fill="#8f5cff" />
     </svg>
   );
 }

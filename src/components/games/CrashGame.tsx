@@ -48,18 +48,18 @@ function Rocket({ angle, flying }: { angle: number; flying: boolean }) {
   return (
     <div className="absolute" style={{ transform: `translate(-70%, -50%) rotate(${angle}deg)`, transformOrigin: "70% 50%" }}>
       <div className={flying ? "animate-rocket-shake" : ""}>
-        <svg width="88" height="41" viewBox="0 0 64 30" className="overflow-visible drop-shadow-[0_0_10px_rgba(46,139,255,0.55)]">
+        <svg width="88" height="41" viewBox="0 0 64 30" className="overflow-visible drop-shadow-[0_0_10px_rgba(143,92,255,0.55)]">
           {flying && (
             <g className="animate-flame" style={{ transformOrigin: "14px 15px", transformBox: "view-box" }}>
               <path d="M14 8 C 2 10, -14 15, 14 22 Z" fill="#ff7a1a" opacity="0.9" />
               <path d="M14 11 C 6 12, -2 15, 14 19 Z" fill="#ffd166" />
             </g>
           )}
-          <path d="M16 5 L 26 15 L 16 25 Z" fill="#2e8bff" />
+          <path d="M16 5 L 26 15 L 16 25 Z" fill="#8f5cff" />
           <path d="M14 9 H 44 C 54 9, 60 13, 63 15 C 60 17, 54 21, 44 21 H 14 Z" fill="#e8edf5" />
           <path d="M44 9 C 54 9, 60 13, 63 15 C 60 17, 54 21, 44 21 Z" fill="#ff5a6e" />
-          <circle cx="36" cy="15" r="3.6" fill="#0b1424" stroke="#2e8bff" strokeWidth="1.6" />
-          <path d="M20 9 L 14 0 L 30 9 Z M20 21 L 14 30 L 30 21 Z" fill="#2e8bff" />
+          <circle cx="36" cy="15" r="3.6" fill="#0b1424" stroke="#8f5cff" strokeWidth="1.6" />
+          <path d="M20 9 L 14 0 L 30 9 Z M20 21 L 14 30 L 30 21 Z" fill="#8f5cff" />
         </svg>
       </div>
     </div>
@@ -294,7 +294,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
           const dy = head[1] - prev[1];
           const angle = pts.length < 3 ? -18 : Math.max(-70, Math.min(-8, (Math.atan2(dy * 1.25, dx) * 180) / Math.PI));
           const line = pts.map((q) => q.join(",")).join(" ");
-          const color = crashed ? "#ff5a6e" : settled ? "#22c55e" : "#2e8bff";
+          const color = crashed ? "#ff5a6e" : settled ? "#22c55e" : "#8f5cff";
           const left = `${(head[0] / 400) * 100}%`;
           const top = `${(head[1] / 200) * 100}%`;
           return (
@@ -375,7 +375,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
             onClick={() => setAuto(m.key)}
             disabled={busy || live}
             className={`rounded-xl border py-2.5 text-[12px] font-black uppercase tracking-wide transition-all duration-200 disabled:opacity-50 ${
-              auto === m.key ? "border-volt bg-volt/10 text-volt" : "border-white/10 text-slate-400"
+              auto === m.key ? "border-transparent bg-base-500 text-white" : "border-transparent bg-base-900 text-slate-400 hover:text-white"
             }`}
           >
             {m.label}

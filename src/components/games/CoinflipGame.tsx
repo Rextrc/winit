@@ -216,7 +216,7 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
             onClick={() => setSide(s)}
             disabled={busy}
             className={`rounded-xl border py-3 text-[13px] font-black uppercase tracking-wide transition ${
-              side === s ? "border-volt bg-volt/10 text-volt" : "border-white/10 text-slate-400"
+              side === s ? "border-transparent bg-base-500 text-white" : "border-transparent bg-base-900 text-slate-400 hover:text-white"
             }`}
           >
             {s}

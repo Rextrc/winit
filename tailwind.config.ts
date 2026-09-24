@@ -9,37 +9,52 @@ const config: Config = {
         // ("volt", an electric blue) used for every call to action. The scale
         // keeps its name because the whole app references it; only the hue
         // moved, from lime to blue.
+        // Flat charcoal surfaces with a faint cool cast — the shared look of
+        // modern crypto-casino lobbies, not any one site's palette.
         base: {
-          900: "#03060e",
-          800: "#070c1a",
-          700: "#0b1426",
-          600: "#111d36",
-          500: "#182746",
-          400: "#22355c",
-          300: "#33497e",
+          900: "#0b0e14",
+          800: "#12161e",
+          700: "#191e28",
+          600: "#212733",
+          500: "#2a3140",
+          400: "#374052",
+          300: "#4a5468",
         },
+        // Primary call-to-action: a saturated violet for Bet / Deal / Spin.
+        brand: {
+          DEFAULT: "#7c3aff",
+          300: "#a78bff",
+          400: "#8f5cff",
+          500: "#7c3aff",
+          600: "#6424e6",
+          700: "#4e17b8",
+        },
+        // Multipliers, jackpots and big-win highlights.
+        gold: "#ffc53d",
+        // The app-wide accent every game references; now the same violet as
+        // the primary action so the whole lobby reads as one system.
         volt: {
-          DEFAULT: "#2e8bff",
-          50: "#e9f3ff",
-          100: "#cfe5ff",
-          200: "#a3ceff",
-          300: "#6fb1ff",
-          400: "#2e8bff",
-          500: "#0d6ef0",
-          600: "#0056c6",
-          700: "#014094",
-          800: "#012c67",
+          DEFAULT: "#8f5cff",
+          50: "#f3eeff",
+          100: "#e4d9ff",
+          200: "#cbb6ff",
+          300: "#ae8cff",
+          400: "#8f5cff",
+          500: "#7c3aff",
+          600: "#6424e6",
+          700: "#4e17b8",
+          800: "#361080",
         },
         // Win stays a distinct positive hue but is pulled toward cyan so it
         // sits inside the blue palette instead of fighting it.
-        win: "#2ee6b8",
+        win: "#22dd7a",
         loss: "#ff5a6e",
       },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        volt: "0 0 0 1px rgba(46,139,255,0.40), 0 8px 30px -10px rgba(46,139,255,0.55)",
+        volt: "0 0 0 1px rgba(124,58,255,0.35), 0 8px 30px -12px rgba(124,58,255,0.55)",
         tile: "0 12px 32px -16px rgba(0,0,0,0.9)",
       },
       keyframes: {

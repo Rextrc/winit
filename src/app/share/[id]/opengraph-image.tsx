@@ -47,7 +47,7 @@ export default async function ShareImage({ params }: { params: { id: string } })
           <div style={{ display: "flex", fontSize: 40, color: "#94a3b8" }}>This win is no longer available.</div>
         )}
         <div style={{ display: "flex", fontSize: 28, fontWeight: 900, color: "white", marginTop: 44 }}>
-          Win<span style={{ color: "#2e8bff" }}>It</span>
+          Win<span style={{ color: "#8f5cff" }}>It</span>
         </div>
       </div>
     ),

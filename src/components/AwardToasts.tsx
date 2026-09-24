@@ -28,7 +28,7 @@ function Toast({ award, onDone }: { award: Award; onDone: () => void }) {
           eyebrow: "Achievement unlocked",
           title: award.name,
           body: award.description,
-          colour: TIER_COLOURS[award.tier as keyof typeof TIER_COLOURS] ?? "#2e8bff",
+          colour: TIER_COLOURS[award.tier as keyof typeof TIER_COLOURS] ?? "#8f5cff",
           glyph: "★",
         };
       case "vip":
@@ -44,7 +44,7 @@ function Toast({ award, onDone }: { award: Award; onDone: () => void }) {
           eyebrow: "Reputation",
           title: award.name,
           body: award.blurb,
-          colour: "#2e8bff",
+          colour: "#8f5cff",
           glyph: "◉",
         };
       case "challenge":

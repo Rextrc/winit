@@ -262,7 +262,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
               <div
                 key={i}
                 className={`rounded-2xl p-2 transition ${
-                  active ? "bg-volt/10 shadow-[inset_0_0_0_1px_rgba(46,139,255,0.35)]" : ""
+                  active ? "bg-volt/10 shadow-[inset_0_0_0_1px_rgba(143,92,255,0.35)]" : ""
                 }`}
               >
                 <div className="mb-2 flex flex-wrap items-center gap-2">
