@@ -32,6 +32,40 @@ type Resp = {
   progress: import("@/lib/ledger").ProgressUpdate | null;
 };
 
+/** Fixed starfield — positions only, so it can be generated once. */
+const STARS = Array.from({ length: 46 }, (_, i) => {
+  const r = (n: number) => ((Math.sin(i * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1;
+  return { x: r(1) * 130 - 15, y: r(2) * 130 - 15, s: 1 + r(3) * 1.8, o: 0.25 + r(4) * 0.6 };
+});
+
+const SHARDS = Array.from({ length: 12 }, (_, i) => {
+  const a = (i / 12) * Math.PI * 2 + 0.3;
+  const d = 40 + (i % 3) * 18;
+  return { dx: `${Math.cos(a) * d}px`, dy: `${Math.sin(a) * d}px`, c: i % 2 ? "#ffb347" : "#ff5a6e" };
+});
+
+function Rocket({ angle, flying }: { angle: number; flying: boolean }) {
+  return (
+    <div className="absolute" style={{ transform: `translate(-70%, -50%) rotate(${angle}deg)`, transformOrigin: "70% 50%" }}>
+      <div className={flying ? "animate-rocket-shake" : ""}>
+        <svg width="88" height="41" viewBox="0 0 64 30" className="overflow-visible drop-shadow-[0_0_10px_rgba(46,139,255,0.55)]">
+          {flying && (
+            <g className="animate-flame" style={{ transformOrigin: "14px 15px", transformBox: "view-box" }}>
+              <path d="M14 8 C 2 10, -14 15, 14 22 Z" fill="#ff7a1a" opacity="0.9" />
+              <path d="M14 11 C 6 12, -2 15, 14 19 Z" fill="#ffd166" />
+            </g>
+          )}
+          <path d="M16 5 L 26 15 L 16 25 Z" fill="#2e8bff" />
+          <path d="M14 9 H 44 C 54 9, 60 13, 63 15 C 60 17, 54 21, 44 21 H 14 Z" fill="#e8edf5" />
+          <path d="M44 9 C 54 9, 60 13, 63 15 C 60 17, 54 21, 44 21 Z" fill="#ff5a6e" />
+          <circle cx="36" cy="15" r="3.6" fill="#0b1424" stroke="#2e8bff" strokeWidth="1.6" />
+          <path d="M20 9 L 14 0 L 30 9 Z M20 21 L 14 30 L 30 21 Z" fill="#2e8bff" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 /** How often a live manual round asks the server whether it has crashed. */
 const POLL_MS = 700;
 
@@ -229,62 +263,87 @@ export default function CrashGame({ game }: { game: GameDef }) {
   const crashed = settled !== null && settled.cashedAt === null;
 
   const canvas = (
-    <div className="mx-auto w-full max-w-lg">
-      <div className="relative h-56 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0b1424] to-[#03060e]">
-        {/* the curve */}
-        <svg viewBox="0 0 400 200" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="crash-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={crashed ? "#ff5a6e" : "#2e8bff"} stopOpacity="0.35" />
-              <stop offset="100%" stopColor={crashed ? "#ff5a6e" : "#2e8bff"} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {(() => {
-            // The curve is the same exponential the server prices against, drawn
-            // across whatever span keeps the head on screen.
-            const span = Math.max(4000, timeToReach(display) * 1.15);
-            const pts: string[] = [];
-            for (let i = 0; i <= 60; i++) {
-              const t = (span * i) / 60;
-              const m = multiplierAt(t);
-              const x = (i / 60) * 400;
-              const y = 200 - Math.min(196, (Math.log2(m) / Math.log2(Math.max(2, display * 1.3))) * 190);
-              pts.push(`${x},${y}`);
-              if (m > display) break;
-            }
-            const line = pts.join(" ");
-            return (
-              <>
-                <polyline points={`0,200 ${line} ${pts[pts.length - 1]?.split(",")[0] ?? 0},200`} fill="url(#crash-fill)" />
-                <polyline
-                  points={line}
-                  fill="none"
-                  stroke={crashed ? "#ff5a6e" : "#2e8bff"}
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </>
-            );
-          })()}
-        </svg>
+    <div className="mx-auto w-full max-w-2xl">
+      <div className="relative h-80 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0a1226] via-[#070c1b] to-[#03060e]">
+        <div className={`absolute inset-0 ${live ? "animate-star-drift" : ""}`}>
+          {STARS.map((st, i) => (
+            <span
+              key={i}
+              className="absolute rounded-full bg-white"
+              style={{ left: `${st.x}%`, top: `${st.y}%`, width: st.s, height: st.s, opacity: st.o }}
+            />
+          ))}
+        </div>
 
-        <div className="absolute inset-0 grid place-items-center">
-          <div className="text-center">
-            <p
-              className={`num text-6xl font-black tabular-nums transition-colors ${
-                crashed ? "text-loss" : settled ? "text-win" : "text-white"
-              }`}
-            >
-              {display.toFixed(2)}x
+        {(() => {
+          // The curve is the same exponential the server prices against, drawn
+          // across whatever span keeps the head on screen — now the rocket's trail.
+          const span = Math.max(4000, timeToReach(display) * 1.15);
+          const pts: [number, number][] = [];
+          for (let i = 0; i <= 60; i++) {
+            const t = (span * i) / 60;
+            const m = multiplierAt(t);
+            const x = 12 + (i / 60) * 340;
+            const y = 190 - Math.min(160, (Math.log2(m) / Math.log2(Math.max(2, display * 1.3))) * 160);
+            pts.push([x, y]);
+            if (m > display) break;
+          }
+          const head = pts[pts.length - 1] ?? [12, 190];
+          const prev = pts[Math.max(0, pts.length - 3)] ?? [0, 190];
+          const dx = head[0] - prev[0];
+          const dy = head[1] - prev[1];
+          const angle = pts.length < 3 ? -18 : Math.max(-70, Math.min(-8, (Math.atan2(dy * 1.25, dx) * 180) / Math.PI));
+          const line = pts.map((q) => q.join(",")).join(" ");
+          const color = crashed ? "#ff5a6e" : settled ? "#22c55e" : "#2e8bff";
+          const left = `${(head[0] / 400) * 100}%`;
+          const top = `${(head[1] / 200) * 100}%`;
+          return (
+            <>
+              <svg viewBox="0 0 400 200" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="crash-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <polyline points={`12,200 ${line} ${head[0]},200`} fill="url(#crash-fill)" />
+                <polyline points={line} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              <div className="absolute" style={{ left, top }}>
+                {crashed ? (
+                  <>
+                    <span className="absolute h-24 w-24 animate-boom rounded-full bg-[radial-gradient(circle,#fff5d6_0%,#ffb347_35%,#ff5a6e_60%,transparent_72%)]" />
+                    {SHARDS.map((sh, i) => (
+                      <span
+                        key={i}
+                        className="absolute h-2 w-2 animate-shard rounded-sm"
+                        style={{ background: sh.c, ["--dx" as string]: sh.dx, ["--dy" as string]: sh.dy }}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <Rocket angle={angle} flying={live || (busy && !settled)} />
+                )}
+              </div>
+            </>
+          );
+        })()}
+
+        <div className="pointer-events-none absolute inset-x-0 top-6 text-center">
+          <p
+            className={`num text-6xl font-black tabular-nums drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] transition-colors ${
+              crashed ? "text-loss" : settled ? "text-win" : "text-white"
+            }`}
+          >
+            {display.toFixed(2)}x
+          </p>
+          {crashed && <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-loss">Crashed</p>}
+          {settled && !crashed && (
+            <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-win">
+              Cashed at {settled.cashedAt?.toFixed(2)}x
             </p>
-            {crashed && <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-loss">Crashed</p>}
-            {settled && !crashed && (
-              <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-win">
-                Cashed at {settled.cashedAt?.toFixed(2)}x
-              </p>
-            )}
-            {live && <p className="mt-1 text-[12px] text-slate-400">Cash out any time</p>}
-          </div>
+          )}
+          {live && <p className="mt-1 text-[12px] text-slate-400">Cash out any time</p>}
         </div>
       </div>
 

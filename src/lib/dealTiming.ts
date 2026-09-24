@@ -12,11 +12,11 @@
  * has actually finished on screen.
  *
  * CARD_DEAL_MS must match the `card-deal` animation duration in
- * tailwind.config.ts (currently 0.35s) — it is the time a single card takes
+ * tailwind.config.ts (currently 0.55s) — it is the time a single card takes
  * to finish flying in once its delay elapses.
  */
-export const CARD_STAGGER_MS = 220;
-export const CARD_DEAL_MS = 350;
+export const CARD_STAGGER_MS = 480;
+export const CARD_DEAL_MS = 550;
 
 /**
  * How long an n-card reveal takes end to end: the last card doesn't start

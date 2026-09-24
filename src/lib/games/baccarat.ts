@@ -1,4 +1,5 @@
 import { randomInt } from "@/lib/rng";
+import { RANKS, SUITS, type Card } from "@/lib/games/blackjack";
 
 /**
  * WINIT BACCARAT — "Punto Banco"
@@ -45,6 +46,9 @@ export const PAYOUT: Record<BetType, number> = {
 export type HandResult = {
   playerCards: number[];
   bankerCards: number[];
+  /** The physical cards behind the values above, same order — display only. */
+  playerFaces: Card[];
+  bankerFaces: Card[];
   playerTotal: number;
   bankerTotal: number;
   winner: "player" | "banker" | "tie";
@@ -54,33 +58,44 @@ function total(cards: number[]): number {
   return cards.reduce((s, c) => s + c, 0) % 10;
 }
 
-/**
- * Draws one card value from a live shoe (mutates `counts`/`remaining`), using
- * the same rejection-free weighted draw as everywhere else in the app — one
- * `crypto.randomInt` over the remaining card count, mapped to a value class.
- */
-function drawValue(counts: number[], remaining: { n: number }): number {
+function pointValue(card: Card): number {
+  const i = RANKS.indexOf(card.r);
+  return i >= 9 ? 0 : i + 1; // A=1 … 9=9, 10/J/Q/K=0
+}
+
+function drawCard(shoe: number[], remaining: { n: number }): Card {
   let r = randomInt(remaining.n);
-  for (let v = 0; v < 10; v++) {
-    if (r < counts[v]) {
-      counts[v] -= 1;
+  for (let i = 0; i < shoe.length; i++) {
+    if (r < shoe[i]) {
+      shoe[i] -= 1;
       remaining.n -= 1;
-      return v;
+      return { r: RANKS[Math.floor(i / SUITS.length)], s: SUITS[i % SUITS.length] };
     }
-    r -= counts[v];
+    r -= shoe[i];
   }
-  throw new Error("drawValue: exhausted shoe — this should be unreachable");
+  throw new Error("drawCard: exhausted shoe — this should be unreachable");
 }
 
 /** Plays one hand to completion under the standard Punto Banco tableau. */
 export function playHand(): HandResult {
-  const counts = freshCounts();
+  // A physical shoe: every rank-suit pair, DECKS copies each. Drawing one
+  // uniformly and reading its point value gives exactly the same value
+  // distribution as the value-count shoe exactOdds() enumerates, so odds
+  // and RTP are untouched — this just keeps the real card for display.
+  const shoe = new Array(RANKS.length * SUITS.length).fill(DECKS);
   const remaining = { n: SHOE_SIZE };
+  const playerFaces: Card[] = [];
+  const bankerFaces: Card[] = [];
+  const draw = (faces: Card[]): number => {
+    const card = drawCard(shoe, remaining);
+    faces.push(card);
+    return pointValue(card);
+  };
 
-  const player = [drawValue(counts, remaining)];
-  const banker = [drawValue(counts, remaining)];
-  player.push(drawValue(counts, remaining));
-  banker.push(drawValue(counts, remaining));
+  const player = [draw(playerFaces)];
+  const banker = [draw(bankerFaces)];
+  player.push(draw(playerFaces));
+  banker.push(draw(bankerFaces));
 
   let pTotal = total(player);
   let bTotal = total(banker);
@@ -91,7 +106,7 @@ export function playHand(): HandResult {
     let playerThird: number | null = null;
 
     if (playerDraws) {
-      playerThird = drawValue(counts, remaining);
+      playerThird = draw(playerFaces);
       player.push(playerThird);
       pTotal = total(player);
     }
@@ -110,14 +125,14 @@ export function playHand(): HandResult {
     }
 
     if (bankerDraws) {
-      banker.push(drawValue(counts, remaining));
+      banker.push(draw(bankerFaces));
       bTotal = total(banker);
     }
   }
 
   const winner = pTotal > bTotal ? "player" : bTotal > pTotal ? "banker" : "tie";
 
-  return { playerCards: player, bankerCards: banker, playerTotal: pTotal, bankerTotal: bTotal, winner };
+  return { playerCards: player, bankerCards: banker, playerFaces, bankerFaces, playerTotal: pTotal, bankerTotal: bTotal, winner };
 }
 
 export function payoutFor(bet: BetType, stakeCents: number, winner: HandResult["winner"]): number {

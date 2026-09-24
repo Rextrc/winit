@@ -551,8 +551,9 @@ for (let value = 1; value <= 13; value++) {
   const remaining = [...full.slice(0, drawnIdx), ...full.slice(drawnIdx + 1)];
   for (const dir of ["higher", "lower"] as const) {
     if (!Hilo.directionAvailable(remaining, value, dir)) continue;
-    const { higher, lower } = Hilo.remainingSplit(remaining, value);
-    const favourable = dir === "higher" ? higher : lower;
+    // Ties win for whichever side was called ("higher or same" / "lower or same").
+    const { higher, equal, lower } = Hilo.remainingSplit(remaining, value);
+    const favourable = (dir === "higher" ? higher : lower) + equal;
     const p = favourable / remaining.length;
     const rtp = p * Hilo.multiplierFor(remaining, value, dir);
     check(`hilo value=${value} guess=${dir}: exact RTP`, rtp, 0.99, 1e-3);

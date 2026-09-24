@@ -62,8 +62,8 @@ export default function GameFrame({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_356px]">
-        <div className="order-1 min-w-0">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="order-1 min-w-0 xl:order-2">
           <div className="panel flex min-h-[440px] items-center justify-center overflow-hidden p-4 sm:p-6">
             <div className="w-full">{canvas}</div>
           </div>
@@ -77,7 +77,7 @@ export default function GameFrame({
           </div>
         </div>
 
-        <div className="order-2 space-y-4">
+        <div className="order-2 space-y-4 xl:order-1">
           <div className="panel relative p-4 xl:sticky xl:top-20">
             {/* Browsing never needs an account; placing a bet does. Rather than
                 let every game's own controls hit the API and 401, the whole

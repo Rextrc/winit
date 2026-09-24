@@ -9,6 +9,12 @@ import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { COINFLIP_MULTIPLIER, type CoinSide } from "@/lib/games/originals";
 
+const WINDUP_MS = 280;
+const TOSS_MS = 2300;
+const SETTLE_MS = 700;
+const TURNS = 7;
+const TOSS_HEIGHT = 70;
+
 type Resp = {
   result: CoinSide;
   won: boolean;
@@ -35,47 +41,62 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
   const rotationRef = useRef(0);
   const rafRef = useRef<number | null>(null);
 
-  const spin = useCallback((targetSide: CoinSide, durationMs: number, onDone?: () => void) => {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+  const setCoin = (y: number, angle: number, scale = 1) => {
+    if (coinRef.current) coinRef.current.style.transform = `translateY(${-y}px) rotateX(${angle}deg) scale(${scale})`;
+    if (shadowRef.current) {
+      const h = Math.min(1, y / TOSS_HEIGHT);
+      shadowRef.current.style.transform = `scale(${1 - h * 0.55})`;
+      shadowRef.current.style.opacity = `${1 - h * 0.7}`;
+    }
+  };
 
+  const animate = (durationMs: number, frame: (p: number) => void) =>
+    new Promise<void>((resolve) => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - t0) / durationMs);
+        frame(p);
+        if (p < 1) rafRef.current = requestAnimationFrame(tick);
+        else {
+          rafRef.current = null;
+          resolve();
+        }
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    });
+
+  /** Crouch before the throw — runs while the bet is in flight. */
+  const windUp = () => {
+    const a = rotationRef.current;
+    return animate(WINDUP_MS, (p) => setCoin(-6 * Math.sin(p * Math.PI * 0.5), a, 1 - 0.07 * Math.sin(p * Math.PI * 0.5)));
+  };
+
+  /** One end-over-end toss that lands face-up on `result`, then wobbles to rest. */
+  const toss = async (result: CoinSide) => {
     const start = rotationRef.current;
-    // Land exactly face-on: heads = 0deg (mod 360), tails = 180deg (mod 360).
-    const faceOffset = targetSide === "heads" ? 0 : 180;
-    const currentMod = ((start % 360) + 360) % 360;
-    let delta = faceOffset - currentMod;
-    if (delta < 0) delta += 360;
-    // A few full spins on top so it visibly tumbles rather than just nudging into place.
-    const target = start + delta + 360 * 4;
-    const bounceHeight = 26;
+    const face = result === "heads" ? 0 : 180;
+    const mod = ((start % 360) + 360) % 360;
+    const target = start + ((face - mod + 360) % 360) + 360 * TURNS;
+    const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 
-    const t0 = performance.now();
-    const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
-
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / durationMs);
-      const eased = easeOutCubic(p);
-      const angle = start + (target - start) * eased;
+    await animate(TOSS_MS, (p) => {
+      const angle = start + (target - start) * easeOut(p);
       rotationRef.current = angle;
-      // A single hop synced to the tumble: up on the way out, down on landing,
-      // with a shrinking, fading shadow so it reads as leaving the ground.
-      const hop = Math.sin(Math.min(1, p) * Math.PI) * bounceHeight;
-      if (coinRef.current) {
-        coinRef.current.style.transform = `translateY(${-hop}px) rotateY(${angle}deg)`;
-      }
-      if (shadowRef.current) {
-        const shrink = 1 - (hop / bounceHeight) * 0.4;
-        shadowRef.current.style.transform = `scale(${shrink})`;
-        shadowRef.current.style.opacity = `${1 - (hop / bounceHeight) * 0.6}`;
-      }
-      if (p < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        rafRef.current = null;
-        onDone?.();
-      }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  }, []);
+      // Pops up fast from the crouch, hangs at the top, drops back down.
+      const y = TOSS_HEIGHT * Math.sin(Math.PI * Math.pow(p, 0.85));
+      setCoin(y, angle, 1 + 0.08 * Math.sin(Math.PI * p));
+    });
+    // Landing: a small bounce and a rocking wobble that dies away.
+    await animate(SETTLE_MS, (p) => {
+      const decay = Math.pow(1 - p, 2);
+      const wobble = 16 * decay * Math.sin(p * Math.PI * 5);
+      const bounce = 9 * Math.abs(Math.sin(p * Math.PI * 2)) * decay;
+      setCoin(bounce, target + wobble);
+    });
+    rotationRef.current = target;
+    setCoin(0, target);
+  };
 
   const flip = useCallback(async () => {
     if (busy) return;
@@ -89,18 +110,18 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
     setError(null);
     setLast(null);
 
-    // Tumble immediately on tap, guessing the called side, so the coin is
-    // already mid-air by the time the server answers — no dead pause first.
-    spin(side, 900);
-
     try {
-      const res = await fetch("/api/games/coinflip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ betCents: effectiveBet, side }),
-      });
+      const [res] = await Promise.all([
+        fetch("/api/games/coinflip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ betCents: effectiveBet, side }),
+        }),
+        windUp(),
+      ]);
       const data = await res.json();
       if (!res.ok) {
+        setCoin(0, rotationRef.current);
         setFlipping(false);
         setError(data.error ?? "Couldn't place that bet.");
         setBusy(false);
@@ -108,9 +129,8 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
       }
       const payload = data as Resp;
 
-      // Re-target the spin onto the real result and let it settle there,
-      // rather than teleporting the face once the network call resolves.
-      await new Promise<void>((resolve) => spin(payload.result, 550, resolve));
+      await toss(payload.result);
+      await new Promise((r) => setTimeout(r, 200));
       setFlipping(false);
       setLast(payload);
       applyResult(payload.balanceCents, payload.netCents);
@@ -118,12 +138,13 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
       pushFlash(game.name, payload.netCents, payload.result);
       setFeedVersion((v) => v + 1);
     } catch {
+      setCoin(0, rotationRef.current);
       setFlipping(false);
       setError("Network error — the bet was not placed.");
     } finally {
       setBusy(false);
     }
-  }, [busy, betError, effectiveBet, side, spin, applyResult, applyProgress, pushFlash, game.name]);
+  }, [busy, betError, effectiveBet, side, applyResult, applyProgress, pushFlash, game.name]);
 
   useBetSlipHook({
     slug: game.slug,
@@ -143,13 +164,13 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
           : "border-loss from-loss/40 via-loss/15 to-loss/5 text-loss"
         : "border-volt from-volt/40 via-volt/15 to-volt/5 text-volt";
     return `absolute inset-0 grid place-items-center rounded-full border-4 bg-gradient-to-br text-4xl font-black shadow-volt [backface-visibility:hidden] ${ring} ${
-      face === "tails" ? "[transform:rotateY(180deg)]" : ""
+      face === "tails" ? "[transform:rotateX(180deg)]" : ""
     }`;
   };
 
   const canvas = (
     <div className="mx-auto w-full max-w-sm text-center">
-      <div className="mx-auto grid h-40 w-40 place-items-center [perspective:800px]">
+      <div className="mx-auto mt-16 grid h-40 w-40 place-items-center [perspective:800px]">
         <div
           ref={coinRef}
           className="relative h-32 w-32 [transform-style:preserve-3d] will-change-transform"

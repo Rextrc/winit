@@ -52,8 +52,31 @@ const config: Config = {
           "100%": { transform: "scale(1)", opacity: "1" },
         },
         "card-deal": {
-          "0%": { transform: "translateY(-28px) rotate(-8deg)", opacity: "0" },
-          "100%": { transform: "translateY(0) rotate(0)", opacity: "1" },
+          "0%": { transform: "translate(60px, -46px) rotate(-14deg) scale(0.9)", opacity: "0" },
+          "55%": { opacity: "1" },
+          "100%": { transform: "translate(0, 0) rotate(0) scale(1)", opacity: "1" },
+        },
+        // Crash rocket: engine flame flicker and a faint in-flight shake.
+        flame: {
+          "0%, 100%": { transform: "scaleY(1) scaleX(1)", opacity: "0.95" },
+          "50%": { transform: "scaleY(1.35) scaleX(0.85)", opacity: "0.75" },
+        },
+        "rocket-shake": {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "25%": { transform: "translate(0.6px, -0.6px)" },
+          "75%": { transform: "translate(-0.6px, 0.6px)" },
+        },
+        boom: {
+          "0%": { transform: "translate(-50%, -50%) scale(0.2)", opacity: "1" },
+          "100%": { transform: "translate(-50%, -50%) scale(2.6)", opacity: "0" },
+        },
+        shard: {
+          "0%": { transform: "translate(-50%, -50%)", opacity: "1" },
+          "100%": { transform: "translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(220deg)", opacity: "0" },
+        },
+        "star-drift": {
+          "0%": { transform: "translate(0, 0)" },
+          "100%": { transform: "translate(-60px, 90px)" },
         },
         "float-up": {
           "0%": { transform: "translateY(6px)", opacity: "0" },
@@ -103,7 +126,7 @@ const config: Config = {
         // until its turn — which is what silently made every staggered
         // per-card delayMs across the app invisible, and every hand look like
         // it dealt in one frame no matter what delay was passed in.
-        "card-deal": "card-deal 0.35s ease-out backwards",
+        "card-deal": "card-deal 0.55s cubic-bezier(0.22,1,0.36,1) backwards",
         "float-up": "float-up 1.6s ease-out forwards",
         marquee: "marquee 26s linear infinite",
         "confetti-fall": "confetti-fall linear forwards",
@@ -112,6 +135,11 @@ const config: Config = {
         "win-pulse": "win-pulse 1.1s ease-out 3",
         "chip-drop": "chip-drop 0.28s cubic-bezier(0.34,1.56,0.64,1)",
         "felt-sweep": "felt-sweep 1.8s ease-in-out infinite",
+        flame: "flame 0.14s ease-in-out infinite",
+        "rocket-shake": "rocket-shake 0.12s linear infinite",
+        "star-drift": "star-drift 3s linear infinite",
+        boom: "boom 0.75s ease-out forwards",
+        shard: "shard 0.9s cubic-bezier(0.2,0.7,0.3,1) forwards",
       },
     },
   },
