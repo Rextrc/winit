@@ -21,10 +21,10 @@ const BOWL = 118;
 const TRACK_OUT = 110;
 const TRACK_IN = 94;
 const BALL_TRACK = 102;
-const NUM_OUT = 90;
-const NUM_IN = 76;
-const POCKET_IN = 62;
-const BALL_POCKET = 69;
+const NUM_OUT = 93;
+const NUM_IN = 72;
+const POCKET_IN = 57;
+const BALL_POCKET = 64.5;
 
 const FILL = { red: "#d42a3c", black: "#1b2030", zero: "#1f9d55" } as const;
 
@@ -52,6 +52,12 @@ function band(r1: number, r2: number, a0: number, a1: number): string {
 
 const mod360 = (a: number) => ((a % 360) + 360) % 360;
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+// The final rattle: pocket-to-pocket hops (in sectors, relative to the
+// winning pocket), each shorter and lower than the last, ending on 0.
+const HOPS = [0, 2.3, -1.2, 0.7, -0.3, 0];
+const HOP_LIFT = [6, 4.5, 3, 1.6, 0.8];
 
 type Flight = { t0: number; rel0: number; relDelta: number };
 
@@ -101,15 +107,21 @@ export default function RouletteWheel({ pocket, launchKey }: { pocket: number | 
       if (f) {
         const p = Math.min(1, (now - f.t0) / BALL_MS);
         rel = f.rel0 + f.relDelta * easeOutCubic(p);
-        // Rides the track, then spirals in; a few hops as it hits the
-        // deflectors and the pocket frets, each smaller than the last.
-        if (p < 0.5) radius = BALL_TRACK;
-        else if (p < 0.8) {
-          const q = (p - 0.5) / 0.3;
-          radius = BALL_TRACK - (BALL_TRACK - (NUM_IN + 4)) * q * q + Math.abs(Math.sin(q * Math.PI * 3)) * 5 * (1 - q);
+        if (p < 0.45) radius = BALL_TRACK;
+        else if (p < 0.72) {
+          // Leaves the track and spirals in, knocked about by the deflectors.
+          const q = (p - 0.45) / 0.27;
+          radius = BALL_TRACK - (BALL_TRACK - (NUM_IN + 2)) * q * q + Math.abs(Math.sin(q * Math.PI * 3)) * 5 * (1 - q);
         } else {
-          const q = (p - 0.8) / 0.2;
-          radius = NUM_IN + 4 - (NUM_IN + 4 - BALL_POCKET) * easeOutCubic(q) + Math.abs(Math.sin(q * Math.PI * 4)) * 3.5 * (1 - q);
+          // Drops onto the frets and rattles across a few pockets before it
+          // sticks — discrete hops, not a smooth slide.
+          const q = (p - 0.72) / 0.28;
+          const seg = Math.min(HOPS.length - 2, Math.floor(q * (HOPS.length - 1)));
+          const t = q * (HOPS.length - 1) - seg;
+          const offset = HOPS[seg] + (HOPS[seg + 1] - HOPS[seg]) * easeInOut(t);
+          rel += offset * SECTOR;
+          const base = BALL_POCKET + (NUM_IN + 2 - BALL_POCKET) * Math.max(0, 1 - q / 0.2);
+          radius = base + HOP_LIFT[seg] * 4 * t * (1 - t);
         }
         if (p >= 1) {
           resting.current = f.rel0 + f.relDelta;
@@ -139,8 +151,8 @@ export default function RouletteWheel({ pocket, launchKey }: { pocket: number | 
   }, []);
 
   return (
-    <div className="relative mx-auto -my-10 w-full max-w-[400px] [perspective:900px] sm:-my-14">
-      <div className="[transform:rotateX(48deg)] [transform-style:preserve-3d]">
+    <div className="relative mx-auto -my-4 w-full max-w-[460px] [perspective:1400px] [perspective-origin:50%_50%] sm:-my-6">
+      <div className="[transform:rotateX(28deg)] [transform-style:preserve-3d]">
         <svg viewBox="0 0 240 240" className="h-auto w-full drop-shadow-[0_24px_24px_rgba(0,0,0,0.55)]" aria-label="Roulette wheel">
           <defs>
             <radialGradient id="rw-bowl" cx="50%" cy="45%" r="60%">
@@ -192,9 +204,12 @@ export default function RouletteWheel({ pocket, launchKey }: { pocket: number | 
                   <text
                     x={tx}
                     y={ty}
-                    fill="#f7f4ea"
-                    fontSize="7"
-                    fontWeight="800"
+                    fill="#ffffff"
+                    fontSize="8.6"
+                    fontWeight="900"
+                    stroke="rgba(0,0,0,0.55)"
+                    strokeWidth="0.8"
+                    paintOrder="stroke"
                     textAnchor="middle"
                     dominantBaseline="central"
                     transform={`rotate(${r3(i * SECTOR)} ${tx} ${ty})`}
@@ -207,8 +222,8 @@ export default function RouletteWheel({ pocket, launchKey }: { pocket: number | 
             {/* Frets between pockets */}
             {WHEEL_ORDER.map((_, i) => {
               const [x1, y1] = polar(POCKET_IN, i * SECTOR - SECTOR / 2);
-              const [x2, y2] = polar(NUM_IN, i * SECTOR - SECTOR / 2);
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#c9d0dd" strokeWidth="0.7" opacity="0.7" />;
+              const [x2, y2] = polar(NUM_OUT, i * SECTOR - SECTOR / 2);
+              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#0b0e14" strokeWidth="0.9" opacity="0.85" />;
             })}
             <circle cx={C} cy={C} r={NUM_OUT} fill="none" stroke="#c9d0dd" strokeOpacity="0.35" strokeWidth="0.8" />
             <circle cx={C} cy={C} r={NUM_IN} fill="none" stroke="#c9d0dd" strokeOpacity="0.5" strokeWidth="0.8" />
