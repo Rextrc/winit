@@ -51,15 +51,33 @@ function band(r1: number, r2: number, a0: number, a1: number): string {
 }
 
 const mod360 = (a: number) => ((a % 360) + 360) % 360;
-const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+// Ball flight, in the rotor's frame (degrees, ms). Negative = against the
+// spin. The relative speed never reaches zero until the ball is sitting in a
+// pocket, so on screen the ball never stalls or reverses mid-flight.
+const T_TRACK = 4300; // rolling the outer track, slowing steadily
+const T_DROP = 1200; // leaves the track and spirals in past a deflector
+const T_SETTLE = BALL_MS - T_TRACK - T_DROP; // skitters over the frets
+const V_DROP = -300; // relative speed as it leaves the track
+const V_LAND = -170; // relative speed as it reaches the frets
+const D_DROP = ((V_DROP + V_LAND) / 2) * T_DROP / 1000;
+const D_SETTLE = (V_LAND * T_SETTLE) / 1000 / 3; // v = V_LAND·(1−s)², integrated
 
-// The final rattle: pocket-to-pocket hops (in sectors, relative to the
-// winning pocket), each shorter and lower than the last, ending on 0.
-const HOPS = [0, 2.3, -1.2, 0.7, -0.3, 0];
-const HOP_LIFT = [6, 4.5, 3, 1.6, 0.8];
+type Flight = { t0: number; rel0: number; v0: number };
 
-type Flight = { t0: number; rel0: number; relDelta: number };
+/** Relative angle travelled `ms` after launch, for a launch speed `v0` (deg/s). */
+function travelled(ms: number, v0: number): number {
+  const t1 = Math.min(ms, T_TRACK) / 1000;
+  const a1 = (V_DROP - v0) / (T_TRACK / 1000);
+  let d = v0 * t1 + 0.5 * a1 * t1 * t1;
+  if (ms <= T_TRACK) return d;
+  const t2 = Math.min(ms - T_TRACK, T_DROP) / 1000;
+  const a2 = (V_LAND - V_DROP) / (T_DROP / 1000);
+  d += V_DROP * t2 + 0.5 * a2 * t2 * t2;
+  if (ms <= T_TRACK + T_DROP) return d;
+  const s = Math.min(1, (ms - T_TRACK - T_DROP) / T_SETTLE);
+  // ∫ V_LAND·(1−u)² du from 0..s, scaled by the phase length.
+  return d + (V_LAND * T_SETTLE) / 1000 * (s - s * s + (s * s * s) / 3);
+}
 
 /**
  * A live wheel. The rotor turns continuously from the moment the page opens.
@@ -88,10 +106,14 @@ export default function RouletteWheel({ pocket, launchKey }: { pocket: number | 
     // Enter from wherever the ball is (or the top of the track on the first spin).
     const rel0 = resting.current ?? mod360(0 - wheelAngle(now));
     const target = idx * SECTOR;
-    // Travel against the rotor for several laps, landing exactly on `target`.
-    const relDelta = -(mod360(rel0 - target) + 360 * 7);
+    // Total travel against the rotor: several laps, ending exactly on
+    // `target`. The launch speed is solved so the track phase covers
+    // whatever the fixed drop and settle phases don't.
+    const total = -(mod360(rel0 - target) + 360 * 8);
+    const dTrack = total - D_DROP - D_SETTLE;
+    const v0 = (2 * dTrack) / (T_TRACK / 1000) - V_DROP;
     resting.current = null;
-    flight.current = { t0: now, rel0, relDelta };
+    flight.current = { t0: now, rel0, v0 };
   }, [launchKey]);
 
   useEffect(() => {
@@ -105,26 +127,27 @@ export default function RouletteWheel({ pocket, launchKey }: { pocket: number | 
       let radius = BALL_TRACK;
       const f = flight.current;
       if (f) {
-        const p = Math.min(1, (now - f.t0) / BALL_MS);
-        rel = f.rel0 + f.relDelta * easeOutCubic(p);
-        if (p < 0.45) radius = BALL_TRACK;
-        else if (p < 0.72) {
-          // Leaves the track and spirals in, knocked about by the deflectors.
-          const q = (p - 0.45) / 0.27;
-          radius = BALL_TRACK - (BALL_TRACK - (NUM_IN + 2)) * q * q + Math.abs(Math.sin(q * Math.PI * 3)) * 5 * (1 - q);
+        const ms = Math.min(BALL_MS, now - f.t0);
+        const p = ms / BALL_MS;
+        rel = f.rel0 + travelled(ms, f.v0);
+        if (ms < T_TRACK) {
+          radius = BALL_TRACK;
+        } else if (ms < T_TRACK + T_DROP) {
+          // Gravity pulls it off the track; one knock off a deflector on the way.
+          const q = (ms - T_TRACK) / T_DROP;
+          radius = BALL_TRACK - (BALL_TRACK - (NUM_IN + 1)) * q * q;
+          radius += Math.max(0, Math.sin((q - 0.35) * Math.PI * 2.2)) * 4 * (q > 0.35 && q < 0.8 ? 1 : 0);
         } else {
-          // Drops onto the frets and rattles across a few pockets before it
-          // sticks — discrete hops, not a smooth slide.
-          const q = (p - 0.72) / 0.28;
-          const seg = Math.min(HOPS.length - 2, Math.floor(q * (HOPS.length - 1)));
-          const t = q * (HOPS.length - 1) - seg;
-          const offset = HOPS[seg] + (HOPS[seg + 1] - HOPS[seg]) * easeInOut(t);
-          rel += offset * SECTOR;
-          const base = BALL_POCKET + (NUM_IN + 2 - BALL_POCKET) * Math.max(0, 1 - q / 0.2);
-          radius = base + HOP_LIFT[seg] * 4 * t * (1 - t);
+          // Skitters forward over the frets: each bounce lower and shorter,
+          // as it sinks from the number ring into the pocket ring.
+          const s2 = (ms - T_TRACK - T_DROP) / T_SETTLE;
+          const sink = Math.min(1, s2 / 0.35);
+          const base = NUM_IN + 1 - (NUM_IN + 1 - BALL_POCKET) * (1 - (1 - sink) * (1 - sink));
+          const bounce = Math.abs(Math.sin(Math.PI * 5 * Math.sqrt(s2))) * 4.5 * Math.pow(1 - s2, 2);
+          radius = base + bounce;
         }
         if (p >= 1) {
-          resting.current = f.rel0 + f.relDelta;
+          resting.current = f.rel0 + travelled(BALL_MS, f.v0);
           flight.current = null;
         }
       } else if (resting.current !== null) {
