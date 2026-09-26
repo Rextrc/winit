@@ -7,10 +7,9 @@ import CategoryTabs from "@/components/CategoryTabs";
 
 export const dynamic = "force-dynamic";
 
-const VALID: Category[] = ["slots", "table", "live", "originals"];
+const VALID: Category[] = ["table", "live", "originals"];
 
 const BLURBS: Record<Category, string> = {
-  slots: "Weighted reel strips, published paytables, exact enumerated RTP.",
   table: "Blackjack and roulette dealt from crypto-shuffled decks and true-odds wheels.",
   live: "Simulated studio tables. Nothing here streams anywhere — this is a portfolio build.",
   originals: "House-built game ideas — every one playable, every paytable derived rather than guessed.",

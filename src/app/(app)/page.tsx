@@ -23,7 +23,6 @@ export default function HomePage() {
        * list of what actually shipped recently, not everything.
        */}
       {fresh.length > 0 && <GameRow title="New" subtitle="Just added to the lobby" games={fresh} />}
-      <GameRow title="Slots" games={gamesByCategory("slots")} href="/category/slots" />
       <GameRow title="Table Games" games={gamesByCategory("table")} href="/category/table" />
       <GameRow title="Originals" games={gamesByCategory("originals")} href="/category/originals" />
       <GameRow title="Live" subtitle="Simulated tables — nothing streams anywhere" games={gamesByCategory("live")} href="/category/live" />

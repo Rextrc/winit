@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { ENGINE_KEY, gameBySlug } from "@/lib/games/registry";
 import { IconLive } from "@/components/Icons";
 import { pageMetadata } from "@/lib/metadata";
-import CandyGame from "@/components/games/CandyGame";
 import BlackjackGame from "@/components/games/BlackjackGame";
 import RouletteGame from "@/components/games/RouletteGame";
 import DiceGame from "@/components/games/DiceGame";
@@ -66,8 +65,6 @@ export default function GamePage({ params }: { params: { slug: string } }) {
   }
 
   switch (ENGINE_KEY[game.slug]) {
-    case "slots":
-      return <CandyGame game={game} />;
     case "blackjack":
       return <BlackjackGame game={game} />;
     case "roulette":

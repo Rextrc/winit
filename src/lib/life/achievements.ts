@@ -287,15 +287,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     earned: (s) => (s.games.blackjack?.bets ?? 0) >= 100,
     progress: (s) => ratio(s.games.blackjack?.bets ?? 0, 100),
   },
-  {
-    key: "slots-500",
-    name: "One More Spin",
-    description: "Spin the slots 500 times.",
-    tier: "silver",
-    category: "Games",
-    earned: (s) => (s.games.slots?.bets ?? 0) >= 500,
-    progress: (s) => ratio(s.games.slots?.bets ?? 0, 500),
-  },
+
   {
     key: "crash-50",
     name: "Nerve",
@@ -440,15 +432,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     secret: true,
     earned: (s) => s.age >= 75 && s.balanceCents >= 100_000_000,
   },
-  {
-    key: "secret-purist",
-    name: "Purist",
-    description: "Place 200 bets without ever touching the slots.",
-    tier: "secret",
-    category: "Games",
-    secret: true,
-    earned: (s) => s.betsThisLife >= 200 && (s.games.slots?.bets ?? 0) === 0,
-  },
+
 ];
 
 export const ACHIEVEMENT_KEYS = new Set(ACHIEVEMENTS.map((a) => a.key));

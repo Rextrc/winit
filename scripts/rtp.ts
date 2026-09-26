@@ -13,15 +13,6 @@ import * as Bacc from "../src/lib/games/baccarat";
 import * as Mines from "../src/lib/games/mines";
 import * as Hilo from "../src/lib/games/hilo";
 import {
-  BUY_FEATURE_PRICE_MULTIPLIER,
-  COLS,
-  MIN_CLUSTER,
-  ROWS as CANDY_ROWS,
-  findClusters,
-  type CandyMode,
-} from "../src/lib/games/candy";
-import { drawGrid, playRound as playCandyRound } from "../src/lib/games/candy.engine";
-import {
   exactRtp as rouletteRtp,
   spin as spinRoulette,
   coverageCount,
@@ -87,116 +78,6 @@ function check(label: string, actual: number, expected: number, tolerance: numbe
  */
 function sigmaBand(variance: number, samples: number, sigmas = 5): number {
   return sigmas * Math.sqrt(variance / samples);
-}
-
-// ---------------------------------------------------------------- slots
-console.log("\nCANDY CASCADE (slots)");
-console.log(
-  "  This game has no closed-form RTP: a cascading grid can re-draw itself an\n" +
-  "  unbounded number of times, so unlike every other game here the figure\n" +
-  "  below is a MEASURED return with a confidence interval, not an enumerated\n" +
-  "  one. That is also how real cluster-pays slots publish their numbers.",
-);
-
-const CANDY_SPINS = 40_000;
-const CANDY_BET = 1000; // 10.00
-
-function simulateCandy(mode: CandyMode, rounds: number) {
-  let sum = 0;
-  let sum2 = 0;
-  let bonusTriggers = 0;
-  let biggest = 0;
-  for (let i = 0; i < rounds; i++) {
-    const r = playCandyRound(mode, CANDY_BET);
-    const x = r.payoutCents / r.chargeCents;
-    sum += x;
-    sum2 += x * x;
-    if (r.bonusTriggered) bonusTriggers++;
-    if (x > biggest) biggest = x;
-  }
-  const mean = sum / rounds;
-  const variance = sum2 / rounds - mean * mean;
-  return { mean, variance, bonusTriggers, biggest };
-}
-
-const candySim = simulateCandy("SPIN", CANDY_SPINS);
-const candySE = Math.sqrt(candySim.variance / CANDY_SPINS);
-console.log(
-  `  Measured over ${CANDY_SPINS.toLocaleString()} rounds: ${pct(candySim.mean)} ± ${pct(5 * candySE)} (5 SE)`,
-);
-console.log(`  Bonus trigger rate: 1 in ${(CANDY_SPINS / candySim.bonusTriggers).toFixed(1)}`);
-console.log(`  Biggest single round seen: ${candySim.biggest.toFixed(1)}x stake`);
-
-// Compared against the published figure with a tolerance derived from THIS
-// RUN's own measured variance (5 SE) — the same principle every other
-// simulated check in this file uses. A fixed percentage band here would
-// either false-fail on a heavy-tailed bonus round (routine at only 40,000
-// rounds — this game's payout SD is ~3.9x the stake) or be too loose to catch
-// a real paytable drift, depending on how well the guess happened to match
-// the actual variance. This one is derived, so it's neither.
-const registryRtp = GAMES.find((g) => g.slug === "candy-cascade")!.rtp!;
-check("measured RTP matches the published figure (5 SE)", candySim.mean, registryRtp, 5 * candySE);
-check("registry figure sits inside the documented design band", registryRtp, (0.9 + 0.98) / 2, (0.98 - 0.9) / 2);
-
-// The buy feature is priced from a separate simulation of its own EV; check
-// it still returns close to the base game rather than being a trap or a
-// free edge, using a tolerance derived from ITS OWN measured variance.
-const BUY_SPINS = 15_000;
-const buySim = simulateCandy("BUY_FEATURE", BUY_SPINS);
-const buySE = Math.sqrt(buySim.variance / BUY_SPINS);
-check(
-  `Buy Feature (${BUY_FEATURE_PRICE_MULTIPLIER}x stake) tracks the base game`,
-  buySim.mean,
-  candySim.mean,
-  5 * buySE + 5 * candySE,
-);
-
-// Structural checks, independent of any RNG: the cluster evaluator itself.
-{
-  // A single mono-color 7x7 grid must resolve to exactly one cluster
-  // covering the whole board.
-  const mono = Array.from({ length: COLS }, () => Array(CANDY_ROWS).fill("STAR"));
-  const clusters = findClusters(mono as never);
-  if (clusters.length !== 1 || clusters[0].size !== COLS * CANDY_ROWS) {
-    failures++;
-    console.log("  FAIL  a fully-matching grid did not resolve to one whole-board cluster");
-  }
-
-  // A checkerboard of two symbols must never cluster (no two same-symbol
-  // cells are ever orthogonally adjacent).
-  const checker = Array.from({ length: COLS }, (_, c) =>
-    Array.from({ length: CANDY_ROWS }, (_, r) => ((c + r) % 2 === 0 ? "STAR" : "GEM")),
-  );
-  if (findClusters(checker as never).length !== 0) {
-    failures++;
-    console.log("  FAIL  a checkerboard grid produced a cluster");
-  }
-
-  // Below MIN_CLUSTER, a small isolated group must not pay.
-  const sparse = Array.from({ length: COLS }, () => Array(CANDY_ROWS).fill("GEM"));
-  sparse[0][0] = "STAR";
-  sparse[1][0] = "STAR";
-  sparse[0][1] = "STAR"; // an isolated 3-cell L-shape, below MIN_CLUSTER
-  const rest = findClusters(sparse as never).find((c) => c.symbol === "STAR");
-  if (rest) {
-    failures++;
-    console.log(`  FAIL  a ${MIN_CLUSTER - 1 < 3 ? "" : "3-cell"} cluster below MIN_CLUSTER still paid`);
-  }
-}
-
-// The draw itself must actually be able to produce every symbol — a weight
-// typo that zeroes one out would silently break the paytable and the
-// "every symbol is reachable" assumption everywhere else in the game.
-{
-  const seen = new Set<string>();
-  for (let i = 0; i < 2000 && seen.size < 7; i++) {
-    const g = drawGrid();
-    for (const col of g) for (const s of col) seen.add(s);
-  }
-  if (seen.size < 7) {
-    failures++;
-    console.log(`  FAIL  only ${seen.size}/7 symbols appeared in 2000 draws — a weight is likely zero`);
-  }
 }
 
 // -------------------------------------------------------------- roulette
@@ -1047,7 +928,7 @@ console.log("\nACHIEVEMENTS");
   // that are about NOT doing something — those are unreachable by
   // construction, so they are named rather than counted. Anything else going
   // missing means a predicate no player can ever satisfy.
-  const restraintOnly = ["secret-minimalist", "secret-purist"];
+  const restraintOnly = ["secret-minimalist"];
   const missing = Ach.ACHIEVEMENTS.filter((a) => !earnedAtMax.includes(a)).map((a) => a.key).sort();
   check(
     "the only unreachable achievements are the restraint secrets",

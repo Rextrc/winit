@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CATEGORY_LABELS, type Category } from "@/lib/games/registry";
-import { IconHome, IconLive, IconOriginals, IconSlots, IconTable } from "@/components/Icons";
+import { IconHome, IconLive, IconOriginals, IconTable } from "@/components/Icons";
 
 const TABS: { href: string; label: string; Icon: typeof IconHome; category?: Category }[] = [
   { href: "/", label: "Lobby", Icon: IconHome },
-  { href: "/category/slots", label: CATEGORY_LABELS.slots, Icon: IconSlots, category: "slots" },
   { href: "/category/table", label: CATEGORY_LABELS.table, Icon: IconTable, category: "table" },
   { href: "/category/live", label: CATEGORY_LABELS.live, Icon: IconLive, category: "live" },
   { href: "/category/originals", label: CATEGORY_LABELS.originals, Icon: IconOriginals, category: "originals" },

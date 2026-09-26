@@ -166,18 +166,7 @@ const DEFS: ChallengeDef[] = [
     reputation: 65,
     baseCents: 0,
   },
-  {
-    key: "slots-spins",
-    name: "One More Spin",
-    description: (n) => `Spin the slots ${n} times.`,
-    kind: "VOLUME",
-    metric: { type: "GAME_BETS", game: "slots" },
-    dailyTarget: 30,
-    weeklyTarget: 180,
-    xp: 300,
-    reputation: 50,
-    baseCents: 0,
-  },
+
 ];
 
 // A VOLUME challenge paying currency is the exploit this module exists to

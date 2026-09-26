@@ -16,7 +16,6 @@ import {
   IconLife,
   IconRewards,
   IconSettings,
-  IconSlots,
   IconTable,
 } from "@/components/Icons";
 
@@ -29,7 +28,6 @@ type NavItem = {
 const BROWSE: NavItem[] = [{ href: "/", label: "Home", Icon: IconHome }];
 
 const CATEGORIES: NavItem[] = [
-  { href: "/category/slots", label: "Slots", Icon: IconSlots },
   { href: "/category/table", label: "Table Games", Icon: IconTable },
   { href: "/category/live", label: "Live", Icon: IconLive },
   { href: "/category/originals", label: "Originals", Icon: IconOriginals },

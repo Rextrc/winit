@@ -1,6 +1,6 @@
 /** The game catalogue that drives the sidebar, home rows and hero carousel. */
 
-export type Category = "slots" | "table" | "live" | "originals";
+export type Category = "table" | "live" | "originals";
 
 export type GameDef = {
   slug: string;
@@ -21,29 +21,13 @@ export type GameDef = {
 };
 
 export const CATEGORY_LABELS: Record<Category, string> = {
-  slots: "Slots",
   table: "Table Games",
   live: "Live",
   originals: "Originals",
 };
 
 export const GAMES: GameDef[] = [
-  {
-    slug: "candy-cascade",
-    name: "Candy Cascade",
-    tagline: "7×7 cluster pays, tumbling wins, a multiplier trail that keeps climbing",
-    category: "slots",
-    // Simulation-verified, not exact — a cascading grid has no closed form.
-    // See the header of src/lib/games/candy.ts for why, and npm run rtp for
-    // the check itself.
-    rtp: 0.96,
-    rtpNote: "Simulated over 60,000+ full rounds (measured ~95-98%, ±1.5pp SE) — see npm run rtp.",
-    playable: true,
-    tags: ["Slots", "Cluster pays", "Bonus buy"],
-    art: "from-fuchsia-500/60 via-base-700 to-base-900",
-    glyph: "🍬",
-    popularity: 99,
-  },
+
   {
     slug: "european-roulette",
     name: "European Roulette",
@@ -372,7 +356,6 @@ export const PLAYABLE = GAMES.filter((g) => g.playable);
 
 /** Maps a game slug to the engine key used in the transaction log. */
 export const ENGINE_KEY: Record<string, string> = {
-  "candy-cascade": "slots",
   baccarat: "baccarat",
   mines: "mines",
   hilo: "hilo",
@@ -397,7 +380,6 @@ export const ENGINE_KEY: Record<string, string> = {
 };
 
 export const SLUG_FOR_ENGINE: Record<string, string> = {
-  slots: "candy-cascade",
   baccarat: "baccarat",
   mines: "mines",
   hilo: "hilo",
