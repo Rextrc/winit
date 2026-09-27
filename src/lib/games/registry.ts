@@ -54,6 +54,7 @@ export const GAMES: GameDef[] = [
     tags: ["Blackjack", "Skill"],
     art: "from-win/40 via-base-700 to-base-900",
     glyph: "♠",
+    cover: "/games/blackjack.webp",
     popularity: 97,
   },
   // --- Originals: instant-settle games built on one shared fair-multiplier
@@ -96,6 +97,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original", "Provably fair maths"],
     art: "from-amber-700/50 via-base-700 to-base-900",
     glyph: "🪙",
+    cover: "/games/coinflip.webp",
     popularity: 80,
   },
   {

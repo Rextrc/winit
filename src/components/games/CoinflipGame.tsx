@@ -156,34 +156,25 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
     note: `Calling ${side} · ${COINFLIP_MULTIPLIER}× on a win`,
   });
 
-  const faceClass = (face: CoinSide) => {
-    const ring =
-      !flipping && last
-        ? last.won
-          ? "border-win from-win/40 via-win/15 to-win/5 text-win"
-          : "border-loss from-loss/40 via-loss/15 to-loss/5 text-loss"
-        : "border-volt from-volt/40 via-volt/15 to-volt/5 text-volt";
-    return `absolute inset-0 grid place-items-center rounded-full border-4 bg-gradient-to-br text-4xl font-black shadow-volt [backface-visibility:hidden] ${ring} ${
-      face === "tails" ? "[transform:rotateX(180deg)]" : ""
-    }`;
-  };
+  const glow =
+    !flipping && last
+      ? last.won
+        ? "drop-shadow-[0_0_22px_rgba(34,221,122,0.55)]"
+        : "drop-shadow-[0_0_22px_rgba(255,77,94,0.5)]"
+      : "drop-shadow-[0_10px_24px_rgba(0,0,0,0.6)]";
 
   const canvas = (
     <div className="mx-auto w-full max-w-sm text-center">
-      <div className="mx-auto mt-16 grid h-40 w-40 place-items-center [perspective:800px]">
+      <div className="mx-auto mt-16 grid h-48 w-48 place-items-center [perspective:900px]">
         <div
           ref={coinRef}
-          className="relative h-32 w-32 [transform-style:preserve-3d] will-change-transform"
+          className={`relative h-44 w-44 transition-[filter] duration-500 [transform-style:preserve-3d] will-change-transform ${glow}`}
         >
-          <div className={faceClass("heads")}>
-            <span className="grid h-[70%] w-[70%] place-items-center rounded-full border-2 border-current/30 bg-black/10">
-              H
-            </span>
+          <div className="absolute inset-0 [backface-visibility:hidden]">
+            <CoinFace side="heads" />
           </div>
-          <div className={faceClass("tails")}>
-            <span className="grid h-[70%] w-[70%] place-items-center rounded-full border-2 border-current/30 bg-black/10">
-              T
-            </span>
+          <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateX(180deg)]">
+            <CoinFace side="tails" />
           </div>
         </div>
       </div>
@@ -219,7 +210,12 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
               side === s ? "border-transparent bg-base-500 text-white" : "border-transparent bg-base-900 text-slate-400 hover:text-white"
             }`}
           >
-            {s}
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4">
+                <CoinFace side={s} />
+              </span>
+              {s}
+            </span>
           </button>
         ))}
       </div>
@@ -246,4 +242,42 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
   );
 
   return <GameFrame game={game} engineKey="coinflip" feedVersion={feedVersion} canvas={canvas} panel={panel} rules={rules} />;
+}
+
+const COIN = {
+  heads: { light: "#c3ccff", mid: "#7f8cf5", dark: "#3b3fa8", deep: "#23246e", star: "#2a2b86" },
+  tails: { light: "#ffc2cc", mid: "#f5667d", dark: "#a8233a", deep: "#6e1323", star: "#7a1428" },
+} as const;
+
+/** The WinIt coin: brushed-metal disc, inset ring, four-point star. Blue heads, red tails. */
+function CoinFace({ side }: { side: CoinSide }) {
+  const c = COIN[side];
+  const id = `coin-${side}`;
+  return (
+    <svg viewBox="0 0 100 100" className="h-full w-full" aria-label={side}>
+      <defs>
+        <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={c.light} />
+          <stop offset="45%" stopColor={c.mid} />
+          <stop offset="100%" stopColor={c.deep} />
+        </linearGradient>
+        <radialGradient id={`${id}-face`} cx="35%" cy="30%" r="80%">
+          <stop offset="0%" stopColor={c.light} />
+          <stop offset="55%" stopColor={c.mid} />
+          <stop offset="100%" stopColor={c.dark} />
+        </radialGradient>
+        <linearGradient id={`${id}-shine`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.55" />
+          <stop offset="40%" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="49" fill={c.deep} />
+      <circle cx="50" cy="50" r="46.5" fill={`url(#${id}-rim)`} />
+      <circle cx="50" cy="50" r="38" fill={c.dark} />
+      <circle cx="50" cy="50" r="35" fill={`url(#${id}-face)`} />
+      <circle cx="50" cy="50" r="27" fill="none" stroke={c.dark} strokeWidth="3" opacity="0.8" />
+      <path d="M50 32 C 52 45, 55 48, 68 50 C 55 52, 52 55, 50 68 C 48 55, 45 52, 32 50 C 45 48, 48 45, 50 32 Z" fill={c.star} />
+      <circle cx="50" cy="50" r="46.5" fill={`url(#${id}-shine)`} />
+    </svg>
+  );
 }
