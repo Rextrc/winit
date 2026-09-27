@@ -181,6 +181,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original", "Cards", "Provably fair maths"],
     art: "from-sky-800/50 via-base-700 to-base-900",
     glyph: "🃏",
+    cover: "/games/hilo.webp",
     popularity: 78,
     new: true,
   },

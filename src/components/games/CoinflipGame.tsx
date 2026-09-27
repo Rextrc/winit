@@ -165,10 +165,12 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
 
   const canvas = (
     <div className="mx-auto w-full max-w-sm text-center">
-      <div className="mx-auto mt-16 grid h-48 w-48 place-items-center [perspective:900px]">
+      {/* The glow is a CSS filter, and a filter flattens 3D rendering — so it
+          lives out here, never on the element doing the flip. */}
+      <div className={`mx-auto mt-16 grid h-48 w-48 place-items-center transition-[filter] duration-500 [perspective:900px] ${glow}`}>
         <div
           ref={coinRef}
-          className={`relative h-44 w-44 transition-[filter] duration-500 [transform-style:preserve-3d] will-change-transform ${glow}`}
+          className="relative h-44 w-44 [transform-style:preserve-3d] will-change-transform"
         >
           <div className="absolute inset-0 [backface-visibility:hidden]">
             <CoinFace side="heads" />
