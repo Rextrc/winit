@@ -255,20 +255,7 @@ export const GAMES: GameDef[] = [
     new: true,
     popularity: 83,
   },
-  {
-    slug: "scratch-cards",
-    name: "Scratch Cards",
-    tagline: "Nine panels, match three, instant answer",
-    category: "originals",
-    rtp: 0.99,
-    rtpNote: "Exactly 99% by construction — the weighted mean of a fixed prize table.",
-    playable: true,
-    tags: ["Originals", "Instant"],
-    art: "from-yellow-600/45 via-base-700 to-base-900",
-    glyph: "\u2605",
-    new: true,
-    popularity: 81,
-  },
+
   {
     slug: "lottery",
     name: "Lottery",
@@ -283,20 +270,7 @@ export const GAMES: GameDef[] = [
     new: true,
     popularity: 74,
   },
-  {
-    slug: "silks",
-    name: "Silks",
-    tagline: "Eight fictional horses, true odds on every one",
-    category: "originals",
-    rtp: 0.99,
-    rtpNote: "Exactly 99% on every horse — favourite and outsider are priced identically.",
-    playable: true,
-    tags: ["Originals", "Racing"],
-    art: "from-teal-600/45 via-base-700 to-base-900",
-    glyph: "\u265E",
-    new: true,
-    popularity: 79,
-  },
+
   {
     slug: "casino-war",
     name: "War",
@@ -381,9 +355,7 @@ export const ENGINE_KEY: Record<string, string> = {
   "video-poker": "videopoker",
   "craps": "craps",
   "sic-bo": "sicbo",
-  "scratch-cards": "scratch",
   "lottery": "lottery",
-  "silks": "racing",
   "casino-war": "war",
   "three-card": "threecard",
 };
@@ -405,9 +377,7 @@ export const SLUG_FOR_ENGINE: Record<string, string> = {
   videopoker: "video-poker",
   craps: "craps",
   sicbo: "sic-bo",
-  scratch: "scratch-cards",
   lottery: "lottery",
-  racing: "silks",
   war: "casino-war",
   threecard: "three-card",
 };

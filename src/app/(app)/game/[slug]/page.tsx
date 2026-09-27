@@ -20,9 +20,7 @@ import TowersGame from "@/components/games/TowersGame";
 import VideoPokerGame from "@/components/games/VideoPokerGame";
 import CrapsGame from "@/components/games/CrapsGame";
 import SicBoGame from "@/components/games/SicBoGame";
-import ScratchGame from "@/components/games/ScratchGame";
 import LotteryGame from "@/components/games/LotteryGame";
-import RacingGame from "@/components/games/RacingGame";
 import WarGame from "@/components/games/WarGame";
 import ThreeCardGame from "@/components/games/ThreeCardGame";
 
@@ -97,12 +95,8 @@ export default function GamePage({ params }: { params: { slug: string } }) {
       return <CrapsGame game={game} />;
     case "sicbo":
       return <SicBoGame game={game} />;
-    case "scratch":
-      return <ScratchGame game={game} />;
     case "lottery":
       return <LotteryGame game={game} />;
-    case "racing":
-      return <RacingGame game={game} />;
     case "war":
       return <WarGame game={game} />;
     case "threecard":

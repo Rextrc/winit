@@ -34,9 +34,7 @@ import {
 import { ENGINE_KEY, GAMES } from "../src/lib/games/registry";
 import * as Career from "../src/lib/life/career";
 import * as NewSicBo from "../src/lib/games/sicbo";
-import * as NewScratch from "../src/lib/games/scratch";
 import * as NewLottery from "../src/lib/games/lottery";
-import * as NewRacing from "../src/lib/games/racing";
 import * as NewWar from "../src/lib/games/war";
 import * as NewThreeCard from "../src/lib/games/threecard";
 import * as NewCraps from "../src/lib/games/craps";
@@ -495,44 +493,6 @@ for (const bet of [
   check("sicbo: measured P(small) matches", hits / rolls, small, sigmaBand(small * (1 - small), rolls));
 }
 
-console.log("\nSCRATCH CARDS (scratch)");
-check("scratch: exact RTP is the weighted mean", NewScratch.exactRtp(), Orig.TARGET_RTP, 1e-9);
-check(
-  "scratch: tier weights + losing weight = total",
-  NewScratch.TIERS.reduce((a, t) => a + t.weight, 0) + NewScratch.LOSING_WEIGHT,
-  NewScratch.WEIGHT_TOTAL,
-  0,
-);
-{
-  // Simulate the real card generator, not the table it is derived from.
-  const cards = 400_000;
-  let sum = 0;
-  let sum2 = 0;
-  let badWinner = 0;
-  let badLoser = 0;
-  for (let i = 0; i < cards; i++) {
-    const c = NewScratch.scratch(100);
-    const x = c.payoutCents / 100;
-    sum += x;
-    sum2 += x * x;
-
-    // A winning card must show its symbol exactly three times; a losing card
-    // must never show any symbol three times.
-    const counts = new Map<string, number>();
-    for (const s of c.panels) counts.set(s, (counts.get(s) ?? 0) + 1);
-    if (c.winningSymbol) {
-      if (counts.get(c.winningSymbol) !== 3) badWinner++;
-    } else if ([...counts.values()].some((n) => n >= 3)) {
-      badLoser++;
-    }
-  }
-  const mean = sum / cards;
-  const variance = sum2 / cards - mean * mean;
-  check("scratch: measured RTP matches the table", mean, NewScratch.exactRtp(), sigmaBand(variance, cards));
-  check("scratch: every winning card shows exactly three", badWinner, 0, 0);
-  check("scratch: no losing card shows three of a kind", badLoser, 0, 0);
-}
-
 console.log("\nLOTTERY (lottery)");
 {
   const probs = Array.from({ length: NewLottery.PICKS + 1 }, (_, h) => NewLottery.hitProbability(h));
@@ -554,35 +514,6 @@ console.log("\nLOTTERY (lottery)");
   const mean = sum / tickets;
   const variance = sum2 / tickets - mean * mean;
   check("lottery: measured RTP matches", mean, NewLottery.exactRtp(), sigmaBand(variance, tickets));
-}
-
-console.log("\nSILKS (racing)");
-{
-  const total = NewRacing.FIELD.reduce((a, h) => a + h.weight, 0);
-  check("racing: win chances sum to 1", total / NewRacing.WEIGHT_TOTAL, 1, 1e-12);
-  for (const h of NewRacing.FIELD) {
-    check(`racing: ${h.name} exact RTP`, NewRacing.exactRtp(h), Orig.TARGET_RTP, 0.0001);
-  }
-
-  // Every race must produce a full permutation of the field.
-  const races = 120_000;
-  const wins = new Map<number, number>();
-  let malformed = 0;
-  for (let i = 0; i < races; i++) {
-    const r = NewRacing.race(1, 100);
-    if (new Set(r.order).size !== NewRacing.FIELD.length) malformed++;
-    wins.set(r.winner, (wins.get(r.winner) ?? 0) + 1);
-  }
-  check("racing: every result is a full finishing order", malformed, 0, 0);
-  for (const h of NewRacing.FIELD) {
-    const p = NewRacing.chanceOf(h);
-    check(
-      `racing: measured P(${h.name} wins)`,
-      (wins.get(h.id) ?? 0) / races,
-      p,
-      sigmaBand(p * (1 - p), races),
-    );
-  }
 }
 
 console.log("\nWAR (war)");
