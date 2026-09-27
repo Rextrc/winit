@@ -84,6 +84,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original", "Provably fair maths"],
     art: "from-indigo-700/50 via-base-700 to-base-900",
     glyph: "📈",
+    cover: "/games/limbo.webp",
     popularity: 84,
   },
   {
@@ -111,6 +112,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original"],
     art: "from-rose-700/50 via-base-700 to-base-900",
     glyph: "🎡",
+    cover: "/games/wheel.webp",
     popularity: 76,
   },
   {
