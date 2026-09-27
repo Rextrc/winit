@@ -66,10 +66,33 @@ export function remainingSplit(remaining: Card[], value: number): { higher: numb
 
 export type Direction = "higher" | "lower";
 
-/** Cards left that would win a guess of `direction` — ties count for whichever side was called. */
-function favourableCount(remaining: Card[], value: number, direction: Direction): number {
-  const { higher, equal, lower } = remainingSplit(remaining, value);
-  return (direction === "higher" ? higher : lower) + equal;
+const LOWEST = 1; // A
+const HIGHEST = 13; // K
+
+/**
+ * Whether `next` wins a guess of `direction` against `value`. Ties win for
+ * whichever side was called — except on the edge ranks, where one side
+ * would otherwise be a certainty: on an Ace the choices are strictly
+ * Higher or Same (another Ace), and on a King strictly Lower or Same.
+ */
+export function winsGuess(value: number, direction: Direction, next: number): boolean {
+  if (value === LOWEST) return direction === "higher" ? next > value : next === value;
+  if (value === HIGHEST) return direction === "lower" ? next < value : next === value;
+  return direction === "higher" ? next >= value : next <= value;
+}
+
+/** What each button actually means for the card showing. */
+export function directionLabel(value: number, direction: Direction): string {
+  if (value === LOWEST) return direction === "higher" ? "Higher" : "Same";
+  if (value === HIGHEST) return direction === "lower" ? "Lower" : "Same";
+  return direction === "higher" ? "Higher / Same" : "Lower / Same";
+}
+
+/** Cards left that would win a guess of `direction`. */
+export function favourableCount(remaining: Card[], value: number, direction: Direction): number {
+  let n = 0;
+  for (const c of remaining) if (winsGuess(value, direction, RANK_VALUE[c.r])) n++;
+  return n;
 }
 
 /** Fair multiplier for guessing `direction`, given what's left in the deck. */
@@ -79,8 +102,13 @@ export function multiplierFor(remaining: Card[], value: number, direction: Direc
   return roundMultiplier(TARGET_RTP / (favourable / remaining.length));
 }
 
+/**
+ * A guess is offered only if it can both win and lose: one that can't win
+ * pays nothing, and one that can't lose would pay under 1× — a sure loss.
+ */
 export function directionAvailable(remaining: Card[], value: number, direction: Direction): boolean {
-  return favourableCount(remaining, value, direction) > 0;
+  const favourable = favourableCount(remaining, value, direction);
+  return favourable > 0 && favourable < remaining.length;
 }
 
 export type HiloState = {

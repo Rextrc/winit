@@ -11,7 +11,7 @@ import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { CARD_DEAL_MS, CARD_STAGGER_MS, wait } from "@/lib/dealTiming";
 import type { Card } from "@/lib/games/blackjack";
-import type { Direction } from "@/lib/games/hilo";
+import { RANK_VALUE, directionLabel, type Direction } from "@/lib/games/hilo";
 import type { ProgressUpdate } from "@/lib/ledger";
 
 type View = {
@@ -244,6 +244,8 @@ export default function HiloGame({ game }: { game: GameDef }) {
     const win = direction === "higher";
     const multiplier = win ? view?.higherMultiplier : view?.lowerMultiplier;
     const disabled = busy || !inPlay || !!revealPair || multiplier == null;
+    const label = view ? directionLabel(RANK_VALUE[view.current.r], direction) : win ? "Higher / Same" : "Lower / Same";
+    const icon = label === "Same" ? "=" : win ? "▲" : "▼";
     return (
       <button
         type="button"
@@ -253,9 +255,9 @@ export default function HiloGame({ game }: { game: GameDef }) {
           win ? "border-win/50 bg-win/10 hover:enabled:border-win" : "border-loss/50 bg-loss/10 hover:enabled:border-loss"
         } disabled:cursor-not-allowed disabled:opacity-30`}
       >
-        <span className={`text-2xl ${win ? "text-win" : "text-loss"}`}>{win ? "▲" : "▼"}</span>
+        <span className={`text-2xl font-black ${win ? "text-win" : "text-loss"}`}>{icon}</span>
         <span className={`text-center text-[10px] font-black uppercase leading-tight tracking-wide sm:text-[11px] ${win ? "text-win" : "text-loss"}`}>
-          {win ? "Higher / Same" : "Lower / Same"}
+          {label}
         </span>
         <span className="num rounded-lg bg-base-900/60 px-2 py-1 text-xs font-bold text-white sm:text-sm">
           {multiplier != null ? `${multiplier.toFixed(2)}×` : "—"}
@@ -388,7 +390,9 @@ export default function HiloGame({ game }: { game: GameDef }) {
         One 52-card deck, freshly shuffled every round with a crypto Fisher-Yates shuffle. Guess
         whether the next card ranks higher or lower than the one showing — Higher/Same and
         Lower/Same both win on a tie, so the two win chances overlap. Rank order is A (low) through
-        K (high).
+        K (high). Nothing is lower than an Ace or higher than a King, so on those cards the choices
+        become strictly Higher or Same (on an Ace) and strictly Lower or Same (on a King). A choice
+        that can&apos;t lose is never offered, since it could only pay back less than you staked.
       </p>
       <p>
         Because it is a real deck with no replacement, the exact count of cards left that would win

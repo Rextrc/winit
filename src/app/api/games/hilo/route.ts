@@ -5,7 +5,7 @@ import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
 import { awardProgress, credit, debit, writeTransaction } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
-import { RANK_VALUE, directionAvailable, multiplierFor, newRound, toView, type Direction, type HiloState } from "@/lib/games/hilo";
+import { RANK_VALUE, directionAvailable, winsGuess, multiplierFor, newRound, toView, type Direction, type HiloState } from "@/lib/games/hilo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
       // A tie wins for whichever side was called — "higher" means "higher or
       // same" and "lower" means "lower or same" — matching the odds already
       // priced into stepMultiplier via favourableCount.
-      const correct = direction === "higher" ? nextValue >= value : nextValue <= value;
+      const correct = winsGuess(value, direction, nextValue);
 
       if (!correct) {
         state.status = "LOST";
