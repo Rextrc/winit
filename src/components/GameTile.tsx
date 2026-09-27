@@ -17,7 +17,29 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
   const [hover, setHover] = useState(false);
   const href = game.playable ? `/game/${game.slug}` : "#";
 
-  const body = (
+  const body = game.cover ? (
+    <div
+      className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-black shadow-tile transition duration-300 ${
+        hover ? "-translate-y-1 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.9)]" : ""
+      }`}
+    >
+      <img
+        src={game.cover}
+        alt={game.name}
+        loading="lazy"
+        className={`h-full w-full object-cover transition-transform duration-500 ${hover ? "scale-[1.08]" : "scale-[1.04]"}`}
+      />
+      {game.playable && (
+        <span
+          className={`absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-volt text-white shadow-volt transition-all duration-300 ${
+            hover ? "scale-100 opacity-100" : "scale-75 opacity-0"
+          }`}
+        >
+          <IconPlay className="h-5 w-5" />
+        </span>
+      )}
+    </div>
+  ) : (
     <div
       className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-gradient-to-br ${game.art} shadow-tile ring-1 ring-white/10 transition duration-300 ${
         hover ? "-translate-y-1 ring-volt/60" : ""

@@ -16,6 +16,8 @@ export type GameDef = {
   /** Tailwind gradient classes for the tile art (all original, no assets). */
   art: string;
   glyph: string;
+  /** Designed cover art in /public/games — replaces the generated tile art when set. */
+  cover?: string;
   new?: boolean;
   popularity: number;
 };
@@ -67,6 +69,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original", "Provably fair maths"],
     art: "from-sky-700/50 via-base-700 to-base-900",
     glyph: "🎲",
+    cover: "/games/dice.webp",
     popularity: 88,
   },
   {
@@ -119,6 +122,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original"],
     art: "from-cyan-700/50 via-base-700 to-base-900",
     glyph: "⚬",
+    cover: "/games/plinko.webp",
     popularity: 90,
   },
   {
@@ -132,6 +136,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original"],
     art: "from-fuchsia-700/50 via-base-700 to-base-900",
     glyph: "🔢",
+    cover: "/games/keno.webp",
     popularity: 72,
   },
   {
@@ -159,6 +164,7 @@ export const GAMES: GameDef[] = [
     tags: ["Original", "Provably fair maths"],
     art: "from-red-800/50 via-base-700 to-base-900",
     glyph: "💣",
+    cover: "/games/mines.webp",
     popularity: 93,
     new: true,
   },
