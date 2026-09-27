@@ -41,6 +41,7 @@ export const GAMES: GameDef[] = [
     tags: ["Roulette", "Table"],
     art: "from-loss/50 via-base-700 to-base-900",
     glyph: "◎",
+    cover: "/games/european-roulette.webp",
     popularity: 94,
   },
   {
@@ -199,6 +200,7 @@ export const GAMES: GameDef[] = [
     tags: ["Originals", "Live curve"],
     art: "from-sky-600/50 via-base-700 to-base-900",
     glyph: "\u2197",
+    cover: "/games/crash.webp",
     new: true,
     popularity: 96,
   },
