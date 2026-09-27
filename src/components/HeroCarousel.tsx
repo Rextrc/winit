@@ -1,15 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PLAYABLE } from "@/lib/games/registry";
 import { IconChevronLeft, IconChevronRight, IconPlay } from "@/components/Icons";
 
 const SLIDE_MS = 7000;
+const FEATURED_COUNT = 3;
+const DAY_MS = 86_400_000;
+
+/** Three games, picked by the UTC date so everyone sees the same trio and it rotates at midnight UTC. */
+function featuredForDay(day: number) {
+  let seed = day * 2654435761;
+  const rand = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const pool = [...PLAYABLE];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, FEATURED_COUNT);
+}
 
 /** Featured-game carousel. Auto-advances, pauses on hover, dot + arrow nav. */
 export default function HeroCarousel() {
-  const slides = PLAYABLE;
+  const day = Math.floor(Date.now() / DAY_MS);
+  const slides = useMemo(() => featuredForDay(day), [day]);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -43,7 +63,7 @@ export default function HeroCarousel() {
             backgroundSize: "18px 18px",
           }}
         />
-        <div className="relative flex flex-col gap-6 p-6 sm:p-9 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative flex flex-col gap-6 px-6 pb-4 pt-6 sm:px-9 sm:pt-9 lg:flex-row lg:items-center lg:justify-between">
           <div key={game.slug} className="max-w-xl animate-pop-in">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-volt">Featured</p>
             <h1 className="font-display text-3xl font-black leading-none tracking-tight text-white sm:text-5xl">
@@ -82,39 +102,40 @@ export default function HeroCarousel() {
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-2 sm:bottom-6 sm:right-6">
-          <button
-            type="button"
-            onClick={() => go(index - 1)}
-            className="grid h-8 w-8 place-items-center rounded-lg bg-black/40 text-white/80 transition hover:bg-black/60"
-            aria-label="Previous featured game"
-          >
-            <IconChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => go(index + 1)}
-            className="grid h-8 w-8 place-items-center rounded-lg bg-black/40 text-white/80 transition hover:bg-black/60"
-            aria-label="Next featured game"
-          >
-            <IconChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="absolute bottom-6 left-6 flex gap-1.5 sm:bottom-8 sm:left-9">
-          {slides.map((s, i) => (
+        {/* Controls sit in their own row so they never cover the buttons. */}
+        <div className="relative flex items-center justify-between px-6 pb-5 sm:px-9 sm:pb-6">
+          <div className="flex gap-1.5">
+            {slides.map((s, i) => (
+              <button
+                key={s.slug}
+                type="button"
+                onClick={() => go(i)}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === index ? "w-8 bg-volt" : "w-4 bg-white/30 hover:bg-white/50"
+                }`}
+                aria-label={`Show ${s.name}`}
+                aria-current={i === index}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
             <button
-              key={s.slug}
               type="button"
-              onClick={() => go(i)}
-              className={`h-1.5 rounded-full transition-all ${
-                i === index ? "w-7 bg-volt" : "w-3 bg-white/30 hover:bg-white/50"
-              }`}
-              aria-label={`Show ${s.name}`}
-              aria-current={i === index}
-            />
-          ))}
+              onClick={() => go(index - 1)}
+              className="grid h-8 w-8 place-items-center rounded-lg bg-black/40 text-white/80 transition hover:bg-black/60"
+              aria-label="Previous featured game"
+            >
+              <IconChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => go(index + 1)}
+              className="grid h-8 w-8 place-items-center rounded-lg bg-black/40 text-white/80 transition hover:bg-black/60"
+              aria-label="Next featured game"
+            >
+              <IconChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </section>
