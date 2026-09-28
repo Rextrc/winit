@@ -94,10 +94,13 @@ export default function LeaguePanel({
   league,
   events: initial,
   defaultOpen = true,
+  count,
 }: {
   league: League;
   events: SportEvent[] | null;
   defaultOpen?: boolean;
+  /** Fixtures on the schedule, shown before the odds are loaded. */
+  count?: number;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [events, setEvents] = useState<SportEvent[] | null>(initial);
@@ -146,6 +149,9 @@ export default function LeaguePanel({
         <span className="text-slate-500">/</span>
         <SportIcon sport={iconForGroup(league.group)} className="h-[18px] w-[18px] text-[#9d7aff]" />
         <span className="truncate text-[#9d7aff]">{league.title}</span>
+        {count !== undefined && count > 0 && (
+          <span className="shrink-0 rounded-md bg-[#2a2c33] px-1.5 text-[12px] font-bold leading-5 text-slate-300">{count}</span>
+        )}
         <svg
           viewBox="0 0 20 20"
           className={`ml-auto h-5 w-5 shrink-0 text-white transition-transform ${open ? "" : "rotate-180"}`}

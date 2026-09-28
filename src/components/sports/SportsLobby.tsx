@@ -16,6 +16,8 @@ type Tab = "featured" | "upcoming" | "live" | "mybets" | "all";
 type LobbyData = {
   catalog: Catalog;
   liveCount: number;
+  counts?: Record<string, number>;
+  leagueCounts?: Record<string, number>;
   trending?: SportEvent[];
   leagues: { league: League; events: SportEvent[] | null }[];
 };
@@ -57,6 +59,8 @@ function SectionHeading({ group, link = true }: { group: string; link?: boolean 
 function GroupedLeagues({ data, emptyText }: { data: LobbyData; emptyText: string }) {
   const order = data.catalog.groups.map((g) => g.name);
   const groups = Array.from(new Set(data.leagues.map((l) => l.league.group))).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  // Unloaded leagues cost quota to open, so only the soonest few open by themselves.
+  const lazyOpen = new Set(data.leagues.filter((l) => l.events === null).slice(0, 3).map((l) => l.league.key));
 
   if (data.leagues.length === 0) {
     return <div className="rounded-2xl bg-[#1a1c23] px-6 py-14 text-center text-[14px] text-slate-400">{emptyText}</div>;
@@ -70,7 +74,13 @@ function GroupedLeagues({ data, emptyText }: { data: LobbyData; emptyText: strin
             {data.leagues
               .filter((l) => l.league.group === g)
               .map((l) => (
-                <LeaguePanel key={l.league.key} league={l.league} events={l.events} />
+                <LeaguePanel
+                  key={l.league.key}
+                  league={l.league}
+                  events={l.events}
+                  count={data.leagueCounts?.[l.league.key]}
+                  defaultOpen={l.events !== null || lazyOpen.has(l.league.key)}
+                />
               ))}
           </div>
         </section>
@@ -149,7 +159,7 @@ export default function SportsLobby() {
         })}
       </nav>
 
-      {showRail && <SportRail catalog={data?.catalog ?? null} active={sport} />}
+      {showRail && <SportRail catalog={data?.catalog ?? null} active={sport} counts={data?.counts} />}
 
       {error && (
         <Notice
@@ -187,7 +197,7 @@ export default function SportsLobby() {
           <SectionHeading group={sport} link={false} />
           <div className="space-y-4">
             {data.leagues.map((l, i) => (
-              <LeaguePanel key={l.league.key} league={l.league} events={l.events} defaultOpen={i < 2} />
+              <LeaguePanel key={l.league.key} league={l.league} events={l.events} count={data.leagueCounts?.[l.league.key]} defaultOpen={i < 2} />
             ))}
           </div>
         </section>

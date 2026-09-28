@@ -107,6 +107,13 @@ export function fetchOdds(sportKey: string): Promise<RawEvent[]> {
   });
 }
 
+export type RawFixture = Omit<RawEvent, "bookmakers">;
+
+/** Scheduled fixtures for one league, without odds. Free — no quota cost. */
+export function fetchEvents(sportKey: string): Promise<RawFixture[]> {
+  return get<RawFixture[]>(`/sports/${encodeURIComponent(sportKey)}/events`, { dateFormat: "iso" });
+}
+
 /** Results for one league over the last few days, completed games included. */
 export function fetchScores(sportKey: string, daysFrom: number): Promise<RawScore[]> {
   return get<RawScore[]>(`/sports/${encodeURIComponent(sportKey)}/scores`, {

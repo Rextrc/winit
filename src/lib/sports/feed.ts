@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { FEATURED_LEAGUES, FEATURED_LIMIT, GROUP_ORDER } from "@/lib/sports/meta";
-import { FeedError, fetchOdds, fetchSports, type RawEvent, type RawSport } from "@/lib/sports/provider";
+import { FeedError, fetchEvents, fetchOdds, fetchSports, type RawEvent, type RawFixture, type RawSport } from "@/lib/sports/provider";
 import { normalizeEvent } from "@/lib/sports/normalize";
 import type { Catalog, League, LeagueEvents, SportEvent } from "@/lib/sports/types";
 
@@ -145,4 +145,47 @@ export async function getLeagues(keys: string[]): Promise<LeagueEvents[]> {
 
 export function isStarted(e: SportEvent, now = Date.now()): boolean {
   return new Date(e.commenceTime).getTime() <= now;
+}
+
+const SCHEDULE_TTL_MS = 30 * 60 * 1000;
+const SCHEDULE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const SCHEDULE_CONCURRENCY = 8;
+
+export type Schedule = Map<string, { league: League; count: number; firstStart: string }>;
+
+/**
+ * Every upcoming fixture across every league on the board, from the free
+ * events endpoint — counts per league without spending any odds quota.
+ */
+export async function getSchedule(): Promise<Schedule> {
+  const catalog = await getCatalog();
+  const leagues = catalog.groups.flatMap((g) => g.leagues);
+  const out: Schedule = new Map();
+  const now = Date.now();
+  let i = 0;
+  const worker = async () => {
+    while (i < leagues.length) {
+      const league = leagues[i++];
+      try {
+        const { data } = await cached<RawFixture[]>(`events:${league.key}`, SCHEDULE_TTL_MS, () => fetchEvents(league.key));
+        const upcoming = data
+          .filter((e) => {
+            const t = new Date(e.commence_time).getTime();
+            return t > now && t - now < SCHEDULE_WINDOW_MS;
+          })
+          .sort((a, b) => a.commence_time.localeCompare(b.commence_time));
+        if (upcoming.length > 0) out.set(league.key, { league, count: upcoming.length, firstStart: upcoming[0].commence_time });
+      } catch {
+        /* one league failing shouldn't blank the board */
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: SCHEDULE_CONCURRENCY }, worker));
+  return out;
+}
+
+export function groupCounts(schedule: Schedule): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const { league, count } of Array.from(schedule.values())) counts[league.group] = (counts[league.group] ?? 0) + count;
+  return counts;
 }
