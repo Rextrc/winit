@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { formatCents } from "@/lib/money";
@@ -21,11 +22,16 @@ export default function SignupForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreed) {
+      setError("You need to confirm you're 18+ and agree to the Terms before signing up.");
+      return;
+    }
     setBusy(true);
     setError(null);
 
@@ -122,9 +128,29 @@ export default function SignupForm() {
         </p>
       </div>
 
+      <label className="flex items-start gap-2.5 text-[12px] leading-relaxed text-slate-400">
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-base-900 text-volt accent-volt"
+        />
+        <span>
+          I&apos;m 18 or older and agree to the{" "}
+          <Link href="/legal/terms" target="_blank" className="text-volt hover:underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/legal/privacy" target="_blank" className="text-volt hover:underline">
+            Privacy Policy
+          </Link>
+          . I understand WinIt balances have no cash value.
+        </span>
+      </label>
+
       {error && <p className="text-sm font-semibold text-loss">{error}</p>}
 
-      <button type="submit" className="btn-primary w-full" disabled={busy}>
+      <button type="submit" className="btn-primary w-full" disabled={busy || !agreed}>
         {busy ? "Creating account…" : "Create account"}
       </button>
     </form>

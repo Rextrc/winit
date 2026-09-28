@@ -185,9 +185,20 @@ export default function Sidebar({
         </button>
 
         {!collapsed && (
-          <p className="px-2.5 pb-1 pt-3 text-[10px] leading-relaxed text-slate-600">
-            Play money only. No deposits, no withdrawals, no real-money path.
-          </p>
+          <>
+            <p className="px-2.5 pb-1 pt-3 text-[10px] leading-relaxed text-slate-600">
+              Play money only. No deposits, no withdrawals, no real-money path.
+            </p>
+            <p className="px-2.5 pb-1 text-[10px] text-slate-600">
+              <Link href="/legal/terms" className="hover:text-slate-400 hover:underline">
+                Terms
+              </Link>
+              <span className="mx-1.5">·</span>
+              <Link href="/legal/privacy" className="hover:text-slate-400 hover:underline">
+                Privacy
+              </Link>
+            </p>
+          </>
         )}
       </div>
     </div>

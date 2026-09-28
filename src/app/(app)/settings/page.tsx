@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import SignOutButton from "@/components/SignOutButton";
@@ -109,6 +110,15 @@ export default async function SettingsPage() {
         <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-slate-400">
           If real gambling is causing you or someone you know harm, support is available — in the US,
           the National Problem Gambling Helpline is 1-800-522-4700.
+        </p>
+        <p className="mt-3 text-[12px] text-slate-500">
+          <Link href="/legal/terms" className="text-volt hover:underline">
+            Terms of Service
+          </Link>
+          <span className="mx-2">·</span>
+          <Link href="/legal/privacy" className="text-volt hover:underline">
+            Privacy Policy
+          </Link>
         </p>
       </div>
     </>

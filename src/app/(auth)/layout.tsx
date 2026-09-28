@@ -18,6 +18,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         WinIt is a simulation built as a portfolio project. Every balance is fake.
         <br />
         There is no deposit, no withdrawal and no real-money path anywhere in this app.
+        <br />
+        <Link href="/legal/terms" className="hover:text-slate-400 hover:underline">
+          Terms of Service
+        </Link>
+        <span className="mx-1.5">·</span>
+        <Link href="/legal/privacy" className="hover:text-slate-400 hover:underline">
+          Privacy Policy
+        </Link>
       </footer>
     </div>
   );
