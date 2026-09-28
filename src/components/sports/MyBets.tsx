@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { formatCents } from "@/lib/money";
+import { useWallet } from "@/components/WalletProvider";
 import { selectionLabel } from "@/lib/sports/meta";
 import type { MyBet, MyBetLeg } from "@/lib/sports/types";
 import { formatKickoff } from "@/components/sports/StartTime";
@@ -14,6 +15,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   WON: { label: "Won", cls: "bg-win/15 text-win" },
   LOST: { label: "Lost", cls: "bg-loss/15 text-loss" },
   PUSHED: { label: "Push", cls: "bg-white/10 text-slate-300" },
+  CASHED_OUT: { label: "Cashed out", cls: "bg-brand/20 text-[#b49bff]" },
   VOID: { label: "Void", cls: "bg-white/10 text-slate-400" },
 };
 
@@ -50,10 +52,73 @@ function Leg({ leg }: { leg: MyBetLeg }) {
   );
 }
 
+type Quote = { available: true; amountCents: number } | { available: false; reason: string };
+
+/** A multi's cash-out button: live quote, confirm, and the 1-hour cutoff. */
+function CashOut({ bet, onDone }: { bet: MyBet; onDone: () => void }) {
+  const { applyResult, applyProgress } = useWallet();
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      fetch(`/api/sports/cashout?betId=${bet.id}`)
+        .then((r) => r.json())
+        .then((q) => !cancelled && setQuote(q))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [bet.id]);
+
+  if (!quote) return null;
+  if (!quote.available) {
+    return <p className="mt-3 rounded-lg bg-[#23262e] px-3 py-2 text-center text-[12px] text-slate-400">{quote.reason}</p>;
+  }
+
+  const cashOut = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/sports/cashout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ betId: bet.id, amountCents: quote.amountCents }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        if (d.quote) setQuote(d.quote);
+        setMsg(d.code === "QUOTE_CHANGED" ? "The value changed — check it and tap again." : d.error);
+        return;
+      }
+      applyResult(d.balanceCents, d.amountCents - bet.stakeCents);
+      if (d.progress) applyProgress(d.progress);
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3">
+      <button type="button" onClick={cashOut} disabled={busy} className="btn-primary w-full py-2.5 text-[14px]">
+        {busy ? "Cashing out…" : `Cash out ${formatCents(quote.amountCents)}`}
+      </button>
+      {msg && <p className="mt-1.5 text-center text-[12px] font-semibold text-loss">{msg}</p>}
+    </div>
+  );
+}
+
 export default function MyBets() {
   const { status } = useSession();
   const [filter, setFilter] = useState<"active" | "settled">("active");
   const [bets, setBets] = useState<MyBet[] | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -62,7 +127,7 @@ export default function MyBets() {
       .then((r) => r.json())
       .then((d) => setBets(d.bets ?? []))
       .catch(() => setBets([]));
-  }, [filter, status]);
+  }, [filter, status, reload]);
 
   if (status === "unauthenticated") {
     return (
@@ -144,6 +209,9 @@ export default function MyBets() {
                     </p>
                   </div>
                 </div>
+                {b.kind === "MULTI" && b.status === "PENDING" && b.legs.some((l) => l.status === "WON") && (
+                  <CashOut bet={b} onDone={() => setReload((n) => n + 1)} />
+                )}
               </article>
             );
           })}
