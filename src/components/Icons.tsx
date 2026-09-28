@@ -40,6 +40,13 @@ export const IconTable = (p: P) => (
   </S>
 );
 
+export const IconSports = (p: P) => (
+  <S {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 3.5v5.2l4.5 2.6-1.7 5.2h-5.6l-1.7-5.2 4.5-2.6zM3.5 12h5.2M15.3 12h5.2M8.5 19.2l1-4.1M14.5 19.2l-1-4.1" />
+  </S>
+);
+
 export const IconLive = (p: P) => (
   <S {...p}>
     <circle cx="12" cy="12" r="3.2" />
