@@ -9,6 +9,7 @@ import { REFEREE_BONUS_CENTS, REFERRER_BONUS_CENTS, normaliseCode } from "@/lib/
 import { generateCode } from "@/lib/referral-server";
 import { clientIp } from "@/lib/ip";
 import { addStrike } from "@/lib/strikes";
+import { issueSignupGrant, verifyTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ const schema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters.").max(200),
   email: z.string().trim().email("That email doesn't look right.").optional().or(z.literal("")),
   referralCode: z.string().trim().max(32).optional().or(z.literal("")),
+  turnstileToken: z.string().nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -35,6 +37,12 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return jsonError(parsed.error.errors[0]?.message ?? "Invalid details.");
+  }
+
+  const ip = clientIp(req);
+
+  if (!(await verifyTurnstile(parsed.data.turnstileToken, ip))) {
+    return jsonError("Verification failed — reload the page and try again.", 400);
   }
 
   const username = parsed.data.username.toLowerCase();
@@ -51,7 +59,6 @@ export async function POST(req: Request) {
   // A code is resolved before the account exists, so "you cannot use your own
   // code" needs no check. A suspended or deleted referrer earns nothing: the
   // code simply stops working rather than paying a banned account.
-  const ip = clientIp(req);
   const wanted = parsed.data.referralCode ? normaliseCode(parsed.data.referralCode) : "";
   let referrer: { id: string; username: string } | null = null;
   if (wanted) {
@@ -162,6 +169,9 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     username,
+    // Lets the client's immediate follow-up signIn() skip Turnstile — the
+    // token that verified this request is already spent. See lib/turnstile.
+    signupGrant: issueSignupGrant(username),
     referredBy: referrer?.username ?? null,
     welcomeCents,
     bonusCents: referrer ? REFEREE_BONUS_CENTS : 0,

@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { formatCents } from "@/lib/money";
 import { REFEREE_BONUS_CENTS, REFERRER_BONUS_CENTS } from "@/lib/referral";
+import { TURNSTILE_ENABLED } from "@/lib/turnstile";
+import Turnstile from "@/components/Turnstile";
 
 /** Only ever follow a same-app path — never an absolute or external URL. */
 function safeCallback(raw: string | null): string {
@@ -23,6 +25,8 @@ export default function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,6 +36,10 @@ export default function SignupForm() {
       setError("You need to confirm you're 18+ and agree to the Terms before signing up.");
       return;
     }
+    if (TURNSTILE_ENABLED && !turnstileToken) {
+      setError("Verification isn't complete yet — give it a second and try again.");
+      return;
+    }
     setBusy(true);
     setError(null);
 
@@ -39,17 +47,25 @@ export default function SignupForm() {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, email, referralCode }),
+        body: JSON.stringify({ username, password, email, referralCode, turnstileToken }),
       });
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.error ?? "Couldn't create that account.");
         setBusy(false);
+        // A rejected request still spends the widget's one-time token.
+        setTurnstileToken(null);
+        setTurnstileNonce((n) => n + 1);
         return;
       }
 
-      const signInRes = await signIn("credentials", { username, password, redirect: false });
+      const signInRes = await signIn("credentials", {
+        username,
+        password,
+        signupGrant: data.signupGrant,
+        redirect: false,
+      });
       if (signInRes?.error) {
         router.push(`/login${callbackUrl !== "/" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
         return;
@@ -148,9 +164,17 @@ export default function SignupForm() {
         </span>
       </label>
 
+      {TURNSTILE_ENABLED && (
+        <Turnstile key={turnstileNonce} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+      )}
+
       {error && <p className="text-sm font-semibold text-loss">{error}</p>}
 
-      <button type="submit" className="btn-primary w-full" disabled={busy || !agreed}>
+      <button
+        type="submit"
+        className="btn-primary w-full"
+        disabled={busy || !agreed || (TURNSTILE_ENABLED && !turnstileToken)}
+      >
         {busy ? "Creating account…" : "Create account"}
       </button>
     </form>
