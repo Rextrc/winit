@@ -29,6 +29,7 @@ const GAME_LABELS: Record<string, string> = {
   racing: "Silks",
   war: "War",
   threecard: "Three Card",
+  sports: "Sports",
   bonus: "Daily bonus",
   signup: "Welcome grant",
   life: "Life",

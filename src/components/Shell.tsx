@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import BetSlipBar from "@/components/BetSlipBar";
@@ -15,6 +16,8 @@ import Chat from "@/components/Chat";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const sportsbook = pathname?.startsWith("/sports") ?? false;
 
   return (
     <div className="flex min-h-screen">
@@ -26,7 +29,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 px-4 py-6 lg:px-6">
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
-        <BetSlipBar />
+        {!sportsbook && <BetSlipBar />}
         <LevelUpToast />
         <WinCelebration />
         <DeathOverlay />
