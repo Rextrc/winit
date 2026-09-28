@@ -7,7 +7,9 @@ import type { LeagueEvents, SportEvent } from "@/lib/sports/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const UPCOMING_WINDOW_MS = 48 * 60 * 60 * 1000;
+const UPCOMING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+/** Most leagues pulled for Upcoming — each uncached one costs quota. */
+const UPCOMING_LEAGUES = 10;
 const TRENDING_COUNT = 6;
 /** Leagues of a sport loaded up front; the rest load when their panel opens. */
 const GROUP_PRELOAD = 2;
@@ -51,7 +53,14 @@ export async function GET(req: Request) {
     }
 
     if (view === "upcoming") {
-      const leagues = filterLeagues(featured, (e) => {
+      // Featured leagues plus the top league of every other sport.
+      const keys = featured.map((l) => l.league.key);
+      for (const g of catalog.groups) {
+        if (keys.length >= UPCOMING_LEAGUES) break;
+        for (const l of g.leagues.slice(0, 2)) if (keys.length < UPCOMING_LEAGUES && !keys.includes(l.key)) keys.push(l.key);
+      }
+      const extra = await getLeagues(keys.filter((k) => !featured.some((f) => f.league.key === k))).catch(() => []);
+      const leagues = filterLeagues([...featured, ...extra], (e) => {
         const t = new Date(e.commenceTime).getTime();
         return t > now && t - now < UPCOMING_WINDOW_MS;
       });

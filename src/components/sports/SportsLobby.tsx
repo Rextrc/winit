@@ -193,7 +193,7 @@ export default function SportsLobby() {
         </section>
       )}
 
-      {data && activeTab === "upcoming" && <GroupedLeagues data={data} emptyText="Nothing kicks off in the next 48 hours." />}
+      {data && activeTab === "upcoming" && <GroupedLeagues data={data} emptyText="Nothing kicks off in the next 7 days." />}
 
       {data && activeTab === "live" && (
         <>
