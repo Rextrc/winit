@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { formatCents } from "@/lib/money";
+import Sparkline from "@/components/admin/Sparkline";
 
 type Analytics = {
   generatedAt: string;
@@ -18,6 +19,7 @@ type Analytics = {
   biggestWins: { id: string; username: string; game: string; payoutCents: number; betCents: number; summary: string; createdAt: string }[];
   recentSignups: { id: string; username: string; level: number; deleted: boolean; createdAt: string }[];
   recentStaffActions: { id: string; actorUsername: string; action: string; targetUsername: string | null; reason: string; createdAt: string }[];
+  trends: { labels: string[]; betsPerHour: number[]; wageredCentsPerHour: number[]; signupsPerHour: number[] };
 };
 
 function Stat({ label, value, sub, tone = "" }: { label: string; value: string; sub?: string; tone?: string }) {
@@ -27,6 +29,56 @@ function Stat({ label, value, sub, tone = "" }: { label: string; value: string; 
       <p className={`num mt-1 text-xl font-black text-white ${tone}`}>{value}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-500">{sub}</p>}
     </div>
+  );
+}
+
+function TrendCard({
+  title,
+  values,
+  labels,
+  total,
+  color,
+  formatValue,
+}: {
+  title: string;
+  values: number[];
+  labels: string[];
+  total: string;
+  color: string;
+  formatValue?: (v: number) => string;
+}) {
+  return (
+    <div className="panel p-4">
+      <div className="flex items-baseline justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{title}</p>
+        <p className="num text-[11px] font-bold text-slate-400">{total}</p>
+      </div>
+      <div className="mt-2">
+        <Sparkline values={values} labels={labels} color={color} formatValue={formatValue} />
+      </div>
+      <p className="mt-1 text-[10px] text-slate-600">Last 24 hours, hourly</p>
+    </div>
+  );
+}
+
+/** A small pulsing dot plus "updated Xs ago" — the tell that this page is alive, not a static screenshot. */
+function LiveBadge({ generatedAt }: { generatedAt: string }) {
+  const [ago, setAgo] = useState(0);
+  useEffect(() => {
+    const tick = () => setAgo(Math.max(0, Math.round((Date.now() - new Date(generatedAt).getTime()) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [generatedAt]);
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-win opacity-60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-win" />
+      </span>
+      Live · updated {ago}s ago
+    </span>
   );
 }
 
@@ -62,6 +114,35 @@ export default function AnalyticsPanel() {
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <LiveBadge generatedAt={data.generatedAt} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <TrendCard
+          title="Bets per hour"
+          values={data.trends.betsPerHour}
+          labels={data.trends.labels}
+          total={`${data.trends.betsPerHour.reduce((a, b) => a + b, 0).toLocaleString()} today`}
+          color="#8f5cff"
+        />
+        <TrendCard
+          title="Wagered per hour"
+          values={data.trends.wageredCentsPerHour}
+          labels={data.trends.labels}
+          total={formatCents(data.trends.wageredCentsPerHour.reduce((a, b) => a + b, 0))}
+          color="#ffc53d"
+          formatValue={(v) => formatCents(v)}
+        />
+        <TrendCard
+          title="Signups per hour"
+          values={data.trends.signupsPerHour}
+          labels={data.trends.labels}
+          total={`${data.trends.signupsPerHour.reduce((a, b) => a + b, 0).toLocaleString()} today`}
+          color="#22dd7a"
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Accounts" value={data.users.total.toLocaleString()} sub={`${data.users.staff} staff · ${data.users.suspended} suspended · ${data.users.deleted} deleted`} />
         <Stat label="Online now" value={data.users.onlineNow.toLocaleString()} sub={`${data.users.activeToday} today · ${data.users.activeWeek} this week`} tone="text-win" />

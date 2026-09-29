@@ -52,6 +52,10 @@ export type Capability =
   | "promo.manage"
   /** The analytics dashboard. */
   | "analytics.view"
+  /** See pending sports bets, feed quota and cache freshness. */
+  | "sports.view"
+  /** Force a settlement pass or void a stuck sports bet. */
+  | "sports.manage"
   /** The audit trail. */
   | "audit.view"
   /** Assign roles to other accounts. OWNER only. */
@@ -71,6 +75,8 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "chat.moderate": "Delete chat messages",
   "promo.manage": "Promo codes",
   "analytics.view": "Analytics",
+  "sports.view": "View sports betting",
+  "sports.manage": "Force-settle and void sports bets",
   "audit.view": "Audit log",
   "roles.manage": "Assign staff roles",
 };
@@ -109,12 +115,14 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     "site.config",
     "promo.manage",
     "analytics.view",
+    "sports.view",
+    "sports.manage",
     "audit.view",
   ],
 
   // Answers questions. Can see everything about an account and nothing that
   // changes it.
-  SUPPORT: ["accounts.view", "analytics.view", "audit.view"],
+  SUPPORT: ["accounts.view", "analytics.view", "sports.view", "audit.view"],
 
   // Can only set up and load its own kind of account, for testing.
   TESTER: ["accounts.view", "accounts.create"],

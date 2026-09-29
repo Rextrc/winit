@@ -44,6 +44,8 @@ export async function GET() {
     recentAdmin,
     liveCareers,
     endedCareers,
+    betsForTrend,
+    signupsForTrend,
   ] = await Promise.all([
     prisma.user.count({ where: { deletedAt: null } }),
     prisma.user.count({ where: { deletedAt: { not: null } } }),
@@ -90,7 +92,34 @@ export async function GET() {
     }),
     prisma.user.count({ where: { deletedAt: null, deathCause: null } }),
     prisma.user.count({ where: { deletedAt: null, deathCause: { not: null } } }),
+    // Bucketed in JS below rather than with a SQL date-trunc: SQLite has no
+    // native one, and this stays portable if the database ever changes.
+    prisma.transaction.findMany({
+      where: { kind: "BET", createdAt: { gte: dayAgo } },
+      select: { createdAt: true, betCents: true },
+      take: 20_000,
+    }),
+    prisma.user.findMany({
+      where: { createdAt: { gte: dayAgo } },
+      select: { createdAt: true },
+      take: 20_000,
+    }),
   ]);
+
+  // 24 one-hour buckets, oldest first, ending in the one containing `now`.
+  const HOURS = 24;
+  const HOUR_MS = 3_600_000;
+  function bucketize<T extends { createdAt: Date }>(rows: T[], value: (row: T) => number): number[] {
+    const buckets = new Array(HOURS).fill(0);
+    for (const row of rows) {
+      const idx = HOURS - 1 - Math.floor((now - row.createdAt.getTime()) / HOUR_MS);
+      if (idx >= 0 && idx < HOURS) buckets[idx] += value(row);
+    }
+    return buckets;
+  }
+  const bucketLabels = Array.from({ length: HOURS }, (_, i) =>
+    new Date(now - (HOURS - 1 - i) * HOUR_MS).toLocaleTimeString(undefined, { hour: "numeric" }),
+  );
 
   const totalWagered = fromDb(wagerAgg._sum.lifetimeWageredCents ?? 0n);
   const totalWon = fromDb(wagerAgg._sum.lifetimeWonCents ?? 0n);
@@ -159,5 +188,11 @@ export async function GET() {
       createdAt: u.createdAt,
     })),
     recentStaffActions: recentAdmin,
+    trends: {
+      labels: bucketLabels,
+      betsPerHour: bucketize(betsForTrend, () => 1),
+      wageredCentsPerHour: bucketize(betsForTrend, (r) => fromDb(r.betCents)),
+      signupsPerHour: bucketize(signupsForTrend, () => 1),
+    },
   });
 }

@@ -189,3 +189,13 @@ export function groupCounts(schedule: Schedule): Record<string, number> {
   for (const { league, count } of Array.from(schedule.values())) counts[league.group] = (counts[league.group] ?? 0) + count;
   return counts;
 }
+
+/** Odds cache rows for the admin dashboard — freshness per league, no quota spent. */
+export async function cacheSummary(limit = 30) {
+  const rows = await prisma.oddsCache.findMany({
+    where: { key: { startsWith: "odds:" } },
+    orderBy: { fetchedAt: "desc" },
+    take: limit,
+  });
+  return rows.map((r) => ({ sportKey: r.key.slice("odds:".length), fetchedAt: r.fetchedAt.toISOString() }));
+}
