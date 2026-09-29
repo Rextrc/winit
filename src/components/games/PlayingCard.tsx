@@ -1,6 +1,7 @@
 "use client";
 
 import type { Card } from "@/lib/games/blackjack";
+import CardBack from "@/components/games/CardBack";
 
 const SUIT_GLYPH: Record<string, string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
 
@@ -19,21 +20,7 @@ export default function PlayingCard({
   const size = small ? "h-[74px] w-[52px] text-[13px]" : "h-[104px] w-[74px] text-[17px]";
 
   if (hidden || !card) {
-    return (
-      <div
-        className={`${size} animate-card-deal rounded-xl border border-white/15 bg-base-600 shadow-tile`}
-        style={{ animationDelay: `${delayMs}ms` }}
-        aria-label="Face-down card"
-      >
-        <div
-          className="h-full w-full rounded-xl opacity-40"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(45deg, rgba(143,92,255,0.40) 0 3px, transparent 3px 8px)",
-          }}
-        />
-      </div>
-    );
+    return <CardBack small={small} delayMs={delayMs} />;
   }
 
   const red = card.s === "H" || card.s === "D";

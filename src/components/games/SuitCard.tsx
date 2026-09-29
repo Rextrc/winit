@@ -1,5 +1,7 @@
 "use client";
 
+import CardBack from "@/components/games/CardBack";
+
 /**
  * Card face for the games whose engines carry the suit as its glyph (War,
  * Three Card, Draw Poker). Blackjack's own PlayingCard encodes suits as
@@ -26,21 +28,7 @@ export default function SuitCard({
   const size = small ? "h-[74px] w-[52px] text-[13px]" : "h-[104px] w-[74px] text-[17px]";
 
   if (hidden || !rank || !suit) {
-    return (
-      <div
-        className={`${size} animate-card-deal rounded-xl border border-white/15 bg-base-600 shadow-tile`}
-        style={{ animationDelay: `${delayMs}ms` }}
-        aria-label="Face-down card"
-      >
-        <div
-          className="h-full w-full rounded-xl opacity-40"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(45deg, rgba(143,92,255,0.40) 0 3px, transparent 3px 8px)",
-          }}
-        />
-      </div>
-    );
+    return <CardBack small={small} delayMs={delayMs} />;
   }
 
   const red = suit === "♥" || suit === "♦";

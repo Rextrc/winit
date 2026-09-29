@@ -69,8 +69,6 @@ export default function HeroCarousel() {
             <h1 className="font-display text-3xl font-black leading-none tracking-tight text-white sm:text-5xl">
               {game.name}
             </h1>
-            <p className="mt-3 max-w-md text-sm text-slate-200/90">{game.tagline}</p>
-
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="num rounded-lg bg-black/40 px-2.5 py-1 text-xs font-bold text-volt">
                 RTP {game.rtp === null ? "—" : `${(game.rtp * 100).toFixed(2)}%`}

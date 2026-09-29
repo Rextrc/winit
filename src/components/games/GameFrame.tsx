@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import type { GameDef } from "@/lib/games/registry";
 import BetFeed from "@/components/BetFeed";
 import BalanceDisplay from "@/components/BalanceDisplay";
-import { IconHistory, IconInfo, IconLock } from "@/components/Icons";
+import { IconHistory, IconLock } from "@/components/Icons";
 
 /**
  * Shared game page frame: canvas centred, control panel docked to the side on
@@ -26,7 +26,8 @@ export default function GameFrame({
   feedVersion: number;
   canvas: React.ReactNode;
   panel: React.ReactNode;
-  rules: React.ReactNode;
+  /** No longer shown — kept so every game's call site doesn't need editing. */
+  rules?: React.ReactNode;
 }) {
   const { status } = useSession();
   const pathname = usePathname();
@@ -49,35 +50,16 @@ export default function GameFrame({
               <div className="w-full">{canvas}</div>
             </div>
             <div className="flex items-center justify-between border-t border-white/[0.05] px-4 py-3">
-              <div className="flex items-center gap-1">
-                <a
-                  href="#house-rules"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
-                  aria-label="House rules"
-                >
-                  <IconInfo className="h-4 w-4" />
-                </a>
-                <Link
-                  href="/history"
-                  className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
-                  aria-label="Bet history"
-                >
-                  <IconHistory className="h-4 w-4" />
-                </Link>
-              </div>
+              <Link
+                href="/history"
+                className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-white/5 hover:text-white"
+                aria-label="Bet history"
+              >
+                <IconHistory className="h-4 w-4" />
+              </Link>
               <span className="font-display text-lg font-black tracking-tight text-white/15">WinIt</span>
-              <a href="#house-rules" className="text-[12px] font-bold text-slate-400 underline-offset-4 hover:text-white hover:underline">
-                Exact odds ✓
-              </a>
+              <span className="text-[12px] font-bold text-slate-500">Exact odds ✓</span>
             </div>
-          </div>
-
-          <div id="house-rules" className="panel mt-4 scroll-mt-24 p-5">
-            <h3 className="flex items-center gap-2 text-[13px] font-black tracking-tight text-white">
-              <IconInfo className="h-4 w-4 text-gold" />
-              House rules &amp; odds
-            </h3>
-            <div className="mt-3 space-y-3 text-[12px] leading-relaxed text-slate-400">{rules}</div>
           </div>
         </div>
 

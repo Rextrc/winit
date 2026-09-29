@@ -51,7 +51,6 @@ export default function GamePage({ params }: { params: { slug: string } }) {
           <IconLive className="h-6 w-6" />
         </div>
         <h1 className="font-display text-2xl font-black tracking-tight text-white">{game.name}</h1>
-        <p className="mt-2 text-sm text-slate-400">{game.tagline}</p>
         <p className="mt-4 rounded-xl border border-white/5 bg-base-900/60 p-4 text-[13px] leading-relaxed text-slate-500">
           {game.rtpNote}
         </p>
