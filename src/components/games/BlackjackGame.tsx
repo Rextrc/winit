@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import type { Action, BlackjackView, Card } from "@/lib/games/blackjack";
 import GameFrame from "@/components/games/GameFrame";
-import CardBack from "@/components/games/CardBack";
+import CardBack, { CardBackFace } from "@/components/games/CardBack";
 import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
@@ -35,22 +35,48 @@ type Flight = { dx: number; dy: number };
 const DEALER_FLIGHT: Flight = { dx: 150, dy: -55 };
 const PLAYER_FLIGHT: Flight = { dx: 210, dy: -270 };
 
+/**
+ * A dealt card: flies in from the shoe, then flips from back to front once
+ * it lands. Two nested layers on purpose — the outer one only ever
+ * translates and scales in a straight line (no rotation), and the inner one
+ * only ever rotates in place (no translation). Combining fly and flip into a
+ * single transform was what made the first version look warped: a large
+ * translate and a 3D rotation sharing one perspective skew badly together.
+ * Kept apart, each stays simple, and the inner flip is a real two-sided card
+ * — separate back and front faces with backface-visibility hidden — rather
+ * than one face spun past itself, so it never looks mirrored or blurry.
+ */
 function BjCard({ card, delayMs = 0, flight = DEALER_FLIGHT }: { card?: Card; delayMs?: number; flight?: Flight }) {
-  if (!card) return <CardBack delayMs={delayMs} flip fromDx={flight.dx} fromDy={flight.dy} />;
+  // A card still in the shoe: no flip, it isn't dealt yet.
+  if (!card) return <CardBack delayMs={delayMs} />;
+
   const red = card.s === "H" || card.s === "D";
+  const flyStyle = {
+    animationDelay: `${delayMs}ms`,
+    "--deal-dx": `${flight.dx}px`,
+    "--deal-dy": `${flight.dy}px`,
+  } as React.CSSProperties;
+
   return (
-    <div
-      className="relative h-[104px] w-[74px] animate-card-deal-flip rounded-xl bg-white shadow-tile"
-      style={{
-        animationDelay: `${delayMs}ms`,
-        "--deal-dx": `${flight.dx}px`,
-        "--deal-dy": `${flight.dy}px`,
-      } as React.CSSProperties}
-      aria-label={`${card.r} of ${SUIT_GLYPH[card.s]}`}
-    >
-      <div className={`flex h-full w-full flex-col items-center justify-center gap-1 ${red ? "text-[#c0142f]" : "text-slate-900"}`}>
-        <span className="font-display text-3xl font-black leading-none">{card.r}</span>
-        <span className="text-2xl leading-none">{SUIT_GLYPH[card.s]}</span>
+    <div className="relative h-[104px] w-[74px] animate-card-fly shadow-tile" style={flyStyle}>
+      <div
+        className="relative h-full w-full animate-card-flip-reveal"
+        style={{ animationDelay: `${delayMs}ms`, transformStyle: "preserve-3d" }}
+      >
+        <div className="absolute inset-0 [backface-visibility:hidden]">
+          <CardBackFace />
+        </div>
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-white [backface-visibility:hidden] [transform:rotateY(180deg)]"
+          aria-label={`${card.r} of ${SUIT_GLYPH[card.s]}`}
+        >
+          <span className={`font-display text-3xl font-black leading-none ${red ? "text-[#c0142f]" : "text-slate-900"}`}>
+            {card.r}
+          </span>
+          <span className={`text-2xl leading-none ${red ? "text-[#c0142f]" : "text-slate-900"}`}>
+            {SUIT_GLYPH[card.s]}
+          </span>
+        </div>
       </div>
     </div>
   );

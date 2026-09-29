@@ -18,41 +18,21 @@ function Sparkle({ gradientId, className }: { gradientId: string; className: str
 }
 
 /**
- * WinIt's card back: the site's own W-mark centered on a black textured
- * field, a violet-to-blue border, and a sparkle in each far corner. Used
- * everywhere a card deals face-down — no image assets, pure SVG/CSS so it
- * scales cleanly at any card size.
+ * The card-back artwork itself — the W-mark, gradient border, brushed
+ * texture, corner sparkles — with no sizing or animation of its own. Fills
+ * whatever box it's put in. Exported so a game that builds its own flip
+ * animation (Blackjack) can use the exact same face without duplicating it.
  */
-export default function CardBack({
-  delayMs = 0,
-  small = false,
-  /** Comes out of the shoe and flips into place instead of the plain deal-in. */
-  flip = false,
-  /** Where the shoe is, relative to this card's final resting spot. */
-  fromDx = 160,
-  fromDy = -120,
-}: {
-  delayMs?: number;
-  small?: boolean;
-  flip?: boolean;
-  fromDx?: number;
-  fromDy?: number;
-}) {
+export function CardBackFace({ className = "" }: { className?: string }) {
   const id = useId();
-  const size = small ? "h-[74px] w-[52px]" : "h-[104px] w-[74px]";
-
   return (
     <div
-      className={`${size} relative overflow-hidden rounded-xl bg-[#0a0a0f] shadow-tile ${
-        flip ? "animate-card-deal-flip" : "animate-card-deal"
-      }`}
+      className={`relative h-full w-full overflow-hidden rounded-xl bg-[#0a0a0f] ${className}`}
       style={{
-        animationDelay: `${delayMs}ms`,
         border: "1.5px solid transparent",
         backgroundImage: `linear-gradient(#0a0a0f, #0a0a0f), linear-gradient(135deg, #8f5cff, #3d8bff)`,
         backgroundOrigin: "border-box",
         backgroundClip: "padding-box, border-box",
-        ...(flip ? ({ "--deal-dx": `${fromDx}px`, "--deal-dy": `${fromDy}px` } as React.CSSProperties) : {}),
       }}
       aria-label="Face-down card"
     >
@@ -87,6 +67,26 @@ export default function CardBack({
 
       <Sparkle gradientId={`${id}-sparkle-tl`} className="absolute left-1.5 top-1.5 h-3 w-3" />
       <Sparkle gradientId={`${id}-sparkle-br`} className="absolute bottom-1.5 right-1.5 h-3 w-3" />
+    </div>
+  );
+}
+
+/**
+ * WinIt's card back, sized and animated — the version every game reaches
+ * for. Used everywhere a card deals face-down; no image assets, pure SVG/CSS
+ * so it scales cleanly at any card size.
+ */
+export default function CardBack({
+  delayMs = 0,
+  small = false,
+}: {
+  delayMs?: number;
+  small?: boolean;
+}) {
+  const size = small ? "h-[74px] w-[52px]" : "h-[104px] w-[74px]";
+  return (
+    <div className={`${size} animate-card-deal shadow-tile`} style={{ animationDelay: `${delayMs}ms` }}>
+      <CardBackFace />
     </div>
   );
 }

@@ -71,16 +71,23 @@ const config: Config = {
           "55%": { opacity: "1" },
           "100%": { transform: "translate(0, 0) rotate(0) scale(1)", opacity: "1" },
         },
-        // Blackjack: the card leaves the shoe (top-right of the stage), flips
-        // face up mid-flight, and lands in place. The rotateY passing through
-        // 90deg reads as the card turning edge-on and back again — the same
-        // trick a single-sided card face needs to look like it flips without
-        // actually rendering two faces.
-        "card-deal-flip": {
-          "0%": { transform: "translate(var(--deal-dx, 160px), var(--deal-dy, -120px)) scale(0.5) rotateY(180deg)", opacity: "0" },
-          "35%": { opacity: "1" },
-          "60%": { transform: "translate(calc(var(--deal-dx, 160px) * 0.22), calc(var(--deal-dy, -120px) * 0.22)) scale(0.82) rotateY(90deg)" },
-          "100%": { transform: "translate(0, 0) scale(1) rotateY(0deg)", opacity: "1" },
+        // Blackjack: two separate layers make up one dealt card. This one is
+        // the outer "flight" — straight-line translate/scale only, no
+        // rotation — so it never shares a vanishing point with a rotating
+        // element while still moving (that combination is what made the
+        // single-layer version look warped).
+        "card-fly": {
+          "0%": { transform: "translate(var(--deal-dx, 160px), var(--deal-dy, -120px)) scale(0.55)", opacity: "0" },
+          "22%": { opacity: "1" },
+          "58%": { transform: "translate(0, 0) scale(1)", opacity: "1" },
+          "100%": { transform: "translate(0, 0) scale(1)", opacity: "1" },
+        },
+        // The inner layer: a true two-sided flip (back and front are separate
+        // faces with backface-visibility hidden, not one face rotated past
+        // itself), timed to turn only once the card has already landed.
+        "card-flip-reveal": {
+          "0%, 56%": { transform: "rotateY(0deg)" },
+          "100%": { transform: "rotateY(180deg)" },
         },
         // Crash rocket: engine flame flicker and a faint in-flight shake.
         flame: {
@@ -157,7 +164,8 @@ const config: Config = {
         // per-card delayMs across the app invisible, and every hand look like
         // it dealt in one frame no matter what delay was passed in.
         "card-deal": "card-deal 0.55s cubic-bezier(0.22,1,0.36,1) backwards",
-        "card-deal-flip": "card-deal-flip 0.5s cubic-bezier(0.22,1,0.36,1) backwards",
+        "card-fly": "card-fly 0.62s cubic-bezier(0.22,1,0.36,1) both",
+        "card-flip-reveal": "card-flip-reveal 0.62s cubic-bezier(0.45,0,0.2,1) both",
         "float-up": "float-up 1.6s ease-out forwards",
         marquee: "marquee 26s linear infinite",
         "confetti-fall": "confetti-fall linear forwards",

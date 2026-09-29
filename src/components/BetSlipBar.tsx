@@ -110,33 +110,33 @@ export default function BetSlipBar() {
   }, [hook, canAfford, signedOut]);
 
   return (
-    <div className="sticky bottom-0 z-30 border-t border-white/10 bg-base-800/95 backdrop-blur-md">
-      {shownFlash && (
-        <div
-          className={`flex items-center justify-center gap-2 border-b px-4 py-1.5 text-[12px] font-semibold ${
-            shownFlash.netCents > 0
-              ? "border-win/20 bg-win/10 text-win"
-              : shownFlash.netCents < 0
-                ? "border-loss/20 bg-loss/10 text-loss"
-                : "border-white/10 bg-white/5 text-slate-300"
-          }`}
-        >
-          <span className="uppercase tracking-wide">{shownFlash.game}</span>
-          <span className="text-slate-400">·</span>
-          <span className="truncate">{shownFlash.summary}</span>
-          <span className="num font-black">{formatSignedCents(shownFlash.netCents)}</span>
-        </div>
-      )}
-
-      {autoplayRunning && (
-        <div className="flex items-center justify-center gap-3 border-b border-volt/20 bg-volt/10 px-4 py-1.5 text-[12px] font-bold text-volt">
-          <span className="uppercase tracking-wide">Autoplay</span>
-          <span className="num">{autoplayLeft} left</span>
-          <button type="button" onClick={stopAutoplay} className="rounded-full bg-volt/20 px-2.5 py-0.5 hover:bg-volt/30">
-            Stop
-          </button>
-        </div>
-      )}
+    <div className="sticky bottom-0 z-30 border-t border-white/10 bg-base-800/95 backdrop-blur-md relative">
+      {/* Floats above the bar instead of pushing its height — a result
+          banner popping on every single bet was the main source of the bar
+          visibly jumping around ("glitchy"), and a taller bar also needs a
+          taller reserved gap under every page's content or it overlaps it. */}
+      <div
+        aria-live="polite"
+        className={`pointer-events-none absolute inset-x-0 bottom-full mb-2 flex justify-center px-4 transition-all duration-200 ${
+          shownFlash ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"
+        }`}
+      >
+        {shownFlash && (
+          <div
+            className={`flex max-w-full items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold shadow-tile backdrop-blur-md ${
+              shownFlash.netCents > 0
+                ? "border-win/30 bg-base-800/95 text-win"
+                : shownFlash.netCents < 0
+                  ? "border-loss/30 bg-base-800/95 text-loss"
+                  : "border-white/15 bg-base-800/95 text-slate-300"
+            }`}
+          >
+            <span className="uppercase tracking-wide text-slate-400">{shownFlash.game}</span>
+            <span className="truncate">{shownFlash.summary}</span>
+            <span className="num font-black">{formatSignedCents(shownFlash.netCents)}</span>
+          </div>
+        )}
+      </div>
 
       <div className="mx-auto flex max-w-[1400px] flex-col gap-2 px-4 py-2.5 lg:flex-row lg:items-center lg:gap-4 lg:px-6">
         <div className="flex items-center gap-3">
@@ -186,7 +186,7 @@ export default function BetSlipBar() {
                 title="Spacebar also works"
               >
                 <IconPlay className="h-4 w-4" />
-                {hook.busy ? "Working…" : hook.actionLabel}
+                {hook.busy ? "Working…" : autoplayRunning ? `${autoplayLeft} left` : hook.actionLabel}
               </button>
 
               {autoplaySupported && (
