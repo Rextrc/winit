@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
-import type { Action, BlackjackView } from "@/lib/games/blackjack";
+import type { Action, BlackjackView, Card } from "@/lib/games/blackjack";
 import GameFrame from "@/components/games/GameFrame";
-import PlayingCard from "@/components/games/PlayingCard";
+import CardBack from "@/components/games/CardBack";
 import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
@@ -25,6 +25,78 @@ const OUTCOME_TEXT: Record<string, string> = {
   LOSS: "Lose",
   PUSH: "Push",
   BUST: "Bust",
+};
+
+const SUIT_GLYPH: Record<string, string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
+
+/** A clean, centered card face — this table's own look, no corner indices. */
+function BjCard({ card, delayMs = 0 }: { card?: Card; delayMs?: number }) {
+  if (!card) return <CardBack delayMs={delayMs} />;
+  const red = card.s === "H" || card.s === "D";
+  return (
+    <div
+      className="relative h-[104px] w-[74px] animate-card-deal rounded-xl bg-white shadow-tile"
+      style={{ animationDelay: `${delayMs}ms` }}
+      aria-label={`${card.r} of ${SUIT_GLYPH[card.s]}`}
+    >
+      <div className={`flex h-full w-full flex-col items-center justify-center gap-1 ${red ? "text-[#c0142f]" : "text-slate-900"}`}>
+        <span className="font-display text-3xl font-black leading-none">{card.r}</span>
+        <span className="text-2xl leading-none">{SUIT_GLYPH[card.s]}</span>
+      </div>
+    </div>
+  );
+}
+
+/** A dark banner with notched ends, like real felt table text. */
+function Ribbon({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="mx-auto w-full max-w-sm bg-base-600/90 py-2 text-center text-[11px] font-black uppercase tracking-[0.12em] text-slate-300"
+      style={{ clipPath: "polygon(2% 0, 98% 0, 100% 50%, 98% 100%, 2% 100%, 0 50%)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** The shoe — a small fan of face-down cards in the corner of the table. */
+function Shoe() {
+  return (
+    <div className="pointer-events-none absolute right-4 top-4 h-11 w-9" aria-hidden="true">
+      {[0, 1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="absolute inset-0 rounded-md border border-white/20 bg-gradient-to-br from-brand-400 to-brand shadow-tile"
+          style={{ transform: `translateY(${-i * 3}px)` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** The four action icons, each in the accent colour its button uses. */
+const ACTION_ICON: Record<Action, JSX.Element> = {
+  hit: (
+    <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="#22dd7a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 3v10M5.5 9 10 13.5 14.5 9M4 16.5h12" />
+    </svg>
+  ),
+  stand: (
+    <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="#ff5a6e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 10.5V5.2a1.3 1.3 0 0 1 2.6 0V9M8.6 9V4.2a1.3 1.3 0 0 1 2.6 0V9M11.2 9V5.2a1.3 1.3 0 0 1 2.6 0v6.3M13.8 9.5a1.3 1.3 0 0 1 2.6 0v3.7c0 3-2.2 5.3-5.2 5.3H10c-1.6 0-2.6-.5-3.5-1.7l-3-4a1.2 1.2 0 0 1 1.8-1.6l1.7 1.5" />
+    </svg>
+  ),
+  split: (
+    <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="#4a7dff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 17V11M10 11 4.5 5.5M10 11l5.5-5.5M4.5 3.5h4v4M15.5 3.5h-4v4" />
+    </svg>
+  ),
+  double: (
+    <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="#ffc53d" strokeWidth="1.8" strokeLinejoin="round">
+      <rect x="3.5" y="6.5" width="9" height="10" rx="1.6" />
+      <path d="M7 6.5V5a1.5 1.5 0 0 1 1.5-1.5H15A1.5 1.5 0 0 1 16.5 5v8a1.5 1.5 0 0 1-1.5 1.5h-1.5" />
+    </svg>
+  ),
 };
 
 /** How many dealer + player cards in `next` are not already in `prev`. */
@@ -226,22 +298,21 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     : "—";
 
   const canvas = (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="relative mx-auto w-full max-w-2xl">
+      <Shoe />
+
       {/* Dealer */}
-      <div className="mb-6">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Dealer</span>
-          <span className="num rounded-md bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-300">
-            {dealerTotalText}
-          </span>
-        </div>
-        <div className="flex min-h-[104px] gap-2">
+      <div className="mb-3 flex flex-col items-center">
+        <span className="num mb-3 rounded-full bg-base-600 px-3.5 py-1 text-sm font-black text-white">
+          {dealerTotalText}
+        </span>
+        <div className="flex min-h-[104px] gap-3">
           {view ? (
             <>
               {view.dealer.map((c, i) => (
-                <PlayingCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * CARD_STAGGER_MS} />
+                <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * CARD_STAGGER_MS} />
               ))}
-              {view.dealerHoleHidden && <PlayingCard hidden delayMs={CARD_STAGGER_MS} />}
+              {view.dealerHoleHidden && <BjCard delayMs={CARD_STAGGER_MS} />}
             </>
           ) : (
             <div className="grid h-[104px] w-[74px] place-items-center rounded-xl border border-dashed border-white/10 text-slate-700">
@@ -251,28 +322,36 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         </div>
       </div>
 
-      <div className="mb-6 border-t border-dashed border-white/10" />
+      <div className="my-5 space-y-2">
+        <Ribbon>Blackjack pays 3 to 2</Ribbon>
+      </div>
 
       {/* Player hands */}
-      <div className="flex flex-wrap gap-6">
+      <div className="flex flex-wrap justify-center gap-8">
         {view ? (
           view.hands.map((hand, i) => {
             const active = view.phase === "PLAYER" && view.active === i;
             return (
-              <div
-                key={i}
-                className={`rounded-2xl p-2 transition ${
-                  active ? "bg-volt/10 shadow-[inset_0_0_0_1px_rgba(143,92,255,0.35)]" : ""
-                }`}
-              >
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                    {view.hands.length > 1 ? `Hand ${i + 1}` : "You"}
-                  </span>
-                  <span className="num rounded-md bg-white/5 px-2 py-0.5 text-[11px] font-bold text-slate-200">
-                    {hand.total}
-                    {hand.soft && hand.total <= 21 ? " soft" : ""}
-                  </span>
+              <div key={i} className="flex flex-col items-center">
+                <span
+                  className={`num mb-3 rounded-full px-3.5 py-1 text-sm font-black text-white transition ${
+                    active ? "bg-brand shadow-volt" : "bg-base-600"
+                  }`}
+                >
+                  {hand.total}
+                  {hand.soft && hand.total <= 21 ? "s" : ""}
+                </span>
+                <div className="flex gap-3">
+                  {hand.cards.map((c, ci) => (
+                    <BjCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * CARD_STAGGER_MS} />
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                  {view.hands.length > 1 && (
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                      Hand {i + 1}
+                    </span>
+                  )}
                   <span className="num text-[11px] text-slate-500">{formatCents(hand.betCents)}</span>
                   {hand.doubled && (
                     <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-bold text-slate-400">
@@ -292,11 +371,6 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
                       {OUTCOME_TEXT[hand.result.outcome]}
                     </span>
                   )}
-                </div>
-                <div className="flex gap-2">
-                  {hand.cards.map((c, ci) => (
-                    <PlayingCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * CARD_STAGGER_MS} />
-                  ))}
                 </div>
               </div>
             );
@@ -327,22 +401,29 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
 
   const panel = (
     <div className="space-y-4">
+      <div className="seg grid-cols-2">
+        <span className="seg-item-on cursor-default">Standard</span>
+        <span className="seg-item cursor-not-allowed opacity-50" title="Not offered at this table">
+          Side bet
+        </span>
+      </div>
+
       <BetControls disabled={busy || inPlay} />
 
       {inPlay ? (
         <div className="grid grid-cols-2 gap-2">
-          {(["hit", "stand", "double", "split"] as Action[]).map((a) => {
+          {(["hit", "stand", "split", "double"] as Action[]).map((a) => {
             const allowed = view?.actions.includes(a) ?? false;
-            const primary = a === "hit" || a === "stand";
             return (
               <button
                 key={a}
                 type="button"
                 onClick={() => act(a)}
                 disabled={!allowed || busy}
-                className={`${primary ? "btn-primary" : "btn-ghost"} py-3`}
+                className="flex items-center justify-between rounded-xl bg-base-600 px-4 py-3 text-[15px] font-semibold text-slate-100 transition hover:bg-base-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {ACTION_LABEL[a]}
+                {ACTION_ICON[a]}
               </button>
             );
           })}
