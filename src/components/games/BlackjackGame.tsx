@@ -30,13 +30,22 @@ const OUTCOME_TEXT: Record<string, string> = {
 const SUIT_GLYPH: Record<string, string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
 
 /** A clean, centered card face — this table's own look, no corner indices. */
-function BjCard({ card, delayMs = 0 }: { card?: Card; delayMs?: number }) {
-  if (!card) return <CardBack delayMs={delayMs} />;
+/** Where the shoe sits relative to a card landing at this table position. */
+type Flight = { dx: number; dy: number };
+const DEALER_FLIGHT: Flight = { dx: 150, dy: -55 };
+const PLAYER_FLIGHT: Flight = { dx: 210, dy: -270 };
+
+function BjCard({ card, delayMs = 0, flight = DEALER_FLIGHT }: { card?: Card; delayMs?: number; flight?: Flight }) {
+  if (!card) return <CardBack delayMs={delayMs} flip fromDx={flight.dx} fromDy={flight.dy} />;
   const red = card.s === "H" || card.s === "D";
   return (
     <div
-      className="relative h-[104px] w-[74px] animate-card-deal rounded-xl bg-white shadow-tile"
-      style={{ animationDelay: `${delayMs}ms` }}
+      className="relative h-[104px] w-[74px] animate-card-deal-flip rounded-xl bg-white shadow-tile"
+      style={{
+        animationDelay: `${delayMs}ms`,
+        "--deal-dx": `${flight.dx}px`,
+        "--deal-dy": `${flight.dy}px`,
+      } as React.CSSProperties}
       aria-label={`${card.r} of ${SUIT_GLYPH[card.s]}`}
     >
       <div className={`flex h-full w-full flex-col items-center justify-center gap-1 ${red ? "text-[#c0142f]" : "text-slate-900"}`}>
@@ -306,19 +315,10 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         <span className="num mb-3 rounded-full bg-base-600 px-3.5 py-1 text-sm font-black text-white">
           {dealerTotalText}
         </span>
-        <div className="flex min-h-[104px] gap-3">
-          {view ? (
-            <>
-              {view.dealer.map((c, i) => (
-                <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * CARD_STAGGER_MS} />
-              ))}
-              {view.dealerHoleHidden && <BjCard delayMs={CARD_STAGGER_MS} />}
-            </>
-          ) : (
-            <div className="grid h-[104px] w-[74px] place-items-center rounded-xl border border-dashed border-white/10 text-slate-700">
-              ?
-            </div>
-          )}
+        <div className="flex min-h-[104px] gap-3" style={{ perspective: "1000px" }}>
+          {view &&
+            view.dealer.map((c, i) => <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * CARD_STAGGER_MS} />)}
+          {view?.dealerHoleHidden && <BjCard delayMs={CARD_STAGGER_MS} />}
         </div>
       </div>
 
@@ -328,7 +328,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
 
       {/* Player hands */}
       <div className="flex flex-wrap justify-center gap-8">
-        {view ? (
+        {view &&
           view.hands.map((hand, i) => {
             const active = view.phase === "PLAYER" && view.active === i;
             return (
@@ -341,9 +341,9 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
                   {hand.total}
                   {hand.soft && hand.total <= 21 ? "s" : ""}
                 </span>
-                <div className="flex gap-3">
+                <div className="flex gap-3" style={{ perspective: "1000px" }}>
                   {hand.cards.map((c, ci) => (
-                    <BjCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * CARD_STAGGER_MS} />
+                    <BjCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * CARD_STAGGER_MS} flight={PLAYER_FLIGHT} />
                   ))}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
@@ -374,12 +374,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
                 </div>
               </div>
             );
-          })
-        ) : (
-          <div className="grid h-[104px] w-[74px] place-items-center rounded-xl border border-dashed border-white/10 text-slate-700">
-            ?
-          </div>
-        )}
+          })}
       </div>
 
       <div className="mt-6 min-h-[52px] text-center">

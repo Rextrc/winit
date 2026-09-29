@@ -71,6 +71,17 @@ const config: Config = {
           "55%": { opacity: "1" },
           "100%": { transform: "translate(0, 0) rotate(0) scale(1)", opacity: "1" },
         },
+        // Blackjack: the card leaves the shoe (top-right of the stage), flips
+        // face up mid-flight, and lands in place. The rotateY passing through
+        // 90deg reads as the card turning edge-on and back again — the same
+        // trick a single-sided card face needs to look like it flips without
+        // actually rendering two faces.
+        "card-deal-flip": {
+          "0%": { transform: "translate(var(--deal-dx, 160px), var(--deal-dy, -120px)) scale(0.5) rotateY(180deg)", opacity: "0" },
+          "35%": { opacity: "1" },
+          "60%": { transform: "translate(calc(var(--deal-dx, 160px) * 0.22), calc(var(--deal-dy, -120px) * 0.22)) scale(0.82) rotateY(90deg)" },
+          "100%": { transform: "translate(0, 0) scale(1) rotateY(0deg)", opacity: "1" },
+        },
         // Crash rocket: engine flame flicker and a faint in-flight shake.
         flame: {
           "0%, 100%": { transform: "scaleY(1) scaleX(1)", opacity: "0.95" },
@@ -146,6 +157,7 @@ const config: Config = {
         // per-card delayMs across the app invisible, and every hand look like
         // it dealt in one frame no matter what delay was passed in.
         "card-deal": "card-deal 0.55s cubic-bezier(0.22,1,0.36,1) backwards",
+        "card-deal-flip": "card-deal-flip 0.5s cubic-bezier(0.22,1,0.36,1) backwards",
         "float-up": "float-up 1.6s ease-out forwards",
         marquee: "marquee 26s linear infinite",
         "confetti-fall": "confetti-fall linear forwards",

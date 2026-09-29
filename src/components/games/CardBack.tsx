@@ -26,22 +26,33 @@ function Sparkle({ gradientId, className }: { gradientId: string; className: str
 export default function CardBack({
   delayMs = 0,
   small = false,
+  /** Comes out of the shoe and flips into place instead of the plain deal-in. */
+  flip = false,
+  /** Where the shoe is, relative to this card's final resting spot. */
+  fromDx = 160,
+  fromDy = -120,
 }: {
   delayMs?: number;
   small?: boolean;
+  flip?: boolean;
+  fromDx?: number;
+  fromDy?: number;
 }) {
   const id = useId();
   const size = small ? "h-[74px] w-[52px]" : "h-[104px] w-[74px]";
 
   return (
     <div
-      className={`${size} relative animate-card-deal overflow-hidden rounded-xl bg-[#0a0a0f] shadow-tile`}
+      className={`${size} relative overflow-hidden rounded-xl bg-[#0a0a0f] shadow-tile ${
+        flip ? "animate-card-deal-flip" : "animate-card-deal"
+      }`}
       style={{
         animationDelay: `${delayMs}ms`,
         border: "1.5px solid transparent",
         backgroundImage: `linear-gradient(#0a0a0f, #0a0a0f), linear-gradient(135deg, #8f5cff, #3d8bff)`,
         backgroundOrigin: "border-box",
         backgroundClip: "padding-box, border-box",
+        ...(flip ? ({ "--deal-dx": `${fromDx}px`, "--deal-dy": `${fromDy}px` } as React.CSSProperties) : {}),
       }}
       aria-label="Face-down card"
     >
