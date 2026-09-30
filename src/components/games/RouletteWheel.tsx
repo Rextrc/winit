@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { colorOf } from "@/lib/games/roulette";
+import sfx from "@/lib/sound";
 
 /** Physical pocket order of a European single-zero wheel. */
 export const WHEEL_ORDER = [
@@ -114,6 +115,7 @@ export default function RouletteWheel({ pocket, launchKey }: { pocket: number | 
     const v0 = (2 * dTrack) / (T_TRACK / 1000) - V_DROP;
     resting.current = null;
     flight.current = { t0: now, rel0, v0 };
+    sfx.rouletteBall(BALL_MS);
   }, [launchKey]);
 
   useEffect(() => {

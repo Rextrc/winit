@@ -1,6 +1,7 @@
 "use client";
 
 import CardBack from "@/components/games/CardBack";
+import sfx from "@/lib/sound";
 
 /**
  * Card face for the games whose engines carry the suit as its glyph (War,
@@ -39,6 +40,7 @@ export default function SuitCard({
         highlighted ? "border-volt ring-2 ring-volt -translate-y-1.5" : "border-black/20"
       } ${dimmed ? "opacity-40" : ""} bg-slate-50`}
       style={{ animationDelay: `${delayMs}ms` }}
+      onAnimationStart={() => sfx.cardDeal()}
       aria-label={`${rank} of ${suit}`}
     >
       <span className={`absolute left-1.5 top-1 leading-none ${red ? "text-[#c0142f]" : "text-slate-900"}`}>

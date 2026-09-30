@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import sfx from "@/lib/sound";
 
 /** A 4-point sparkle glyph, the same shape in both corners — self-contained gradient, no cross-svg id lookup. */
 function Sparkle({ gradientId, className }: { gradientId: string; className: string }) {
@@ -85,7 +86,11 @@ export default function CardBack({
 }) {
   const size = small ? "h-[74px] w-[52px]" : "h-[104px] w-[74px]";
   return (
-    <div className={`${size} animate-card-deal shadow-tile`} style={{ animationDelay: `${delayMs}ms` }}>
+    <div
+      className={`${size} animate-card-deal shadow-tile`}
+      style={{ animationDelay: `${delayMs}ms` }}
+      onAnimationStart={() => sfx.cardDeal()}
+    >
       <CardBackFace />
     </div>
   );

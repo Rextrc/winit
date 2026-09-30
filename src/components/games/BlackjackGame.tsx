@@ -11,6 +11,7 @@ import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { CARD_STAGGER_MS, dealDurationMs, wait } from "@/lib/dealTiming";
+import sfx from "@/lib/sound";
 
 const ACTION_LABEL: Record<Action, string> = {
   hit: "Hit",
@@ -58,7 +59,7 @@ function BjCard({ card, delayMs = 0, flight = DEALER_FLIGHT }: { card?: Card; de
   } as React.CSSProperties;
 
   return (
-    <div className="relative h-[104px] w-[74px] animate-card-fly shadow-tile" style={flyStyle}>
+    <div className="relative h-[104px] w-[74px] animate-card-fly shadow-tile" style={flyStyle} onAnimationStart={() => sfx.cardDeal()}>
       <div
         className="relative h-full w-full animate-card-flip-reveal"
         style={{ animationDelay: `${delayMs}ms`, transformStyle: "preserve-3d" }}

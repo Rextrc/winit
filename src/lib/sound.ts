@@ -80,6 +80,42 @@ function note(
   osc.stop(start + duration + 0.02);
 }
 
+/** A buffer of white noise, the raw material for anything percussive — a
+ * card snap, a rolling ball, a skittering bounce — that a pure tone can't do. */
+function noiseBuffer(c: AudioContext, seconds: number): AudioBuffer {
+  const buffer = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * seconds)), c.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  return buffer;
+}
+
+/** A short filtered burst of noise: a snap, a click, a bounce. */
+function burst({
+  at = 0,
+  duration = 0.05,
+  gain = 0.12,
+  freq = 2000,
+  q = 1,
+  type = "bandpass" as BiquadFilterType,
+} = {}): void {
+  const c = audioCtx();
+  if (!c) return;
+  const start = c.currentTime + at;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(c, duration + 0.02);
+  const filter = c.createBiquadFilter();
+  filter.type = type;
+  filter.frequency.value = freq;
+  filter.Q.value = q;
+  const amp = c.createGain();
+  amp.gain.setValueAtTime(0, start);
+  amp.gain.linearRampToValueAtTime(gain, start + 0.004);
+  amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  src.connect(filter).connect(amp).connect(c.destination);
+  src.start(start);
+  src.stop(start + duration + 0.02);
+}
+
 /** A named sequence of notes, so a "win" or "level up" is one function call. */
 const sfx = {
   /** A neutral UI tap — a bet placed, a control pressed. */
@@ -119,6 +155,54 @@ const sfx = {
   },
   /** A chat or inbox message arriving. Soft, easy to ignore. */
   notify: () => note(1046, { duration: 0.09, gain: 0.05, type: "sine" }),
+  /** A single card landing face down or face up — a quick snap of card stock
+   * hitting felt. Fired once per card, so a multi-card deal riffles. */
+  cardDeal: () => {
+    burst({ duration: 0.045, gain: 0.16, freq: 3400, q: 0.7, type: "highpass" });
+    note(190, { duration: 0.04, gain: 0.025, type: "sine" });
+  },
+  /** The roulette ball, launch to landing: a rolling hiss that slows and
+   * drops in pitch, a skitter of bounces over the frets, then a settling
+   * clack into the pocket. Durations are fractions of RouletteWheel's own
+   * BALL_MS so the two stay in step without importing across the boundary. */
+  rouletteBall: (totalMs = 7200) => {
+    const c = audioCtx();
+    if (!c) return;
+    const total = totalMs / 1000;
+    const rollEnd = total * 0.6; // rolling the outer track
+    const dropEnd = total * 0.76; // spiralling in past the deflectors
+    const start = c.currentTime;
+
+    const src = c.createBufferSource();
+    src.buffer = noiseBuffer(c, dropEnd + 0.05);
+    const filter = c.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.Q.value = 0.7;
+    filter.frequency.setValueAtTime(2600, start);
+    filter.frequency.exponentialRampToValueAtTime(900, start + rollEnd);
+    filter.frequency.exponentialRampToValueAtTime(500, start + dropEnd);
+    const amp = c.createGain();
+    amp.gain.setValueAtTime(0, start);
+    amp.gain.linearRampToValueAtTime(0.05, start + 0.15);
+    amp.gain.setValueAtTime(0.05, start + rollEnd * 0.85);
+    amp.gain.linearRampToValueAtTime(0.03, start + dropEnd);
+    amp.gain.linearRampToValueAtTime(0.0001, start + dropEnd + 0.05);
+    src.connect(filter).connect(amp).connect(c.destination);
+    src.start(start);
+    src.stop(start + dropEnd + 0.1);
+
+    // Skitters over the frets, each bounce further apart than the last.
+    let t = dropEnd;
+    let gap = 0.035;
+    while (t < total - 0.15) {
+      burst({ at: t, duration: 0.03, gain: 0.1, freq: 3200 + Math.random() * 900, q: 2 });
+      t += gap;
+      gap *= 1.35;
+    }
+    // The settle: it drops into the pocket for good.
+    note(140, { at: total - 0.05, duration: 0.18, gain: 0.09, type: "triangle", sweep: -40 });
+    burst({ at: total - 0.05, duration: 0.05, gain: 0.12, freq: 1200, q: 1 });
+  },
 } as const;
 
 export default sfx;

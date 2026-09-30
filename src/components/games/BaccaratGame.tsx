@@ -8,6 +8,7 @@ import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { CARD_DEAL_MS, CARD_STAGGER_MS, wait } from "@/lib/dealTiming";
+import sfx from "@/lib/sound";
 import { DECKS, PAYOUT, type BetType, type HandResult } from "@/lib/games/baccarat";
 import type { Card } from "@/lib/games/blackjack";
 import type { ProgressUpdate } from "@/lib/ledger";
@@ -40,6 +41,7 @@ function TableCard({ card, outcome, first }: { card: Card; outcome: Outcome; fir
       className={`animate-card-deal relative grid h-[118px] w-[84px] place-items-center rounded-lg border-[3px] bg-slate-50 font-display font-black shadow-tile transition-colors duration-500 sm:h-[132px] sm:w-[94px] ${border} ${
         first ? "" : "-ml-7"
       }`}
+      onAnimationStart={() => sfx.cardDeal()}
     >
       <div className={`flex flex-col items-center leading-none ${red ? "text-rose-700" : "text-slate-900"}`}>
         <span className="text-[40px] sm:text-[46px]">{card.r}</span>

@@ -2,6 +2,7 @@
 
 import type { Card } from "@/lib/games/blackjack";
 import CardBack from "@/components/games/CardBack";
+import sfx from "@/lib/sound";
 
 const SUIT_GLYPH: Record<string, string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
 
@@ -29,6 +30,7 @@ export default function PlayingCard({
     <div
       className={`${size} relative animate-card-deal rounded-xl border border-black/20 bg-slate-50 font-display font-black shadow-tile`}
       style={{ animationDelay: `${delayMs}ms` }}
+      onAnimationStart={() => sfx.cardDeal()}
       aria-label={`${card.r} of ${SUIT_GLYPH[card.s]}`}
     >
       <span className={`absolute left-1.5 top-1 leading-tight ${red ? "text-rose-600" : "text-slate-900"}`}>
