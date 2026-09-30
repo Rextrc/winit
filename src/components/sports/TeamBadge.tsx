@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { flagCode, flagUrl } from "@/lib/sports/flags";
 
 /** A deterministic colour pair for a club crest. */
@@ -14,8 +17,33 @@ function initials(name: string): string {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
+// Shared across every badge on the page — the same club shows up in many
+// rows, and this keeps that down to one lookup per team, not one per row.
+const crestCache = new Map<string, string | null | Promise<string | null>>();
+
+function getCrest(team: string): Promise<string | null> {
+  const key = team.toLowerCase();
+  const cached = crestCache.get(key);
+  if (cached !== undefined) return Promise.resolve(cached);
+
+  const request = fetch(`/api/sports/crest?name=${encodeURIComponent(team)}`)
+    .then((r) => (r.ok ? r.json() : { url: null }))
+    .then((d: { url: string | null }) => {
+      crestCache.set(key, d.url ?? null);
+      return d.url ?? null;
+    })
+    .catch(() => {
+      crestCache.set(key, null);
+      return null;
+    });
+
+  crestCache.set(key, request);
+  return request;
+}
+
 /**
- * A national team's flag, or a generated shield crest for a club. `shape`
+ * A national team's flag, a club's real crest (looked up by name), or — if
+ * neither is found — a generated shield with the team's initials. `shape`
  * "flag" is the small rectangle used in lists; "round" is the circle used
  * in market rows.
  */
@@ -29,6 +57,21 @@ export default function TeamBadge({
   className?: string;
 }) {
   const code = flagCode(team);
+  const [crest, setCrest] = useState<string | null>(null);
+  const [broken, setBroken] = useState(false);
+
+  useEffect(() => {
+    setCrest(null);
+    setBroken(false);
+    if (code) return;
+    let alive = true;
+    getCrest(team).then((url) => {
+      if (alive) setCrest(url);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [team, code]);
 
   if (code) {
     return (
@@ -38,6 +81,19 @@ export default function TeamBadge({
         alt=""
         loading="lazy"
         className={`shrink-0 object-cover ${shape === "round" ? "rounded-full" : "rounded-[3px]"} ${className}`}
+      />
+    );
+  }
+
+  if (crest && !broken) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={crest}
+        alt=""
+        loading="lazy"
+        onError={() => setBroken(true)}
+        className={`shrink-0 bg-white/[0.06] object-contain p-[6%] ${shape === "round" ? "rounded-full" : "rounded-[3px]"} ${className}`}
       />
     );
   }
