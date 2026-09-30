@@ -4,10 +4,10 @@ import { useCallback, useMemo, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import RouletteWheel, { BALL_MS } from "@/components/games/RouletteWheel";
-import BetControls from "@/components/BetControls";
+import ChipRack from "@/components/games/ChipRack";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
-import { formatCents, formatSignedCents } from "@/lib/money";
+import { chipLabel, formatCents, formatSignedCents } from "@/lib/money";
 import {
   POCKETS,
   betCovers,
@@ -234,7 +234,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
   const Chip = ({ amount }: { amount: number }) =>
     amount > 0 ? (
       <span className="num animate-chip-drop absolute -right-1.5 -top-1.5 z-20 grid h-5 min-w-[20px] place-items-center rounded-full border border-[#8a5f18] bg-gradient-to-b from-[#f5d78e] to-[#d4a83c] px-1 text-[9px] font-black text-[#2a1d05] shadow">
-        {amount >= 100_000 ? `${Math.round(amount / 100_000)}k` : Math.round(amount / 100)}
+        {chipLabel(amount)}
       </span>
     ) : null;
 
@@ -514,8 +514,13 @@ export default function RouletteGame({ game }: { game: GameDef }) {
   const panel = (
     <div className="space-y-4">
       <div>
-        <p className="label">Chip value</p>
-        <BetControls compact disabled={busy} />
+        <div className="flex items-baseline justify-between">
+          <p className="label mb-0">Chip value</p>
+          <span className="num text-sm font-black text-white">{formatCents(chip)}</span>
+        </div>
+        <div className="mt-2.5">
+          <ChipRack disabled={busy} />
+        </div>
       </div>
 
       <div className="rounded-xl border border-white/5 bg-base-900/50 p-3">

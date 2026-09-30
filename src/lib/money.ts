@@ -43,6 +43,20 @@ export function formatCompactCents(cents: number): string {
   return compact.format(cents / 100);
 }
 
+/**
+ * A tiny label for a stack of chips: "50", "1k", "2.5k", "3.6M" — for a
+ * badge sitting on a felt cell or a chip face, where even "1,234.50" is too
+ * long to fit. Unlike `formatCompactCents`, this compacts starting at
+ * $1,000, not $10,000, and never falls back to a full decimal amount.
+ */
+export function chipLabel(cents: number): string {
+  const dollars = Math.abs(cents) / 100;
+  const trim = (s: string) => (s.endsWith(".0") ? s.slice(0, -2) : s);
+  if (dollars >= 1_000_000) return `${trim((dollars / 1_000_000).toFixed(1))}M`;
+  if (dollars >= 1_000) return `${trim((dollars / 1_000).toFixed(1))}k`;
+  return String(Math.round(dollars));
+}
+
 /** "+1,234.50" / "-1,234.50" / "0.00" */
 export function formatSignedCents(cents: number): string {
   if (cents === 0) return formatCents(0);
