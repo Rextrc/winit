@@ -26,7 +26,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onOpenMenu={() => setMenuOpen(true)} />
         <GoalBar />
-        <main className={`flex-1 px-4 pt-6 lg:px-6 ${sportsbook ? "pb-6" : "pb-28"}`}>
+        <main
+          className={`flex-1 px-4 pt-6 lg:px-6 ${sportsbook ? "pb-6" : ""}`}
+          style={sportsbook ? undefined : { paddingBottom: "calc(var(--betslip-h, 112px) + 16px)" }}
+        >
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
         {!sportsbook && <BetSlipBar />}

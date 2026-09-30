@@ -36,6 +36,25 @@ export default function BetSlipBar() {
   const [autoplayLeft, setAutoplayLeft] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // The bar's height isn't fixed — a game's own note can wrap to more lines,
+  // autoplay can add a state, the mobile toggle can collapse it. Rather than
+  // guess a padding that reserves enough room under it and hope every case
+  // fits, measure the real height and publish it so the page can reserve
+  // exactly that much — the fix for the bar ever overlapping page content.
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const publish = () => document.documentElement.style.setProperty("--betslip-h", `${el.offsetHeight}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--betslip-h");
+    };
+  }, []);
 
   useEffect(() => {
     if (!flash) return;
@@ -110,7 +129,7 @@ export default function BetSlipBar() {
   }, [hook, canAfford, signedOut]);
 
   return (
-    <div className="sticky bottom-0 z-30 border-t border-white/10 bg-base-800/95 backdrop-blur-md relative">
+    <div ref={barRef} className="sticky bottom-0 z-30 border-t border-white/10 bg-base-800/95 backdrop-blur-md relative">
       {/* Floats above the bar instead of pushing its height — a result
           banner popping on every single bet was the main source of the bar
           visibly jumping around ("glitchy"), and a taller bar also needs a
