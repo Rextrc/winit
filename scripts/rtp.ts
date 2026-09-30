@@ -33,10 +33,7 @@ import {
 } from "../src/lib/games/blackjack";
 import { ENGINE_KEY, GAMES } from "../src/lib/games/registry";
 import * as Career from "../src/lib/life/career";
-import * as NewSicBo from "../src/lib/games/sicbo";
 import * as NewLottery from "../src/lib/games/lottery";
-import * as NewWar from "../src/lib/games/war";
-import * as NewThreeCard from "../src/lib/games/threecard";
 import * as NewCraps from "../src/lib/games/craps";
 import * as NewCrash from "../src/lib/games/crash";
 import * as NewTowers from "../src/lib/games/towers";
@@ -461,38 +458,6 @@ if (hiloRanks !== 13) {
 // simulation of the ACTUAL dealing code, so a correct formula sitting next to
 // a buggy implementation cannot pass.
 
-console.log("\nSIC BO (sicbo)");
-for (const bet of [
-  { type: "small" },
-  { type: "big" },
-  { type: "anyTriple" },
-  { type: "triple", face: 4 },
-  { type: "total", total: 4 },
-  { type: "total", total: 10 },
-  { type: "single", face: 6 },
-] as NewSicBo.SicBoBet[]) {
-  check(`${NewSicBo.labelFor(bet)}: exact RTP`, NewSicBo.exactRtp(bet), Orig.TARGET_RTP, 0.0001);
-}
-{
-  // The enumeration must cover every throw exactly once.
-  const all = NewSicBo.allThrows();
-  check("sicbo: 216 throws enumerated", all.length, NewSicBo.OUTCOMES, 0);
-  const faceProbs = [0, 1, 2, 3].reduce((s, k) => s + NewSicBo.singleFaceProbability(k), 0);
-  check("sicbo: single-face probabilities sum to 1", faceProbs, 1, 1e-12);
-
-  // Small and big must be exact complements outside the triples.
-  const small = NewSicBo.probability({ type: "small" });
-  const big = NewSicBo.probability({ type: "big" });
-  const triples = NewSicBo.probability({ type: "anyTriple" });
-  check("sicbo: small + big + triples = 1", small + big + triples, 1, 1e-12);
-
-  // And the dealing code must actually produce that distribution.
-  let hits = 0;
-  const rolls = 200_000;
-  for (let i = 0; i < rolls; i++) if (NewSicBo.betWins({ type: "small" }, NewSicBo.roll())) hits++;
-  check("sicbo: measured P(small) matches", hits / rolls, small, sigmaBand(small * (1 - small), rolls));
-}
-
 console.log("\nLOTTERY (lottery)");
 {
   const probs = Array.from({ length: NewLottery.PICKS + 1 }, (_, h) => NewLottery.hitProbability(h));
@@ -514,65 +479,6 @@ console.log("\nLOTTERY (lottery)");
   const mean = sum / tickets;
   const variance = sum2 / tickets - mean * mean;
   check("lottery: measured RTP matches", mean, NewLottery.exactRtp(), sigmaBand(variance, tickets));
-}
-
-console.log("\nWAR (war)");
-{
-  const exact = NewWar.exactRtp();
-  console.log(
-    `  Quoted against total money staked, not the opening bet: a war doubles what\n` +
-    `  is at risk, so payout/opening-bet would flatter the number.`,
-  );
-  check("war: exact RTP", exact.rtp, 0.9725274725274725, 1e-9);
-
-  // Simulate the dealing code and reconcile stake and payout separately.
-  const hands = 400_000;
-  let staked = 0;
-  let paid = 0;
-  let ties = 0;
-  for (let i = 0; i < hands; i++) {
-    const h = NewWar.play(100);
-    staked += h.stakeCents;
-    paid += h.payoutCents;
-    if (h.war) ties++;
-  }
-  const measured = paid / staked;
-  // Variance of the per-hand return ratio is bounded well under 4; 5 SE at this
-  // sample size is the band, derived rather than guessed.
-  check("war: measured RTP matches", measured, exact.rtp, sigmaBand(4, hands));
-  check("war: measured tie rate is 1 in 13", ties / hands, 1 / 13, sigmaBand((1 / 13) * (12 / 13), hands));
-}
-
-console.log("\nTHREE CARD (threecard)");
-{
-  const counts = NewThreeCard.handCounts();
-  // These are the known exact counts for three-card hands; the enumeration has
-  // to reproduce every one of them or the classifier is wrong.
-  check("threecard: 48 straight flushes", counts.straightFlush, 48, 0);
-  check("threecard: 52 trips", counts.trips, 52, 0);
-  check("threecard: 720 straights", counts.straight, 720, 0);
-  check("threecard: 1,096 flushes", counts.flush, 1096, 0);
-  check("threecard: 3,744 pairs", counts.pair, 3744, 0);
-  check("threecard: 16,440 high cards", counts.highCard, 16440, 0);
-  check(
-    "threecard: counts total C(52,3)",
-    Object.values(counts).reduce((a, b) => a + b, 0),
-    NewThreeCard.TOTAL_HANDS,
-    0,
-  );
-  check("threecard: exact RTP", NewThreeCard.exactRtp(), Orig.TARGET_RTP, 0.0001);
-
-  let sum = 0;
-  let sum2 = 0;
-  const deals = 300_000;
-  for (let i = 0; i < deals; i++) {
-    const x = NewThreeCard.deal(100).payoutCents / 100;
-    sum += x;
-    sum2 += x * x;
-  }
-  const mean = sum / deals;
-  const variance = sum2 / deals - mean * mean;
-  check("threecard: measured RTP matches", mean, NewThreeCard.exactRtp(), sigmaBand(variance, deals));
 }
 
 console.log("\nCRAPS (craps)");

@@ -250,21 +250,6 @@ export const GAMES: GameDef[] = [
     popularity: 86,
   },
   {
-    slug: "sic-bo",
-    name: "Sic Bo",
-    tagline: "Three dice, every bet priced off all 216 throws",
-    category: "table",
-    rtp: 0.99,
-    rtpNote: "Exactly 99% on every bet — each price comes from a full enumeration of the 216 throws.",
-    playable: true,
-    tags: ["Table Games", "Dice"],
-    art: "from-amber-700/40 via-base-700 to-base-900",
-    glyph: "\u2684",
-    new: true,
-    popularity: 83,
-  },
-
-  {
     slug: "lottery",
     name: "Lottery",
     tagline: "Pick 6 of 49 and wait for the balls",
@@ -280,34 +265,6 @@ export const GAMES: GameDef[] = [
     popularity: 74,
   },
 
-  {
-    slug: "casino-war",
-    name: "War",
-    tagline: "Highest card wins, ties go to war",
-    category: "table",
-    rtp: 0.972527,
-    rtpNote: "Exactly 97.253%, enumerated over all 13x13 rank pairs — the edge is entirely in the tie rule.",
-    playable: true,
-    tags: ["Table Games", "Cards"],
-    art: "from-red-800/45 via-base-700 to-base-900",
-    glyph: "\u2694",
-    new: true,
-    popularity: 71,
-  },
-  {
-    slug: "three-card",
-    name: "Three Card",
-    tagline: "Pair Plus — paid on your own three cards",
-    category: "table",
-    rtp: 0.99,
-    rtpNote: "Exactly 99% — derived across all C(52,3) = 22,100 hands, every one of them enumerated.",
-    playable: true,
-    tags: ["Table Games", "Cards"],
-    art: "from-fuchsia-700/45 via-base-700 to-base-900",
-    glyph: "\u2663",
-    new: true,
-    popularity: 77,
-  },
   {
     slug: "studio-one",
     name: "Studio One",
@@ -363,10 +320,7 @@ export const ENGINE_KEY: Record<string, string> = {
   "towers": "towers",
   "video-poker": "videopoker",
   "craps": "craps",
-  "sic-bo": "sicbo",
   "lottery": "lottery",
-  "casino-war": "war",
-  "three-card": "threecard",
 };
 
 export const SLUG_FOR_ENGINE: Record<string, string> = {
@@ -385,8 +339,5 @@ export const SLUG_FOR_ENGINE: Record<string, string> = {
   towers: "towers",
   videopoker: "video-poker",
   craps: "craps",
-  sicbo: "sic-bo",
   lottery: "lottery",
-  war: "casino-war",
-  threecard: "three-card",
 };

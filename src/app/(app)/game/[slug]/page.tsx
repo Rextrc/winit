@@ -19,10 +19,7 @@ import CrashGame from "@/components/games/CrashGame";
 import TowersGame from "@/components/games/TowersGame";
 import VideoPokerGame from "@/components/games/VideoPokerGame";
 import CrapsGame from "@/components/games/CrapsGame";
-import SicBoGame from "@/components/games/SicBoGame";
 import LotteryGame from "@/components/games/LotteryGame";
-import WarGame from "@/components/games/WarGame";
-import ThreeCardGame from "@/components/games/ThreeCardGame";
 
 export const dynamic = "force-dynamic";
 
@@ -92,14 +89,8 @@ export default function GamePage({ params }: { params: { slug: string } }) {
       return <VideoPokerGame game={game} />;
     case "craps":
       return <CrapsGame game={game} />;
-    case "sicbo":
-      return <SicBoGame game={game} />;
     case "lottery":
       return <LotteryGame game={game} />;
-    case "war":
-      return <WarGame game={game} />;
-    case "threecard":
-      return <ThreeCardGame game={game} />;
     default:
       notFound();
   }
