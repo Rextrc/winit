@@ -242,7 +242,11 @@ export function applyAction(
   switch (action) {
     case "hit": {
       hand.cards.push(draw(state));
-      if (handTotal(hand.cards).total > 21) hand.busted = true;
+      const total = handTotal(hand.cards).total;
+      // 21 can't be improved on and hitting again can only bust it — stand
+      // automatically instead of leaving that decision on the table.
+      if (total >= 21) hand.stood = true;
+      if (total > 21) hand.busted = true;
       return { state: advance(state), extraStakeCents: 0 };
     }
     case "stand": {

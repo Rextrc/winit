@@ -10,7 +10,7 @@ import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
-import { CARD_STAGGER_MS, dealDurationMs, wait } from "@/lib/dealTiming";
+import { wait } from "@/lib/dealTiming";
 import sfx from "@/lib/sound";
 
 const ACTION_LABEL: Record<Action, string> = {
@@ -35,6 +35,20 @@ const SUIT_GLYPH: Record<string, string> = { S: "♠", H: "♥", D: "♦", C: "�
 type Flight = { dx: number; dy: number };
 const DEALER_FLIGHT: Flight = { dx: 150, dy: -55 };
 const PLAYER_FLIGHT: Flight = { dx: 210, dy: -270 };
+
+/** Slower than the shared CARD_STAGGER_MS other games use — Blackjack's cards
+ * fly and flip (see the card-fly/card-flip-reveal keyframes), and that extra
+ * motion reads as rushed at the same pace a flat deal-in uses elsewhere. */
+const BJ_CARD_STAGGER_MS = 650;
+/** Must match the card-fly/card-flip-reveal animation duration in tailwind.config.ts. */
+const BJ_CARD_DEAL_MS = 850;
+
+/** dealTiming's own dealDurationMs assumes the shared 0.55s card-deal
+ * animation; Blackjack's cards take longer, so it needs its own version. */
+function bjDealDurationMs(cardCount: number): number {
+  if (cardCount <= 0) return 0;
+  return (cardCount - 1) * BJ_CARD_STAGGER_MS + BJ_CARD_DEAL_MS;
+}
 
 /**
  * A dealt card: flies in from the shoe, then flips from back to front once
@@ -244,7 +258,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         // still has to be seen landing before the verdict prints under it.
         setResultsShown(false);
         setView(nextView);
-        await wait(dealDurationMs(newCardCount(null, nextView)));
+        await wait(bjDealDurationMs(newCardCount(null, nextView)));
         setResultsShown(true);
         applyResult(data.balanceCents, nextView.payoutCents - nextView.totalStakeCents);
         if (data.progress) applyProgress(data.progress);
@@ -290,7 +304,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
           // finish landing before any hand prints WIN/LOSS/PUSH/BUST.
           setResultsShown(false);
           setView(nextView);
-          await wait(dealDurationMs(newCardCount(previous, nextView)));
+          await wait(bjDealDurationMs(newCardCount(previous, nextView)));
           setResultsShown(true);
           applyResult(data.balanceCents, nextView.payoutCents - nextView.totalStakeCents);
           if (data.progress) applyProgress(data.progress);
@@ -344,8 +358,8 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         </span>
         <div className="flex min-h-[104px] gap-3" style={{ perspective: "1000px" }}>
           {view &&
-            view.dealer.map((c, i) => <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * CARD_STAGGER_MS} />)}
-          {view?.dealerHoleHidden && <BjCard delayMs={CARD_STAGGER_MS} />}
+            view.dealer.map((c, i) => <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * BJ_CARD_STAGGER_MS} />)}
+          {view?.dealerHoleHidden && <BjCard delayMs={BJ_CARD_STAGGER_MS} />}
         </div>
       </div>
 
@@ -370,7 +384,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
                 </span>
                 <div className="flex gap-3" style={{ perspective: "1000px" }}>
                   {hand.cards.map((c, ci) => (
-                    <BjCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * CARD_STAGGER_MS} flight={PLAYER_FLIGHT} />
+                    <BjCard key={`${c.r}${c.s}${ci}`} card={c} delayMs={ci * BJ_CARD_STAGGER_MS} flight={PLAYER_FLIGHT} />
                   ))}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
