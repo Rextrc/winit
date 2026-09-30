@@ -64,7 +64,7 @@ export default function GameFrame({
         </div>
 
         <div className="order-2 space-y-4 xl:order-1">
-          <div className="panel relative p-4 xl:sticky xl:top-20">
+          <div className="panel relative p-4">
             {/* Browsing never needs an account; placing a bet does. Rather than
                 let every game's own controls hit the API and 401, the whole
                 betting panel is visibly inert underneath a sign-in prompt —
