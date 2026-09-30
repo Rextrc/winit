@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { featuredLeagueKeys, getCatalog, getLeagues, getSchedule, groupCounts, isStarted } from "@/lib/sports/feed";
 import { feedErrorResponse } from "@/lib/sports/http";
 import type { LeagueEvents, SportEvent } from "@/lib/sports/types";
@@ -16,19 +15,13 @@ function filterLeagues(leagues: LeagueEvents[], keep: (e: SportEvent) => boolean
   return leagues.map((l) => ({ ...l, events: l.events.filter(keep) })).filter((l) => l.events.length > 0);
 }
 
-/** Upcoming events, most-backed on WinIt first, then soonest. */
-async function trending(leagues: LeagueEvents[]): Promise<SportEvent[]> {
-  const upcoming = leagues.flatMap((l) => l.events).filter((e) => !isStarted(e));
-  if (upcoming.length === 0) return [];
-  const counts = await prisma.sportsBetLeg.groupBy({
-    by: ["eventId"],
-    where: { eventId: { in: upcoming.map((e) => e.id) } },
-    _count: { _all: true },
-  });
-  const backed = new Map(counts.map((c) => [c.eventId, c._count._all]));
-  return upcoming
-    .sort((a, b) => (backed.get(b.id) ?? 0) - (backed.get(a.id) ?? 0) || a.commenceTime.localeCompare(b.commenceTime))
-    .slice(0, TRENDING_COUNT);
+/** What's actually happening right now first (live), then whatever kicks off soonest. */
+function trending(leagues: LeagueEvents[]): SportEvent[] {
+  const all = leagues.flatMap((l) => l.events);
+  if (all.length === 0) return [];
+  const live = all.filter((e) => isStarted(e)).sort((a, b) => b.commenceTime.localeCompare(a.commenceTime));
+  const upcoming = all.filter((e) => !isStarted(e)).sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
+  return [...live, ...upcoming].slice(0, TRENDING_COUNT);
 }
 
 export async function GET(req: Request) {
@@ -78,7 +71,7 @@ export async function GET(req: Request) {
     }
 
     const leagues = filterLeagues(featured, (e) => !isStarted(e));
-    return NextResponse.json({ catalog, liveCount, counts, leagueCounts, trending: await trending(featured), leagues });
+    return NextResponse.json({ catalog, liveCount, counts, leagueCounts, trending: trending(featured), leagues });
   } catch (err) {
     return feedErrorResponse(err);
   }

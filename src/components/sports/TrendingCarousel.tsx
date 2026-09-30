@@ -8,17 +8,8 @@ import SportIcon from "@/components/sports/SportIcon";
 import TeamBadge from "@/components/sports/TeamBadge";
 import HeroArt from "@/components/sports/HeroArt";
 import OddsButton from "@/components/sports/OddsButton";
-import { formatKickoff, useNow } from "@/components/sports/StartTime";
+import StartTime from "@/components/sports/StartTime";
 import { PlusBadge, eventHref } from "@/components/sports/LeaguePanel";
-
-function relative(ms: number): string {
-  const mins = Math.round(ms / 60_000);
-  if (mins < 60) return `in ${Math.max(1, mins)}m`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `in ${hours} hour${hours === 1 ? "" : "s"}`;
-  const days = Math.round(hours / 24);
-  return `in ${days} day${days === 1 ? "" : "s"}`;
-}
 
 function Arrow({ dir }: { dir: "left" | "right" }) {
   return (
@@ -29,11 +20,9 @@ function Arrow({ dir }: { dir: "left" | "right" }) {
 }
 
 function TrendingCard({ event, width }: { event: SportEvent; width: string }) {
-  const now = useNow();
   const market = mainMarket(event);
   const outcomes = market ? orderH2h(market.lines[0].outcomes, event.homeTeam, event.awayTeam) : [];
   const href = eventHref(event);
-  const left = new Date(event.commenceTime).getTime() - now;
 
   return (
     <article style={{ width }} className="flex shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-[#23262e]">
@@ -57,8 +46,8 @@ function TrendingCard({ event, width }: { event: SportEvent; width: string }) {
               <span className="block truncate">{event.homeTeam} vs.</span>
               <span className="block truncate">{event.awayTeam}</span>
             </p>
-            <p className="mt-0.5 truncate text-[12px] text-white/75">
-              {formatKickoff(event.commenceTime)} - {relative(left)}
+            <p className="mt-0.5 flex justify-center truncate text-[12px]">
+              <StartTime iso={event.commenceTime} onHero />
             </p>
           </div>
           <TeamBadge team={event.awayTeam} className="h-[34px] w-[48px] justify-self-end" />
