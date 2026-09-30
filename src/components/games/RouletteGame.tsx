@@ -4,10 +4,10 @@ import { useCallback, useMemo, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import RouletteWheel, { BALL_MS } from "@/components/games/RouletteWheel";
-import ChipRack from "@/components/games/ChipRack";
+import ChipRack, { ChipFace, chipTierIndex } from "@/components/games/ChipRack";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
-import { chipLabel, formatCents, formatSignedCents } from "@/lib/money";
+import { formatCents, formatSignedCents } from "@/lib/money";
 import {
   POCKETS,
   betCovers,
@@ -233,8 +233,13 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
   const Chip = ({ amount }: { amount: number }) =>
     amount > 0 ? (
-      <span className="num animate-chip-drop absolute -right-1.5 -top-1.5 z-20 grid h-5 min-w-[20px] place-items-center rounded-full border border-[#8a5f18] bg-gradient-to-b from-[#f5d78e] to-[#d4a83c] px-1 text-[9px] font-black text-[#2a1d05] shadow">
-        {chipLabel(amount)}
+      <span className="animate-chip-drop absolute -right-1.5 -top-1.5 z-20">
+        <ChipFace
+          value={amount}
+          tier={chipTierIndex(amount, maxBetCents)}
+          className="h-5 w-5"
+          labelClassName="text-[7px]"
+        />
       </span>
     ) : null;
 
