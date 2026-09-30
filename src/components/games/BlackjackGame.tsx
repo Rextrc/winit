@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import type { Action, BlackjackView, Card } from "@/lib/games/blackjack";
@@ -40,14 +40,33 @@ const PLAYER_FLIGHT: Flight = { dx: 210, dy: -270 };
  * fly and flip (see the card-fly/card-flip-reveal keyframes), and that extra
  * motion reads as rushed at the same pace a flat deal-in uses elsewhere. */
 const BJ_CARD_STAGGER_MS = 650;
+/** The dealer draws one considered card at a time to reach 17 — a bigger
+ * beat between each than the player's own cards, so it reads as the dealer
+ * making a decision rather than the whole hand being flicked out at once. */
+const BJ_DEALER_STAGGER_MS = 900;
 /** Must match the card-fly/card-flip-reveal animation duration in tailwind.config.ts. */
 const BJ_CARD_DEAL_MS = 850;
 
-/** dealTiming's own dealDurationMs assumes the shared 0.55s card-deal
- * animation; Blackjack's cards take longer, so it needs its own version. */
-function bjDealDurationMs(cardCount: number): number {
-  if (cardCount <= 0) return 0;
-  return (cardCount - 1) * BJ_CARD_STAGGER_MS + BJ_CARD_DEAL_MS;
+/** How long a card at absolute position `index` (0-based, within its own
+ * row) takes to finish landing — the delay every BjCard is actually given,
+ * plus its own flight+flip time. */
+function bjCardFinishMs(index: number, staggerMs: number = BJ_CARD_STAGGER_MS): number {
+  return index * staggerMs + BJ_CARD_DEAL_MS;
+}
+
+/**
+ * How long to hold the verdict back so every card the dealer reveals — the
+ * hole card, and any hit after it to reach 17 — has actually finished
+ * landing first. The dealer's hole always re-mounts from scratch on a DONE
+ * transition (it was a face-down placeholder the instant before), so its
+ * finish time is driven by its final hand length alone, not by how many
+ * cards were merely "new" this round; the same goes for whichever player
+ * hand's own last card triggered the transition (e.g. a hit that busted).
+ */
+function bjRevealMs(next: BlackjackView): number {
+  const dealerFinish = bjCardFinishMs(next.dealer.length - 1, BJ_DEALER_STAGGER_MS);
+  const handFinish = Math.max(0, ...next.hands.map((h) => bjCardFinishMs(h.cards.length - 1)));
+  return Math.max(dealerFinish, handFinish);
 }
 
 /**
@@ -149,16 +168,6 @@ const ACTION_ICON: Record<Action, JSX.Element> = {
   ),
 };
 
-/** How many dealer + player cards in `next` are not already in `prev`. */
-function newCardCount(prev: BlackjackView | null, next: BlackjackView): number {
-  const newDealer = Math.max(0, next.dealer.length - (prev?.dealer.length ?? 0));
-  const newPlayer = next.hands.reduce((sum, h, i) => {
-    const prevLen = prev?.hands[i]?.cards.length ?? 0;
-    return sum + Math.max(0, h.cards.length - prevLen);
-  }, 0);
-  return newDealer + newPlayer;
-}
-
 export default function BlackjackGame({ game }: { game: GameDef }) {
   const { effectiveBet, betError, pushFlash } = useBet();
   const { applyResult, applyProgress } = useWallet();
@@ -175,13 +184,8 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
   // reveal to actually finish, or the badge would just appear alongside the
   // first card and give the hand away.
   const [resultsShown, setResultsShown] = useState(true);
-  const viewRef = useRef<BlackjackView | null>(null);
 
   const inPlay = view !== null && view.phase !== "DONE";
-
-  useEffect(() => {
-    viewRef.current = view;
-  }, [view]);
 
   const { status: sessionStatus } = useSession();
 
@@ -258,7 +262,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         // still has to be seen landing before the verdict prints under it.
         setResultsShown(false);
         setView(nextView);
-        await wait(bjDealDurationMs(newCardCount(null, nextView)));
+        await wait(bjRevealMs(nextView));
         setResultsShown(true);
         applyResult(data.balanceCents, nextView.payoutCents - nextView.totalStakeCents);
         if (data.progress) applyProgress(data.progress);
@@ -296,7 +300,6 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
 
         const nextView = data.view as BlackjackView;
         const done = nextView.phase === "DONE";
-        const previous = viewRef.current;
 
         if (done) {
           // Standing can mean the dealer draws several cards to reach 17 —
@@ -304,7 +307,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
           // finish landing before any hand prints WIN/LOSS/PUSH/BUST.
           setResultsShown(false);
           setView(nextView);
-          await wait(bjDealDurationMs(newCardCount(previous, nextView)));
+          await wait(bjRevealMs(nextView));
           setResultsShown(true);
           applyResult(data.balanceCents, nextView.payoutCents - nextView.totalStakeCents);
           if (data.progress) applyProgress(data.progress);
@@ -358,8 +361,8 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         </span>
         <div className="flex min-h-[104px] gap-3" style={{ perspective: "1000px" }}>
           {view &&
-            view.dealer.map((c, i) => <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * BJ_CARD_STAGGER_MS} />)}
-          {view?.dealerHoleHidden && <BjCard delayMs={BJ_CARD_STAGGER_MS} />}
+            view.dealer.map((c, i) => <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * BJ_DEALER_STAGGER_MS} />)}
+          {view?.dealerHoleHidden && <BjCard delayMs={BJ_DEALER_STAGGER_MS} />}
         </div>
       </div>
 
