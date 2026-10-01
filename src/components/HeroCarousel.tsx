@@ -54,27 +54,43 @@ export default function HeroCarousel() {
       aria-roledescription="carousel"
       aria-label="Featured games"
     >
-      <div className={`relative bg-gradient-to-br ${game.art} transition-colors duration-500`}>
-        <div
-          className="absolute inset-0 opacity-[0.13]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.65) 1px, transparent 0)",
-            backgroundSize: "18px 18px",
-          }}
-        />
+      <div className={`relative bg-gradient-to-br ${game.art}`}>
+        {game.cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`bg-${game.slug}`}
+            src={game.cover}
+            alt=""
+            className="absolute inset-0 h-full w-full animate-pop-in object-cover object-[50%_18%]"
+            aria-hidden="true"
+          />
+        ) : (
+          <div
+            className="absolute inset-0 opacity-[0.13]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.65) 1px, transparent 0)",
+              backgroundSize: "18px 18px",
+            }}
+          />
+        )}
+        {/* Dark toward the text, transparent toward the art — keeps the
+            banner's own name/title legible over whatever cover is behind it. */}
+        <div className="absolute inset-0 bg-gradient-to-r from-base-900 via-base-900/75 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-base-900/90 via-transparent to-transparent" />
+
         <div className="relative flex flex-col gap-6 px-6 pb-4 pt-6 sm:px-9 sm:pt-9 lg:flex-row lg:items-center lg:justify-between">
           <div key={game.slug} className="max-w-xl animate-pop-in">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-volt">Featured</p>
-            <h1 className="font-display text-3xl font-black leading-none tracking-tight text-white sm:text-5xl">
+            <h1 className="font-display text-3xl font-black leading-none tracking-tight text-white sm:text-5xl [text-shadow:0_2px_16px_rgba(0,0,0,0.6)]">
               {game.name}
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="num rounded-lg bg-black/40 px-2.5 py-1 text-xs font-bold text-volt">
+              <span className="num rounded-lg bg-black/50 px-2.5 py-1 text-xs font-bold text-volt backdrop-blur-sm">
                 RTP {game.rtp === null ? "—" : `${(game.rtp * 100).toFixed(2)}%`}
               </span>
               {game.tags.map((t) => (
-                <span key={t} className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200">
+                <span key={t} className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200 backdrop-blur-sm">
                   {t}
                 </span>
               ))}
@@ -89,14 +105,6 @@ export default function HeroCarousel() {
                 Claim daily bonus
               </Link>
             </div>
-          </div>
-
-          <div
-            key={`art-${game.slug}`}
-            className="hidden animate-pop-in select-none text-[160px] font-black leading-none text-white/15 lg:block"
-            aria-hidden="true"
-          >
-            {game.glyph}
           </div>
         </div>
 
