@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { GameDef } from "@/lib/games/registry";
 import type { Action, BlackjackView, Card } from "@/lib/games/blackjack";
@@ -69,10 +69,11 @@ function bjRevealMs(next: BlackjackView, dealerOffsetMs = 0): number {
   return Math.max(dealerFinish, handFinish);
 }
 
-/** Best total ≤21 if possible — a local copy of the server's handTotal(),
- * since that lives in a module that pulls in Node's crypto for the shoe
- * shuffle and can't be imported into client code. */
-function cardsTotal(cards: Card[]): number {
+/** Best total ≤21 if possible, plus whether an ace is still counted as 11 —
+ * a local copy of the server's handTotal(), since that lives in a module
+ * that pulls in Node's crypto for the shoe shuffle and can't be imported
+ * into client code. */
+function cardsTotal(cards: Card[]): { total: number; soft: boolean } {
   let total = 0;
   let aces = 0;
   for (const c of cards) {
@@ -83,7 +84,7 @@ function cardsTotal(cards: Card[]): number {
     total -= 10;
     aces--;
   }
-  return total;
+  return { total, soft: aces > 0 };
 }
 
 /**
@@ -202,9 +203,16 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
   // first card and give the hand away.
   const [resultsShown, setResultsShown] = useState(true);
   // How many of the dealer's cards count toward the number shown under the
-  // dealer's hand — ticks up as each one actually lands, instead of either
-  // spoiling the total instantly or hiding it behind a placeholder.
+  // dealer's hand, and how many of each player hand's count toward theirs —
+  // each ticks up the instant its card's own flip actually finishes, rather
+  // than the total jumping ahead of the animation or hiding behind a
+  // placeholder. Previous lengths are tracked in a ref (not state) purely to
+  // tell a genuinely new card apart from one already on the table, across
+  // however many hits land one after another.
   const [dealerShownCount, setDealerShownCount] = useState(0);
+  const [handShownCounts, setHandShownCounts] = useState<number[]>([]);
+  const prevDealerLen = useRef(0);
+  const prevHandLens = useRef<number[]>([]);
   // Set whenever a player action busts (or auto-stands on 21) and the
   // dealer's own reveal has to wait for that card to finish landing first —
   // otherwise the dealer's hole flips at the same moment the bust does, and
@@ -216,19 +224,42 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
   useEffect(() => {
     if (!view) {
       setDealerShownCount(0);
+      setHandShownCounts([]);
+      prevDealerLen.current = 0;
+      prevHandLens.current = [];
       return;
     }
-    if (view.dealerHoleHidden) {
-      setDealerShownCount(1);
-      return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const dealerAlready = prevDealerLen.current;
+    setDealerShownCount((n) => Math.min(n, dealerAlready));
+    for (let i = dealerAlready; i < view.dealer.length; i++) {
+      const at = dealerOffsetMs + bjCardFinishMs(i, BJ_DEALER_STAGGER_MS);
+      timers.push(setTimeout(() => setDealerShownCount((n) => Math.max(n, i + 1)), at));
     }
-    setDealerShownCount(1);
-    const timers = view.dealer.slice(1).map((_, i) =>
-      setTimeout(
-        () => setDealerShownCount((n) => Math.max(n, i + 2)),
-        dealerOffsetMs + bjCardFinishMs(i + 1, BJ_DEALER_STAGGER_MS),
-      ),
-    );
+    prevDealerLen.current = view.dealer.length;
+
+    const handsAlready = prevHandLens.current;
+    setHandShownCounts((current) => view.hands.map((_, i) => Math.min(current[i] ?? 0, handsAlready[i] ?? 0)));
+    view.hands.forEach((hand, i) => {
+      for (let ci = handsAlready[i] ?? 0; ci < hand.cards.length; ci++) {
+        const at = bjCardFinishMs(ci, BJ_CARD_STAGGER_MS);
+        timers.push(
+          setTimeout(
+            () =>
+              setHandShownCounts((current) => {
+                const next = [...current];
+                next[i] = Math.max(next[i] ?? 0, ci + 1);
+                return next;
+              }),
+            at,
+          ),
+        );
+      }
+    });
+    prevHandLens.current = view.hands.map((h) => h.cards.length);
+
     return () => timers.forEach(clearTimeout);
   }, [view, dealerOffsetMs]);
 
@@ -395,15 +426,12 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     autoplay: false,
   });
 
+  // Ticks up with dealerShownCount — the up-card's own value doesn't appear
+  // until its flip actually finishes, same as every card after it. The full
+  // total is already known the instant a response arrives, win or bust, but
+  // showing it on schedule with the animation is the whole point.
   const dealerTotalText = view
-    ? view.dealerHoleHidden
-      ? `${view.dealerTotal} + ?`
-      : // The hole is flipped and any extra cards are drawn server-side before
-        // this response ever arrives, so the full total is known immediately —
-        // but the number shown ticks up with dealerShownCount, one card at a
-        // time as each actually lands, rather than spoiling it instantly or
-        // hiding it behind a placeholder.
-        String(cardsTotal(view.dealer.slice(0, dealerShownCount)))
+    ? `${cardsTotal(view.dealer.slice(0, dealerShownCount)).total}${view.dealerHoleHidden ? " + ?" : ""}`
     : "—";
 
   const canvas = (
@@ -433,6 +461,10 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         {view &&
           view.hands.map((hand, i) => {
             const active = view.phase === "PLAYER" && view.active === i;
+            // Ticks up with handShownCounts — in step with each card's own
+            // flip, same as the dealer's number, instead of jumping to the
+            // full total the instant a new card is merely requested.
+            const shown = cardsTotal(hand.cards.slice(0, handShownCounts[i] ?? 0));
             return (
               <div key={i} className="flex flex-col items-center">
                 <span
@@ -440,8 +472,8 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
                     active ? "bg-brand shadow-volt" : "bg-base-600"
                   }`}
                 >
-                  {hand.total}
-                  {hand.soft && hand.total <= 21 ? "s" : ""}
+                  {shown.total}
+                  {shown.soft && shown.total <= 21 ? "s" : ""}
                 </span>
                 <div className="flex gap-3" style={{ perspective: "1000px" }}>
                   {hand.cards.map((c, ci) => (
