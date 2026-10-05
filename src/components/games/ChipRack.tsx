@@ -1,6 +1,7 @@
 "use client";
 
 import { useBet } from "@/components/BetProvider";
+import { useWallet } from "@/components/WalletProvider";
 import { chipLabel } from "@/lib/money";
 
 /** The smallest a chip is ever allowed to be worth — $1, so nothing rounds
@@ -109,7 +110,12 @@ export function ChipFace({
  */
 export default function ChipRack({ disabled = false }: { disabled?: boolean }) {
   const { betCents, maxBetCents, setBetCents } = useBet();
-  const values = chipDenominations(maxBetCents);
+  const { balanceCents } = useWallet();
+  // Scale the rack to whatever the player can actually stake right now, not
+  // a table limit that might be far past their balance — true for a broke
+  // player under a normal cap, and especially true for an unlimited-bets
+  // account, whose "limit" is a deliberately astronomical placeholder.
+  const values = chipDenominations(Math.min(maxBetCents, balanceCents || maxBetCents));
 
   return (
     <div className="flex flex-wrap items-center gap-2.5">

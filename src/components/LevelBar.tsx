@@ -11,7 +11,7 @@ export default function LevelBar({ compact = false }: { compact?: boolean }) {
   const { progression } = useWallet();
   if (!progression) return null;
 
-  const { level, stage, progress, xp, xpToNext, rebirths } = progression;
+  const { level, stage, progress, xp, xpToNext, rebirths, unlimitedBets } = progression;
   const maxed = xpToNext === 0;
 
   return (
@@ -31,6 +31,14 @@ export default function LevelBar({ compact = false }: { compact?: boolean }) {
             {rebirths > 0 && (
               <span className="num shrink-0 rounded bg-fuchsia-400/15 px-1 text-[9px] font-black text-fuchsia-300">
                 R{rebirths}
+              </span>
+            )}
+            {unlimitedBets && (
+              <span
+                className="shrink-0 rounded bg-gradient-to-r from-amber-400/20 to-rose-400/20 px-1 text-[9px] font-black uppercase tracking-wide text-amber-300"
+                title="No table limit — opted in at sign-up"
+              >
+                No Limits
               </span>
             )}
           </span>

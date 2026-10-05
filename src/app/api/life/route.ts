@@ -22,7 +22,7 @@ export async function GET() {
   const { user, response } = await requireUser();
   if (!user) return response;
 
-  const limit = user.progression.maxBetCents;
+  const limit = user.progression.tableLimitCents;
 
   const venues = VENUES.map((v) => {
     const door = doorCheck(v, user.level, user.balanceCents);

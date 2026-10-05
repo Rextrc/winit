@@ -236,7 +236,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
       <span className="animate-chip-drop absolute -right-1.5 -top-1.5 z-20">
         <ChipFace
           value={amount}
-          tier={chipTierIndex(amount, maxBetCents)}
+          tier={chipTierIndex(amount, balanceCents !== null ? Math.min(maxBetCents, balanceCents) : maxBetCents)}
           className="h-5 w-5"
           labelClassName="text-[7px]"
         />

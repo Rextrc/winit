@@ -193,13 +193,21 @@ export default function LifePanel() {
 
             <div className="text-right">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                Your table limit
+                {p.unlimitedBets ? "Casino table limit" : "Your table limit"}
               </p>
-              <p className="num text-2xl font-black text-white">{formatCents(p.maxBetCents)}</p>
-              {nextLimit !== null && (
+              <p className="num text-2xl font-black text-white">
+                {p.unlimitedBets ? "No limit" : formatCents(p.maxBetCents)}
+              </p>
+              {p.unlimitedBets ? (
                 <p className="num mt-0.5 text-[11px] text-slate-500">
-                  {formatCents(nextLimit)} at level {p.level + 1}
+                  Life venues still price off {formatCents(p.tableLimitCents)}
                 </p>
+              ) : (
+                nextLimit !== null && (
+                  <p className="num mt-0.5 text-[11px] text-slate-500">
+                    {formatCents(nextLimit)} at level {p.level + 1}
+                  </p>
+                )
               )}
             </div>
           </div>

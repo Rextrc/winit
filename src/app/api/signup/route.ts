@@ -24,6 +24,7 @@ const schema = z.object({
   email: z.string().trim().email("That email doesn't look right.").optional().or(z.literal("")),
   referralCode: z.string().trim().max(32).optional().or(z.literal("")),
   turnstileToken: z.string().nullable().optional(),
+  unlimitedBets: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -121,6 +122,7 @@ export async function POST(req: Request) {
         signupIp: ip,
         referredById: referrer?.id ?? null,
         referredAt: referrer ? new Date() : null,
+        unlimitedBets: parsed.data.unlimitedBets ?? false,
       },
     });
     // The sign-up grant is logged so the ledger reconciles from zero.

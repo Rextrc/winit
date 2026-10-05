@@ -24,6 +24,7 @@ export default function SignupForm() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [unlimitedBets, setUnlimitedBets] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileNonce, setTurnstileNonce] = useState(0);
@@ -47,7 +48,7 @@ export default function SignupForm() {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, email, referralCode, turnstileToken }),
+        body: JSON.stringify({ username, password, email, referralCode, turnstileToken, unlimitedBets }),
       });
       const data = await res.json();
 
@@ -142,6 +143,44 @@ export default function SignupForm() {
           Start with {formatCents(REFEREE_BONUS_CENTS)} extra, and they get{" "}
           {formatCents(REFERRER_BONUS_CENTS)}.
         </p>
+      </div>
+
+      <div>
+        <p className="label">Table limit</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setUnlimitedBets(false)}
+            className={`rounded-xl border p-3 text-left transition ${
+              !unlimitedBets ? "border-volt bg-volt/10" : "border-white/10 bg-base-900 hover:border-white/20"
+            }`}
+          >
+            <span className="block text-[13px] font-bold text-white">Standard</span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+              Start small, level up to raise your table limit. The usual way to play.
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setUnlimitedBets(true)}
+            className={`rounded-xl border p-3 text-left transition ${
+              unlimitedBets ? "border-volt bg-volt/10" : "border-white/10 bg-base-900 hover:border-white/20"
+            }`}
+          >
+            <span className="block text-[13px] font-bold text-white">No limits</span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+              Bet any amount you can afford from the start — no level-gated cap, ever.
+            </span>
+          </button>
+        </div>
+        {unlimitedBets && (
+          <p className="mt-2 rounded-lg border border-volt/30 bg-volt/5 px-3 py-2 text-[11px] leading-relaxed text-slate-300">
+            This can&apos;t be switched back later. You still keep everything else: levels still unlock
+            every game and feature, achievements and rewards still work, and the Life career ladder —
+            including rebirth — plays exactly the same. You&apos;ll also get a No Limits badge next to
+            your name.
+          </p>
+        )}
       </div>
 
       <label className="flex items-start gap-2.5 text-[12px] leading-relaxed text-slate-400">

@@ -180,6 +180,7 @@ export async function awardProgress(
       visitedVenuesJson: true,
       eventsToday: true,
       eventDayKey: true,
+      unlimitedBets: true,
     },
   });
 
@@ -348,6 +349,8 @@ export async function awardProgress(
       peakBalanceCents,
       comebacksUsed,
       venueId: before.venueId,
+      // Life's own math (reputation, venue fares/minimums) always prices off
+      // the real level/rebirth limit — never the unlimited-bets ceiling.
       maxBetCents: describeProgression({
         level: rolled.level,
         xp: rolled.xp,
@@ -356,7 +359,8 @@ export async function awardProgress(
         lifetimeWonCents: 0,
         biggestWinCents: 0,
         bestMultiplierX100: 0,
-      }).maxBetCents,
+        unlimitedBets: false,
+      }).tableLimitCents,
       lifetimeWageredBefore: fromDb(before.lifetimeWageredCents),
       reputationBefore: before.reputation,
       visitedVenuesJson: before.visitedVenuesJson,
@@ -384,6 +388,7 @@ export async function awardProgress(
       comebacksUsed: true,
       reputation: true,
       deathCause: true,
+      unlimitedBets: true,
     },
   });
 
@@ -395,6 +400,7 @@ export async function awardProgress(
     lifetimeWonCents: fromDb(after.lifetimeWonCents),
     biggestWinCents: fromDb(after.biggestWinCents),
     bestMultiplierX100: after.bestMultiplierX100,
+    unlimitedBets: after.unlimitedBets,
   });
 
   return {
@@ -411,7 +417,7 @@ export async function awardProgress(
         venueId: before.venueId,
         deathCause: after.deathCause,
       },
-      progression.maxBetCents,
+      progression.tableLimitCents,
       MIN_BET_CENTS,
     ),
     careerEvents,

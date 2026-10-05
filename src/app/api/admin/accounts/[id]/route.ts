@@ -50,6 +50,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     lifetimeWonCents: fromDb(user.lifetimeWonCents),
     biggestWinCents: fromDb(user.biggestWinCents),
     bestMultiplierX100: user.bestMultiplierX100,
+    unlimitedBets: user.unlimitedBets,
   });
 
   let venuesVisited: string[] = [];
@@ -115,7 +116,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           venueId: user.venueId,
           deathCause: user.deathCause,
         },
-        progression.maxBetCents,
+        progression.tableLimitCents,
         MIN_BET_CENTS,
       ),
       reputation: {

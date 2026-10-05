@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useBet } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { MIN_BET_CENTS, formatCents, parseAmountToCents } from "@/lib/money";
+import { NO_LIMIT_CENTS } from "@/lib/progression";
 
 /**
  * Stake input plus the standard sizing shortcuts. Bound to the shared bet slip
@@ -36,7 +37,11 @@ export default function BetControls({
             Bet Amount
           </label>
           <span className="num text-[11px] text-slate-500">
-            {formatCents(MIN_BET_CENTS)} – {formatCents(maxBetCents)}
+            {maxBetCents >= NO_LIMIT_CENTS ? (
+              <span className="font-bold text-volt">No table limit</span>
+            ) : (
+              `${formatCents(MIN_BET_CENTS)} – ${formatCents(maxBetCents)}`
+            )}
           </span>
         </div>
       )}

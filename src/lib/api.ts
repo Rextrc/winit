@@ -61,6 +61,7 @@ export async function requireUser(): Promise<
     lifetimeWonCents: fromDb(row.lifetimeWonCents),
     biggestWinCents: fromDb(row.biggestWinCents),
     bestMultiplierX100: row.bestMultiplierX100,
+    unlimitedBets: row.unlimitedBets,
   });
 
   // Presence, throttled: a write only when the stamp is missing or stale, so
@@ -85,7 +86,7 @@ export async function requireUser(): Promise<
       venueId: row.venueId,
       deathCause: row.deathCause,
     },
-    progression.maxBetCents,
+    progression.tableLimitCents,
     MIN_BET_CENTS,
   );
 

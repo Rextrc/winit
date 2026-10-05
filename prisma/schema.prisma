@@ -56,6 +56,12 @@ model User {
   xp       Int @default(0)
   level    Int @default(1)
   rebirths Int @default(0)
+  // Opted out of the level/rebirth-gated table limit at sign-up. Permanent —
+  // there is no self-serve way back in, since the two systems price Life's
+  // venues differently and switching mid-career would make that math lie.
+  // Everything else (levels, unlocks, achievements, Life, rebirth) still
+  // works exactly the same; only the per-bet ceiling is gone.
+  unlimitedBets Boolean @default(false)
 
   // Career totals, kept across rebirths. BigInt because a long-lived account
   // can wager far past 2^31 cents.

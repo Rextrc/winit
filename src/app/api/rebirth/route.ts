@@ -92,6 +92,7 @@ export async function POST() {
           lifetimeWonCents: fromDb(after.lifetimeWonCents),
           biggestWinCents: fromDb(after.biggestWinCents),
           bestMultiplierX100: after.bestMultiplierX100,
+          unlimitedBets: user.progression.unlimitedBets,
         }),
       };
     });

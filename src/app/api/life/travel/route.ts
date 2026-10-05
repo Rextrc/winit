@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const door = doorCheck(venue, user.level, user.balanceCents);
   if (!door.open) return jsonError(door.reason, 409);
 
-  const costCents = travelCostCents(venue, user.progression.maxBetCents);
+  const costCents = travelCostCents(venue, user.progression.tableLimitCents);
   if (costCents > user.balanceCents) {
     return jsonError(`The trip costs ${formatCents(costCents)} and you cannot cover it.`, 409);
   }
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       venueName: venue.name,
       costCents,
       balanceCents: result.balanceCents,
-      tableMinCents: tableMinCents(venue, user.progression.maxBetCents, MIN_BET_CENTS),
+      tableMinCents: tableMinCents(venue, user.progression.tableLimitCents, MIN_BET_CENTS),
     });
   } catch (err) {
     return handleError(err);

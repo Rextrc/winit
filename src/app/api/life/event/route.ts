@@ -94,7 +94,7 @@ export async function POST(req: Request) {
       // Money first, through the ledger.
       // The same two ceilings the instant path uses: the table limit, and a
       // multiple of the stake that triggered this event in the first place.
-      const wanted = centsFor(effect, user.progression.maxBetCents, fromDb(row.stakeCents));
+      const wanted = centsFor(effect, user.progression.tableLimitCents, fromDb(row.stakeCents));
       let netCents = 0;
       let balanceCents = balanceBefore;
 

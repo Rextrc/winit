@@ -31,6 +31,15 @@ const REBIRTH_LIMIT_FACTOR = 3;
 /** Fake chips granted at sign-up and re-granted as a floor on rebirth. */
 export const STARTING_BALANCE_CENTS = 10_000_000; // 100,000.00
 
+/**
+ * The per-bet ceiling for an account that opted out of the level/rebirth
+ * table limit at sign-up. Not infinite — a real number keeps the money
+ * formatting and bet-clamping code honest — just far past any balance a
+ * player could plausibly reach, so in practice the only limit left is the
+ * balance itself.
+ */
+export const NO_LIMIT_CENTS = 10_000_000_000_000; // 100,000,000,000.00
+
 export type Unlock = "TURBO" | "BUY_FREE" | "BUY_SUPER" | "REBIRTH";
 
 export const UNLOCK_LEVELS: Record<Unlock, number> = {
@@ -156,7 +165,14 @@ export type Progression = {
   rebirths: number;
   stage: Stage;
   nextStage: Stage | null;
+  /** The per-bet ceiling actually enforced: NO_LIMIT_CENTS for an account
+   * that opted out at sign-up, otherwise the same as tableLimitCents. */
   maxBetCents: number;
+  /** The real level/rebirth-derived limit, regardless of unlimitedBets —
+   * what Life's venue fares and table minimums are priced off, and what
+   * rebirth actually multiplies. */
+  tableLimitCents: number;
+  unlimitedBets: boolean;
   rebirthMultiplier: number;
   xpMultiplier: number;
   canRebirth: boolean;
@@ -175,12 +191,14 @@ export type ProgressionSource = {
   lifetimeWonCents: number;
   biggestWinCents: number;
   bestMultiplierX100: number;
+  unlimitedBets: boolean;
 };
 
 export function describeProgression(u: ProgressionSource): Progression {
   const need = xpToNext(u.level);
   const stage = stageFor(u.level);
   const nextStage = STAGES.find((s) => s.from > u.level) ?? null;
+  const tableLimit = maxBetCents(u.level, u.rebirths);
 
   return {
     level: u.level,
@@ -190,7 +208,9 @@ export function describeProgression(u: ProgressionSource): Progression {
     rebirths: u.rebirths,
     stage,
     nextStage,
-    maxBetCents: maxBetCents(u.level, u.rebirths),
+    maxBetCents: u.unlimitedBets ? NO_LIMIT_CENTS : tableLimit,
+    tableLimitCents: tableLimit,
+    unlimitedBets: u.unlimitedBets,
     rebirthMultiplier: rebirthMultiplier(u.rebirths),
     xpMultiplier: xpMultiplier(u.rebirths),
     canRebirth: u.level >= MAX_LEVEL && u.rebirths < MAX_REBIRTHS,
