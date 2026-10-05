@@ -1,9 +1,13 @@
 "use client";
 
 /**
- * Sound effects, synthesized on the fly rather than shipped as audio files —
- * consistent with the rest of the app (every icon and card face is drawn
- * code too), and it means there is nothing to license, host or fetch.
+ * Sound effects. Almost everything here is synthesized on the fly rather
+ * than shipped as an audio file — consistent with the rest of the app
+ * (every icon and card face is drawn in code too), and it means there is
+ * nothing to license, host or fetch. The one exception is the card-deal
+ * sample in /public/sfx — "Card Flip" by F4ngy (freesound.org), CC-BY,
+ * trimmed — used because a real recording of card stock is not something a
+ * synthesizer reproduces convincingly.
  *
  * A single `AudioContext` is created lazily on the first call, because
  * browsers refuse to start one before a user gesture; every sound after
@@ -53,6 +57,10 @@ function audioCtx(): AudioContext | null {
   } catch {
     return null;
   }
+  // Kick the card-deal sample off right away rather than waiting for the
+  // first card to actually need it — by the time one lands, it's usually
+  // already decoded.
+  void loadCardDealBuffer(ctx);
   return ctx;
 }
 
@@ -116,6 +124,33 @@ function burst({
   src.stop(start + duration + 0.02);
 }
 
+/** Decoded once per AudioContext and reused — fetching and decoding on
+ * every single card dealt would be wasteful and would audibly lag. */
+let cardDealBuffer: Promise<AudioBuffer | null> | null = null;
+
+function loadCardDealBuffer(c: AudioContext): Promise<AudioBuffer | null> {
+  if (!cardDealBuffer) {
+    cardDealBuffer = fetch("/sfx/card-deal.mp3")
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => c.decodeAudioData(buf))
+      .catch(() => null);
+  }
+  return cardDealBuffer;
+}
+
+/** Plays a decoded sample once, through the same gain-ramped pipeline every
+ * synthesized sound uses, so muting and output routing stay consistent. */
+function sample(buffer: AudioBuffer, { gain = 0.5 }: { gain?: number } = {}): void {
+  const c = audioCtx();
+  if (!c) return;
+  const src = c.createBufferSource();
+  src.buffer = buffer;
+  const amp = c.createGain();
+  amp.gain.value = gain;
+  src.connect(amp).connect(c.destination);
+  src.start();
+}
+
 /** A named sequence of notes, so a "win" or "level up" is one function call. */
 const sfx = {
   /** A neutral UI tap — a bet placed, a control pressed. */
@@ -155,11 +190,19 @@ const sfx = {
   },
   /** A chat or inbox message arriving. Soft, easy to ignore. */
   notify: () => note(1046, { duration: 0.09, gain: 0.05, type: "sine" }),
-  /** A single card landing face down or face up — a quick snap of card stock
-   * hitting felt. Fired once per card, so a multi-card deal riffles. */
+  /** A single card landing face down or face up — a real recording of card
+   * stock (see the file header), fired once per card so a multi-card deal
+   * riffles. Falls back to a synthesized snap if the sample can't load. */
   cardDeal: () => {
-    burst({ duration: 0.045, gain: 0.16, freq: 3400, q: 0.7, type: "highpass" });
-    note(190, { duration: 0.04, gain: 0.025, type: "sine" });
+    const c = audioCtx();
+    if (!c) return;
+    loadCardDealBuffer(c).then((buf) => {
+      if (buf) sample(buf, { gain: 0.5 });
+      else {
+        burst({ duration: 0.045, gain: 0.16, freq: 3400, q: 0.7, type: "highpass" });
+        note(190, { duration: 0.04, gain: 0.025, type: "sine" });
+      }
+    });
   },
   /** The roulette ball, launch to landing: a rolling hiss that slows and
    * drops in pitch, a skitter of bounces over the frets, then a settling
