@@ -164,8 +164,8 @@ const config: Config = {
         // per-card delayMs across the app invisible, and every hand look like
         // it dealt in one frame no matter what delay was passed in.
         "card-deal": "card-deal 0.55s cubic-bezier(0.22,1,0.36,1) backwards",
-        "card-fly": "card-fly 0.85s cubic-bezier(0.22,1,0.36,1) both",
-        "card-flip-reveal": "card-flip-reveal 0.85s cubic-bezier(0.45,0,0.2,1) both",
+        "card-fly": "card-fly 0.65s cubic-bezier(0.22,1,0.36,1) both",
+        "card-flip-reveal": "card-flip-reveal 0.65s cubic-bezier(0.45,0,0.2,1) both",
         "float-up": "float-up 1.6s ease-out forwards",
         marquee: "marquee 26s linear infinite",
         "confetti-fall": "confetti-fall linear forwards",

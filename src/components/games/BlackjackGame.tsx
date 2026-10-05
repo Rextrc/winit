@@ -39,13 +39,13 @@ const PLAYER_FLIGHT: Flight = { dx: 210, dy: -270 };
 /** Slower than the shared CARD_STAGGER_MS other games use — Blackjack's cards
  * fly and flip (see the card-fly/card-flip-reveal keyframes), and that extra
  * motion reads as rushed at the same pace a flat deal-in uses elsewhere. */
-const BJ_CARD_STAGGER_MS = 650;
+const BJ_CARD_STAGGER_MS = 520;
 /** The dealer draws one considered card at a time to reach 17 — a bigger
  * beat between each than the player's own cards, so it reads as the dealer
  * making a decision rather than the whole hand being flicked out at once. */
-const BJ_DEALER_STAGGER_MS = 900;
+const BJ_DEALER_STAGGER_MS = 720;
 /** Must match the card-fly/card-flip-reveal animation duration in tailwind.config.ts. */
-const BJ_CARD_DEAL_MS = 850;
+const BJ_CARD_DEAL_MS = 650;
 
 /** How long a card at absolute position `index` (0-based, within its own
  * row) takes to finish landing — the delay every BjCard is actually given,
@@ -67,6 +67,23 @@ function bjRevealMs(next: BlackjackView): number {
   const dealerFinish = bjCardFinishMs(next.dealer.length - 1, BJ_DEALER_STAGGER_MS);
   const handFinish = Math.max(0, ...next.hands.map((h) => bjCardFinishMs(h.cards.length - 1)));
   return Math.max(dealerFinish, handFinish);
+}
+
+/** Best total ≤21 if possible — a local copy of the server's handTotal(),
+ * since that lives in a module that pulls in Node's crypto for the shoe
+ * shuffle and can't be imported into client code. */
+function cardsTotal(cards: Card[]): number {
+  let total = 0;
+  let aces = 0;
+  for (const c of cards) {
+    total += c.r === "A" ? 11 : ["K", "Q", "J", "10"].includes(c.r) ? 10 : Number(c.r);
+    if (c.r === "A") aces++;
+  }
+  while (total > 21 && aces > 0) {
+    total -= 10;
+    aces--;
+  }
+  return total;
 }
 
 /**
@@ -184,8 +201,28 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
   // reveal to actually finish, or the badge would just appear alongside the
   // first card and give the hand away.
   const [resultsShown, setResultsShown] = useState(true);
+  // How many of the dealer's cards count toward the number shown under the
+  // dealer's hand — ticks up as each one actually lands, instead of either
+  // spoiling the total instantly or hiding it behind a placeholder.
+  const [dealerShownCount, setDealerShownCount] = useState(0);
 
   const inPlay = view !== null && view.phase !== "DONE";
+
+  useEffect(() => {
+    if (!view) {
+      setDealerShownCount(0);
+      return;
+    }
+    if (view.dealerHoleHidden) {
+      setDealerShownCount(1);
+      return;
+    }
+    setDealerShownCount(1);
+    const timers = view.dealer.slice(1).map((_, i) =>
+      setTimeout(() => setDealerShownCount((n) => Math.max(n, i + 2)), bjCardFinishMs(i + 1, BJ_DEALER_STAGGER_MS)),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [view]);
 
   const { status: sessionStatus } = useSession();
 
@@ -342,12 +379,11 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     ? view.dealerHoleHidden
       ? `${view.dealerTotal} + ?`
       : // The hole is flipped and any extra cards are drawn server-side before
-        // this response ever arrives, so the number is known immediately —
-        // showing it the instant the cards land would announce a bust before
-        // the cards revealing that bust have actually finished appearing.
-        !resultsShown
-        ? "…"
-        : String(view.dealerTotal)
+        // this response ever arrives, so the full total is known immediately —
+        // but the number shown ticks up with dealerShownCount, one card at a
+        // time as each actually lands, rather than spoiling it instantly or
+        // hiding it behind a placeholder.
+        String(cardsTotal(view.dealer.slice(0, dealerShownCount)))
     : "—";
 
   const canvas = (
