@@ -63,8 +63,8 @@ function bjCardFinishMs(index: number, staggerMs: number = BJ_CARD_STAGGER_MS): 
  * cards were merely "new" this round; the same goes for whichever player
  * hand's own last card triggered the transition (e.g. a hit that busted).
  */
-function bjRevealMs(next: BlackjackView): number {
-  const dealerFinish = bjCardFinishMs(next.dealer.length - 1, BJ_DEALER_STAGGER_MS);
+function bjRevealMs(next: BlackjackView, dealerOffsetMs = 0): number {
+  const dealerFinish = dealerOffsetMs + bjCardFinishMs(next.dealer.length - 1, BJ_DEALER_STAGGER_MS);
   const handFinish = Math.max(0, ...next.hands.map((h) => bjCardFinishMs(h.cards.length - 1)));
   return Math.max(dealerFinish, handFinish);
 }
@@ -205,6 +205,11 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
   // dealer's hand — ticks up as each one actually lands, instead of either
   // spoiling the total instantly or hiding it behind a placeholder.
   const [dealerShownCount, setDealerShownCount] = useState(0);
+  // Set whenever a player action busts (or auto-stands on 21) and the
+  // dealer's own reveal has to wait for that card to finish landing first —
+  // otherwise the dealer's hole flips at the same moment the bust does, and
+  // you never get to actually see your own card arrive before the dealer's.
+  const [dealerOffsetMs, setDealerOffsetMs] = useState(0);
 
   const inPlay = view !== null && view.phase !== "DONE";
 
@@ -219,10 +224,13 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     }
     setDealerShownCount(1);
     const timers = view.dealer.slice(1).map((_, i) =>
-      setTimeout(() => setDealerShownCount((n) => Math.max(n, i + 2)), bjCardFinishMs(i + 1, BJ_DEALER_STAGGER_MS)),
+      setTimeout(
+        () => setDealerShownCount((n) => Math.max(n, i + 2)),
+        dealerOffsetMs + bjCardFinishMs(i + 1, BJ_DEALER_STAGGER_MS),
+      ),
     );
     return () => timers.forEach(clearTimeout);
-  }, [view]);
+  }, [view, dealerOffsetMs]);
 
   const { status: sessionStatus } = useSession();
 
@@ -275,6 +283,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
     setError(null);
     setSettledNet(null);
     setResultsShown(true);
+    setDealerOffsetMs(0);
     setView(null);
 
     try {
@@ -321,6 +330,11 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
       if (busy || !roundId) return;
       setBusy(true);
       setError(null);
+      // A hit or double adds exactly one card to whichever hand is active
+      // right now — captured before the request, since the response's view
+      // has no active hand any more once the round is DONE.
+      const activeIndex = view?.active ?? -1;
+      const addsPlayerCard = (action === "hit" || action === "double") && activeIndex >= 0;
 
       try {
         const res = await fetch("/api/games/blackjack", {
@@ -339,12 +353,18 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         const done = nextView.phase === "DONE";
 
         if (done) {
-          // Standing can mean the dealer draws several cards to reach 17 —
-          // every one of those, plus the hole card, is "new" here and has to
-          // finish landing before any hand prints WIN/LOSS/PUSH/BUST.
+          // If this action just busted (or auto-stood on 21), the player
+          // needs to actually see that card land before the dealer so much
+          // as flips its hole — otherwise both happen on the same beat and
+          // the bust gets no moment of its own. The dealer's whole reveal
+          // starts only once that card has finished.
+          const offset = addsPlayerCard
+            ? bjCardFinishMs(nextView.hands[activeIndex].cards.length - 1, BJ_CARD_STAGGER_MS)
+            : 0;
+          setDealerOffsetMs(offset);
           setResultsShown(false);
           setView(nextView);
-          await wait(bjRevealMs(nextView));
+          await wait(bjRevealMs(nextView, offset));
           setResultsShown(true);
           applyResult(data.balanceCents, nextView.payoutCents - nextView.totalStakeCents);
           if (data.progress) applyProgress(data.progress);
@@ -360,7 +380,7 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         setBusy(false);
       }
     },
-    [busy, roundId, applyResult, applyProgress, settle],
+    [busy, roundId, view, applyResult, applyProgress, settle],
   );
 
   useBetSlipHook({
@@ -397,7 +417,9 @@ export default function BlackjackGame({ game }: { game: GameDef }) {
         </span>
         <div className="flex min-h-[104px] gap-3" style={{ perspective: "1000px" }}>
           {view &&
-            view.dealer.map((c, i) => <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={i * BJ_DEALER_STAGGER_MS} />)}
+            view.dealer.map((c, i) => (
+              <BjCard key={`${c.r}${c.s}${i}`} card={c} delayMs={dealerOffsetMs + i * BJ_DEALER_STAGGER_MS} />
+            ))}
           {view?.dealerHoleHidden && <BjCard delayMs={BJ_DEALER_STAGGER_MS} />}
         </div>
       </div>
