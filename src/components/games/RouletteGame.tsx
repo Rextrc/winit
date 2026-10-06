@@ -8,6 +8,7 @@ import ChipRack, { ChipFace, chipTierIndex } from "@/components/games/ChipRack";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
+import sfx from "@/lib/sound";
 import {
   POCKETS,
   betCovers,
@@ -142,6 +143,7 @@ export default function RouletteGame({ game }: { game: GameDef }) {
           return prev;
         }
         setError(null);
+        sfx.chipPlace();
 
         const existing = prev.find((b) => b.key === key);
         if (existing) {
@@ -158,14 +160,16 @@ export default function RouletteGame({ game }: { game: GameDef }) {
 
   const clearBets = useCallback(() => {
     if (busy) return;
+    if (placed.length > 0) sfx.chipSweep();
     setPlaced([]);
     setError(null);
-  }, [busy]);
+  }, [busy, placed.length]);
 
   const undo = useCallback(() => {
-    if (busy) return;
+    if (busy || placed.length === 0) return;
+    sfx.chipSweep();
     setPlaced((prev) => prev.slice(0, -1));
-  }, [busy]);
+  }, [busy, placed.length]);
 
   const spin = useCallback(async () => {
     if (busy || placed.length === 0) {

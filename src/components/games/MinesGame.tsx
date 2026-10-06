@@ -10,6 +10,7 @@ import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { GRID_SIZE, MAX_MINES, MIN_MINES, multiplierAt, validMinesCount } from "@/lib/games/mines";
 import type { ProgressUpdate } from "@/lib/ledger";
+import sfx from "@/lib/sound";
 
 type View = {
   mines: number;
@@ -116,6 +117,8 @@ export default function MinesGame({ game }: { game: GameDef }) {
           setBusy(false);
           return;
         }
+        if (data.view.status === "LOST") sfx.mine();
+        else sfx.gem(data.view.revealed.length);
         if (data.view.status === "LOST") {
           applyOutcome(data, "Hit a mine", -view!.betCents);
         } else if (data.view.status === "WON") {

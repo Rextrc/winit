@@ -204,6 +204,33 @@ const sfx = {
       }
     });
   },
+  /** A casino chip set down on the felt: a hard clay clack with a little
+   * ring. Pitch wobbles slightly so stacking several in a row doesn't sound
+   * like a machine gun of one identical sample. */
+  chipPlace: () => {
+    const p = 1 + (Math.random() - 0.5) * 0.12;
+    burst({ duration: 0.035, gain: 0.16, freq: 4200 * p, q: 1.4 });
+    note(2300 * p, { duration: 0.07, gain: 0.035, type: "triangle" });
+    burst({ at: 0.045, duration: 0.025, gain: 0.07, freq: 5200 * p, q: 2 });
+  },
+  /** Chips swept off the layout (undo / clear). */
+  chipSweep: () => {
+    burst({ duration: 0.12, gain: 0.07, freq: 3000, q: 0.6 });
+    burst({ at: 0.05, duration: 0.03, gain: 0.08, freq: 4600, q: 2 });
+  },
+  /** A safe Mines tile flipping to a gem. Climbs in pitch with every safe
+   * reveal in the round, so a hot streak audibly builds tension. */
+  gem: (streak = 1) => {
+    const f = 660 * Math.pow(2, Math.min(streak - 1, 14) / 12);
+    note(f, { duration: 0.12, gain: 0.07, type: "triangle" });
+    note(f * 1.5, { at: 0.05, duration: 0.18, gain: 0.05, type: "sine" });
+  },
+  /** Hitting a mine: a low thump and a crackling noise blast. */
+  mine: () => {
+    note(110, { duration: 0.45, gain: 0.16, type: "sine", sweep: -70 });
+    burst({ duration: 0.5, gain: 0.18, freq: 900, q: 0.4, type: "lowpass" });
+    burst({ at: 0.02, duration: 0.18, gain: 0.08, freq: 2600, q: 0.5 });
+  },
   /** The roulette ball, launch to landing: a rolling hiss that slows and
    * drops in pitch, a skitter of bounces over the frets, then a settling
    * clack into the pocket. Durations are fractions of RouletteWheel's own
