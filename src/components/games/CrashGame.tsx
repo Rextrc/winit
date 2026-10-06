@@ -67,6 +67,21 @@ function Rocket({ angle, flying }: { angle: number; flying: boolean }) {
   );
 }
 
+/** The always-on room: a round launches every few seconds whether or not
+ * you've bet, so you can watch, then jump into the next one. */
+const COUNTDOWN_MS = 5_000;
+const CRASHED_HOLD_MS = 2_500;
+/** Time a finished bet's result stays up before the room moves on. */
+const RESULT_HOLD_MS = 3_000;
+
+/** Same 0.99/u shape as the real draw, capped so a watched round never drags. */
+function ambientCrashPoint(): number {
+  const u = 1 - Math.random();
+  return Math.min(40, Math.max(1, Math.floor((0.99 / u) * 100) / 100));
+}
+
+type Ambient = { phase: "countdown" | "flying" | "crashed"; until: number; crashPoint: number };
+
 /** How often a live manual round asks the server whether it has crashed. */
 const POLL_MS = 700;
 
@@ -85,6 +100,12 @@ export default function CrashGame({ game }: { game: GameDef }) {
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
   const [roundKey, setRoundKey] = useState(0);
+  const [ambient, setAmbient] = useState<Ambient | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  /** Launch pressed mid-flight: you're in on the next round. */
+  const [queued, setQueued] = useState(false);
+  const startRef = useRef<() => void>(() => {});
+  const launchRef = useRef<() => void>(() => {});
 
   const frame = useRef<number | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -252,10 +273,10 @@ export default function CrashGame({ game }: { game: GameDef }) {
   useBetSlipHook({
     slug: game.slug,
     name: game.name,
-    actionLabel: roundId ? "Cash out" : "Launch",
+    actionLabel: roundId ? "Cash out" : queued ? "Cancel" : "Launch",
     ready: roundId ? true : !betError && effectiveBet > 0 && (!auto || targetOk),
     busy: busy && !roundId,
-    run: roundId ? cashout : start,
+    run: roundId ? cashout : () => launchRef.current(),
     note: auto
       ? `Auto cash-out at ${targetOk ? target.toFixed(2) : "—"}x · ${targetOk ? (chanceOfReaching(target) * 100).toFixed(2) : "—"}% chance`
       : "Manual — cash out before it breaks.",
@@ -265,10 +286,79 @@ export default function CrashGame({ game }: { game: GameDef }) {
   const live = roundId !== null;
   const crashed = settled !== null && settled.cashedAt === null;
 
+  const playerActive = live || busy;
+
+  // The room loop. Pauses while your own round is in the air, holds your
+  // result for a beat afterwards, then carries on: countdown, flight, crash.
+  useEffect(() => {
+    if (playerActive) {
+      setAmbient(null);
+      return;
+    }
+    let raf = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const countdown = () => {
+      setSettled(null);
+      setDisplay(1);
+      setRoundKey((k) => k + 1);
+      setAmbient({ phase: "countdown", until: Date.now() + COUNTDOWN_MS, crashPoint: ambientCrashPoint() });
+    };
+    timer = setTimeout(countdown, settled ? RESULT_HOLD_MS : 0);
+    const tick = () => {
+      setNow(Date.now());
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(raf);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerActive]);
+
+  useEffect(() => {
+    if (!ambient || playerActive) return;
+    if (ambient.phase === "countdown") {
+      if (queued) {
+        setQueued(false);
+        setAmbient(null);
+        startRef.current();
+        return;
+      }
+      if (now >= ambient.until) setAmbient({ ...ambient, phase: "flying", until: now });
+    } else if (ambient.phase === "flying") {
+      const m = multiplierAt(now - ambient.until);
+      if (m >= ambient.crashPoint) {
+        setDisplay(ambient.crashPoint);
+        setAmbient({ ...ambient, phase: "crashed", until: now + CRASHED_HOLD_MS });
+      } else setDisplay(m);
+    } else if (now >= ambient.until) {
+      setDisplay(1);
+      setRoundKey((k) => k + 1);
+      setAmbient({ phase: "countdown", until: now + COUNTDOWN_MS, crashPoint: ambientCrashPoint() });
+    }
+  }, [now, ambient, playerActive, queued]);
+
+  const launch = useCallback(() => {
+    if (ambient && ambient.phase !== "countdown") setQueued((q) => !q);
+    else {
+      setAmbient(null);
+      start();
+    }
+  }, [ambient, start]);
+  startRef.current = start;
+  launchRef.current = launch;
+
+  const watching = !playerActive && ambient !== null;
+  const roomCrashed = watching && ambient.phase === "crashed";
+  const roomFlying = watching && ambient.phase === "flying";
+  const countdownLeft = watching && ambient.phase === "countdown" ? Math.max(0, ambient.until - now) : null;
+  const shownCrashed = crashed || roomCrashed;
+
   const canvas = (
     <div className="mx-auto w-full max-w-2xl">
       <div className="relative h-80 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0a1226] via-[#070c1b] to-[#03060e]">
-        <div className={`absolute inset-0 ${live ? "animate-star-drift" : ""}`}>
+        <div className={`absolute inset-0 ${live || roomFlying ? "animate-star-drift" : ""}`}>
           {STARS.map((st, i) => (
             <span
               key={i}
@@ -297,7 +387,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
           const dy = head[1] - prev[1];
           const angle = pts.length < 3 ? -18 : Math.max(-70, Math.min(-8, (Math.atan2(dy * 1.25, dx) * 180) / Math.PI));
           const line = pts.map((q) => q.join(",")).join(" ");
-          const color = crashed ? "#ff5a6e" : settled ? "#22c55e" : "#8f5cff";
+          const color = shownCrashed ? "#ff5a6e" : settled ? "#22c55e" : "#8f5cff";
           const left = `${(head[0] / 400) * 100}%`;
           const top = `${(head[1] / 200) * 100}%`;
           return (
@@ -313,7 +403,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
                 <polyline points={line} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />
               </svg>
               <div className="absolute" style={{ left, top }}>
-                {crashed ? (
+                {shownCrashed ? (
                   <>
                     <span className="absolute h-24 w-24 animate-boom rounded-full bg-[radial-gradient(circle,#fff5d6_0%,#ffb347_35%,#ff5a6e_60%,transparent_72%)]" />
                     {SHARDS.map((sh, i) => (
@@ -325,7 +415,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
                     ))}
                   </>
                 ) : (
-                  <Rocket angle={angle} flying={live || (busy && !settled)} />
+                  <Rocket angle={angle} flying={live || roomFlying || (busy && !settled)} />
                 )}
               </div>
             </>
@@ -335,12 +425,15 @@ export default function CrashGame({ game }: { game: GameDef }) {
         <div className="pointer-events-none absolute inset-x-0 top-6 text-center">
           <p
             className={`num text-6xl font-black tabular-nums drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] transition-colors ${
-              crashed ? "text-loss" : settled ? "text-win" : "text-white"
+              shownCrashed ? "text-loss" : settled ? "text-win" : "text-white"
             }`}
           >
-            {display.toFixed(2)}x
+            {countdownLeft !== null ? `${(countdownLeft / 1000).toFixed(1)}s` : `${display.toFixed(2)}x`}
           </p>
-          {crashed && <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-loss">Crashed</p>}
+          {countdownLeft !== null && (
+            <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-slate-300">Next round starting</p>
+          )}
+          {shownCrashed && <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-loss">Crashed</p>}
           {settled && !crashed && (
             <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-win">
               Cashed at {settled.cashedAt?.toFixed(2)}x
@@ -353,7 +446,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
       <CrashPlayers
         roundKey={roundKey}
         display={display}
-        phase={settled ? (crashed ? "crashed" : "cashed") : live || busy ? "flying" : "idle"}
+        phase={settled ? (crashed ? "crashed" : "cashed") : live || busy || roomFlying ? "flying" : roomCrashed ? "crashed" : "idle"}
       />
 
       {settled && (
@@ -422,11 +515,11 @@ export default function CrashGame({ game }: { game: GameDef }) {
       ) : (
         <button
           type="button"
-          onClick={start}
+          onClick={launch}
           disabled={busy || (auto && !targetOk)}
           className="btn-primary w-full py-3 text-base shadow-volt"
         >
-          {busy ? "In the air…" : `Launch ${formatCents(effectiveBet)}`}
+          {busy ? "In the air…" : queued ? "Joined next round — tap to cancel" : watching && ambient.phase !== "countdown" ? `Bet next round ${formatCents(effectiveBet)}` : `Launch ${formatCents(effectiveBet)}`}
         </button>
       )}
 
