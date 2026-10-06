@@ -21,7 +21,7 @@ export default function HomePage() {
        * "New" stays because it means something different: a short, curated
        * list of what actually shipped recently, not everything.
        */}
-      <GameRow title="WinIt Games" subtitle="Every game in the lobby" games={PLAYABLE} />
+      <GameRow title="WinIt Games" subtitle="Our own originals" games={PLAYABLE.filter((g) => g.category !== "table")} />
       <GameRow title="Table Games" games={gamesByCategory("table")} href="/category/table" />
       <GameRow title="Originals" games={gamesByCategory("originals")} href="/category/originals" />
       <GameRow title="Live" subtitle="Simulated tables — nothing streams anywhere" games={gamesByCategory("live")} href="/category/live" />
