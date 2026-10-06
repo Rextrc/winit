@@ -33,6 +33,13 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasUnseen, setHasUnseen] = useState(false);
+
+  // The phone tab bar has a Chat tab instead of this floating button.
+  useEffect(() => {
+    const toggle = () => setOpen((o) => !o);
+    window.addEventListener("winit:toggle-chat", toggle);
+    return () => window.removeEventListener("winit:toggle-chat", toggle);
+  }, []);
   const wrap = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const lastSeenId = useRef<string | null>(null);
@@ -135,9 +142,13 @@ export default function Chat() {
   }, []);
 
   return (
-    <div className="fixed bottom-24 right-4 z-40" ref={wrap}>
+    <div
+      className="fixed right-3 z-40 lg:right-4"
+      style={{ bottom: "calc(var(--betslip-h, 0px) + var(--mobilenav-h, 0px) + 12px)" }}
+      ref={wrap}
+    >
       {open && (
-        <div className="panel absolute bottom-[calc(100%+10px)] right-0 flex h-[420px] w-[320px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 shadow-2xl">
+        <div className="panel absolute bottom-[calc(100%+10px)] right-0 flex h-[min(420px,60vh)] w-[320px] max-w-[calc(100vw-1.5rem)] max-lg:bottom-0 flex-col overflow-hidden p-0 shadow-2xl">
           <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
             <p className="text-[12px] font-black uppercase tracking-[0.14em] text-white">Lobby chat</p>
             <button type="button" onClick={() => setOpen(false)} className="text-slate-400 hover:text-white" aria-label="Close chat">
@@ -195,7 +206,7 @@ export default function Chat() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative grid h-12 w-12 place-items-center rounded-full bg-volt text-white shadow-volt transition hover:-translate-y-0.5"
+        className="relative hidden h-12 w-12 place-items-center lg:grid rounded-full bg-volt text-white shadow-volt transition hover:-translate-y-0.5"
         aria-label={open ? "Close chat" : "Open lobby chat"}
         aria-expanded={open}
       >

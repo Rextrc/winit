@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { GAMES, CATEGORY_LABELS } from "@/lib/games/registry";
 import { IconSearch } from "@/components/Icons";
 
-export default function SearchBox() {
+export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ export default function SearchBox() {
   }, []);
 
   return (
-    <div ref={boxRef} className="relative w-full max-w-sm">
+    <div ref={boxRef} className={`relative w-full ${autoFocus ? "" : "max-w-sm"}`}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -52,6 +52,7 @@ export default function SearchBox() {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
+          autoFocus={autoFocus}
           placeholder="Search games"
           aria-label="Search games"
           className="field !py-2 pl-9 text-[13px]"

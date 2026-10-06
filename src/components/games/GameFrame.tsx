@@ -46,7 +46,7 @@ export default function GameFrame({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
         <div className="order-1 min-w-0 xl:order-2">
           <div className="stage overflow-hidden">
-            <div className="flex min-h-[460px] items-center justify-center p-4 sm:p-8">
+            <div className="flex min-h-[300px] items-center justify-center p-3 sm:min-h-[460px] sm:p-8">
               <div className="w-full">{canvas}</div>
             </div>
             <div className="flex items-center justify-between border-t border-white/[0.05] px-4 py-3">

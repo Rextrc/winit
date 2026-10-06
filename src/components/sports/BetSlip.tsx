@@ -158,7 +158,8 @@ export default function BetSlip() {
       <button
         type="button"
         onClick={() => slip.setOpen(true)}
-        className="fixed bottom-4 right-4 z-[45] flex items-center gap-2.5 rounded-full bg-brand py-3 pl-5 pr-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(124,58,255,0.8)] hover:bg-brand-400"
+        style={{ bottom: "calc(var(--mobilenav-h, 0px) + 16px)" }}
+        className="fixed right-4 z-[45] flex items-center gap-2.5 rounded-full bg-brand py-3 pl-5 pr-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(124,58,255,0.8)] hover:bg-brand-400"
       >
         Bet Slip
         <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white px-1.5 text-[12px] font-black text-brand">
@@ -169,7 +170,7 @@ export default function BetSlip() {
   }
 
   return (
-    <aside className="fixed inset-x-0 bottom-0 z-[45] flex max-h-[85vh] flex-col rounded-t-2xl border border-white/10 bg-[#1a1c23] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:max-h-[78vh] sm:w-[380px] sm:rounded-2xl xl:sticky xl:bottom-auto xl:right-auto xl:top-20 xl:z-auto xl:max-h-[calc(100vh-6rem)] xl:w-auto xl:self-start xl:shadow-none">
+    <aside style={{ paddingBottom: "env(safe-area-inset-bottom)" }} className="fixed inset-x-0 bottom-0 z-[50] flex max-h-[85vh] flex-col rounded-t-2xl border border-white/10 bg-[#1a1c23] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:max-h-[78vh] sm:w-[380px] sm:rounded-2xl xl:sticky xl:bottom-auto xl:right-auto xl:top-20 xl:z-auto xl:max-h-[calc(100vh-6rem)] xl:w-auto xl:self-start xl:shadow-none">
       <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3.5">
         <h2 className="text-[15px] font-black text-white">Bet Slip</h2>
         {legs.length > 0 && (

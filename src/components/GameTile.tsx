@@ -19,7 +19,7 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
 
   const body = game.cover ? (
     <div
-      className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-black shadow-tile transition duration-300 ${
+      className={`relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black sm:rounded-2xl shadow-tile transition duration-300 ${
         hover ? "-translate-y-1 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.9)]" : ""
       }`}
     >
@@ -73,7 +73,7 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
       </div>
 
       <span
-        className={`absolute inset-0 grid place-items-center text-[86px] font-black text-white/25 transition-transform duration-500 ${
+        className={`absolute inset-0 grid place-items-center text-[56px] sm:text-[86px] font-black text-white/25 transition-transform duration-500 ${
           hover ? "scale-110" : "scale-100"
         }`}
         aria-hidden="true"
@@ -83,7 +83,7 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
 
       {/* The game's name, as a bold wordmark sitting directly on the art. */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-2.5 pb-2.5 pt-8">
-        <p className="font-display truncate text-[15px] font-black uppercase leading-none tracking-tight text-white drop-shadow">
+        <p className="font-display truncate text-[12px] font-black uppercase sm:text-[15px] leading-none tracking-tight text-white drop-shadow">
           {game.name}
         </p>
 
@@ -106,7 +106,7 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
     </div>
   );
 
-  const className = `group block shrink-0 ${wide ? "w-[220px]" : "w-[152px]"} ${
+  const className = `group block shrink-0 ${wide ? "w-[44vw] sm:w-[220px]" : "w-[29vw] max-w-[152px] sm:w-[152px]"} ${
     game.playable ? "" : "cursor-not-allowed opacity-70"
   }`;
 

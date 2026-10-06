@@ -96,12 +96,12 @@ export default function HeroCarousel() {
               ))}
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-2.5">
+            <div className="mt-4 flex flex-wrap gap-2.5 sm:mt-6">
               <Link href={`/game/${game.slug}`} className="btn-primary shadow-volt">
                 <IconPlay className="h-4 w-4" />
                 Play now
               </Link>
-              <Link href="/rewards" className="btn-ghost">
+              <Link href="/rewards" className="btn-ghost hidden sm:inline-flex">
                 Claim daily bonus
               </Link>
             </div>

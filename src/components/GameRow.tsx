@@ -27,7 +27,7 @@ export default function GameRow({
   if (games.length === 0) return null;
 
   return (
-    <section className="mb-8">
+    <section className="mb-6 sm:mb-8">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[15px] font-black tracking-tight text-white">{title}</h2>
@@ -42,7 +42,7 @@ export default function GameRow({
           <button
             type="button"
             onClick={() => nudge(-1)}
-            className="grid h-7 w-7 place-items-center rounded-lg border border-white/10 text-slate-400 transition hover:border-volt/40 hover:text-volt"
+            className="hidden h-7 w-7 place-items-center sm:grid rounded-lg border border-white/10 text-slate-400 transition hover:border-volt/40 hover:text-volt"
             aria-label={`Scroll ${title} left`}
           >
             <IconChevronLeft className="h-4 w-4" />
@@ -50,7 +50,7 @@ export default function GameRow({
           <button
             type="button"
             onClick={() => nudge(1)}
-            className="grid h-7 w-7 place-items-center rounded-lg border border-white/10 text-slate-400 transition hover:border-volt/40 hover:text-volt"
+            className="hidden h-7 w-7 place-items-center sm:grid rounded-lg border border-white/10 text-slate-400 transition hover:border-volt/40 hover:text-volt"
             aria-label={`Scroll ${title} right`}
           >
             <IconChevronRight className="h-4 w-4" />

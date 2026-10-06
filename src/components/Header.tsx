@@ -20,12 +20,12 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const callbackUrl = pathname && pathname !== "/" ? `?callbackUrl=${encodeURIComponent(pathname)}` : "";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/5 bg-base-900/85 backdrop-blur-md">
-      <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
+    <header className="sticky top-0 z-30 border-b border-white/5 bg-base-900/85 backdrop-blur-md" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="flex h-14 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4 lg:px-6">
         <button
           type="button"
           onClick={onOpenMenu}
-          className="rounded-lg p-2 text-slate-300 hover:bg-white/5 lg:hidden"
+          className="hidden rounded-lg p-2 text-slate-300 hover:bg-white/5 sm:block lg:hidden"
           aria-label="Open menu"
         >
           <IconMenu />
@@ -39,14 +39,16 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <SearchBox />
         </div>
 
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5">
           {signedOut ? (
             <>
-              <SoundToggle />
-              <Link href={`/login${callbackUrl}`} className="btn-ghost px-4 py-2 text-sm">
+              <span className="hidden sm:block">
+                <SoundToggle />
+              </span>
+              <Link href={`/login${callbackUrl}`} className="btn-ghost px-3 py-2 text-sm sm:px-4">
                 Log in
               </Link>
-              <Link href={`/signup${callbackUrl}`} className="btn-primary px-4 py-2 text-sm">
+              <Link href={`/signup${callbackUrl}`} className="btn-primary px-3 py-2 text-sm sm:px-4">
                 Sign up
               </Link>
             </>
@@ -54,17 +56,17 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
             <>
               <LevelBar />
               <BalanceDisplay />
-              <ClaimBonusButton />
-              <SoundToggle />
+              <span className="hidden sm:block">
+                <ClaimBonusButton />
+              </span>
+              <span className="hidden sm:block">
+                <SoundToggle />
+              </span>
               <Inbox />
               <AvatarMenu />
             </>
           )}
         </div>
-      </div>
-
-      <div className="border-t border-white/5 px-4 py-2 md:hidden">
-        <SearchBox />
       </div>
     </header>
   );

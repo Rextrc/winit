@@ -20,10 +20,21 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+  appleWebApp: {
+    capable: true,
+    title: "WinIt",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   themeColor: "#080a12",
+  width: "device-width",
+  initialScale: 1,
+  // Lets the page paint under the notch and home indicator; every fixed
+  // bar pads itself back out with env(safe-area-inset-*).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

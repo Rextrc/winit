@@ -21,6 +21,38 @@ body {
     radial-gradient(900px 500px at 15% -10%, rgba(124, 58, 255, 0.07), transparent 60%),
     radial-gradient(700px 400px at 100% 0%, rgba(34, 221, 122, 0.04), transparent 55%);
   background-attachment: fixed;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Touch devices: iOS Safari repaints a fixed background on every scroll
+   frame (or ignores it), and zooms the whole page in when any input under
+   16px is focused — both read as a broken site on a phone. */
+@media (max-width: 1023px) {
+  body {
+    background-attachment: scroll;
+  }
+}
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Swipeable rows on touch: no visible scrollbar, snap per tile. */
+@media (hover: none) {
+  .rail {
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail > * {
+    scroll-snap-align: start;
+  }
 }
 
 @layer components {

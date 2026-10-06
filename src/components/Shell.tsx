@@ -13,6 +13,7 @@ import AwardToasts from "@/components/AwardToasts";
 import GoalBar from "@/components/GoalBar";
 import Onboarding from "@/components/onboarding/Onboarding";
 import Chat from "@/components/Chat";
+import MobileNav from "@/components/MobileNav";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -27,8 +28,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <Header onOpenMenu={() => setMenuOpen(true)} />
         <GoalBar />
         <main
-          className={`flex-1 px-4 pt-6 lg:px-6 ${sportsbook ? "pb-6" : ""}`}
-          style={sportsbook ? undefined : { paddingBottom: "calc(var(--betslip-h, 112px) + 16px)" }}
+          className={"flex-1 px-3 pt-4 sm:px-4 sm:pt-6 lg:px-6"}
+          style={{ paddingBottom: `calc(${sportsbook ? "0px" : "var(--betslip-h, 0px)"} + var(--mobilenav-h, 0px) + 24px)` }}
         >
           <div className="mx-auto w-full max-w-[1400px]">{children}</div>
         </main>
@@ -40,6 +41,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <AwardToasts />
         <Onboarding />
         <Chat />
+        <MobileNav onOpenMenu={() => setMenuOpen(true)} />
       </div>
     </div>
   );

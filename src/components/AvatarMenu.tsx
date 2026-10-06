@@ -6,6 +6,8 @@ import { signOut, useSession } from "next-auth/react";
 import { IconHistory, IconLogout, IconRewards, IconSettings } from "@/components/Icons";
 import { formatCents } from "@/lib/money";
 import { useWallet } from "@/components/WalletProvider";
+import { IconSoundOff, IconSoundOn } from "@/components/Icons";
+import { isSoundMuted, setSoundMuted } from "@/lib/sound";
 
 /** Deterministic hue from the username so every avatar is stable but distinct. */
 function hueFor(name: string): number {
@@ -19,6 +21,8 @@ export default function AvatarMenu() {
   const { balanceCents, progression } = useWallet();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [muted, setMuted] = useState(false);
+  useEffect(() => setMuted(isSoundMuted()), [open]);
 
   const username = session?.user?.username ?? "player";
   const hue = hueFor(username);
@@ -89,6 +93,17 @@ export default function AvatarMenu() {
               {label}
             </Link>
           ))}
+          <button
+            type="button"
+            onClick={() => {
+              setSoundMuted(!muted);
+              setMuted(!muted);
+            }}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white sm:hidden"
+          >
+            {muted ? <IconSoundOff className="h-4 w-4" /> : <IconSoundOn className="h-4 w-4" />}
+            Sound {muted ? "off" : "on"}
+          </button>
           <div className="my-1 border-t border-white/5" />
           <button
             type="button"

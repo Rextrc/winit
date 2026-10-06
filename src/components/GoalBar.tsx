@@ -26,7 +26,7 @@ export default function GoalBar() {
   return (
     <Link
       href={goal.href}
-      className="group flex items-center gap-3 border-b border-white/5 bg-base-900/60 px-4 py-2 transition hover:bg-base-900 lg:px-6"
+      className="group hidden items-center gap-3 border-b border-white/5 bg-base-900/60 px-4 py-2 transition hover:bg-base-900 lg:px-6 sm:flex"
     >
       <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
         Next goal

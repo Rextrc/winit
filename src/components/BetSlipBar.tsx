@@ -31,7 +31,7 @@ export default function BetSlipBar() {
   const { status } = useSession();
   const pathname = usePathname();
   const signedOut = status === "unauthenticated";
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [shownFlash, setShownFlash] = useState<typeof flash>(null);
   const [autoplayLeft, setAutoplayLeft] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -46,7 +46,8 @@ export default function BetSlipBar() {
   useEffect(() => {
     const el = barRef.current;
     if (!el) return;
-    const publish = () => document.documentElement.style.setProperty("--betslip-h", `${el.offsetHeight}px`);
+    const publish = () =>
+      document.documentElement.style.setProperty("--betslip-h", `${el.offsetHeight}px`);
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
@@ -129,7 +130,11 @@ export default function BetSlipBar() {
   }, [hook, canAfford, signedOut]);
 
   return (
-    <div ref={barRef} className="sticky bottom-0 z-30 border-t border-white/10 bg-base-800/95 backdrop-blur-md relative">
+    <div
+      ref={barRef}
+      className={`fixed inset-x-0 z-30 border-t border-white/10 bg-base-800/95 backdrop-blur-md lg:sticky lg:!bottom-0 ${hook ? "" : "max-lg:hidden"}`}
+      style={{ bottom: "var(--mobilenav-h, 0px)" }}
+    >
       {/* Floats above the bar instead of pushing its height — a result
           banner popping on every single bet was the main source of the bar
           visibly jumping around ("glitchy"), and a taller bar also needs a
@@ -183,25 +188,25 @@ export default function BetSlipBar() {
           </div>
         </div>
 
-        <div className={`${open ? "flex" : "hidden"} flex-1 flex-col gap-2 lg:flex lg:flex-row lg:items-center`}>
-          <div className="flex-1 lg:max-w-md">
+        <div className="flex flex-1 flex-col gap-2 lg:flex-row lg:items-center">
+          <div className={`${open ? "block" : "hidden"} flex-1 lg:block lg:max-w-md`}>
             <BetControls compact disabled={(hook?.busy ?? false) || autoplayRunning} />
           </div>
 
           {hook && signedOut ? (
             <Link
               href={`/login?callbackUrl=${encodeURIComponent(pathname ?? "/")}`}
-              className="btn-primary h-[42px] min-w-[150px] justify-center shadow-volt"
+              className="btn-primary h-[46px] min-w-[150px] justify-center shadow-volt max-lg:order-first lg:h-[42px]"
             >
               Sign in to {hook.actionLabel.toLowerCase()}
             </Link>
           ) : hook ? (
-            <div className="flex items-stretch gap-1.5">
+            <div className="flex items-stretch gap-1.5 max-lg:order-first">
               <button
                 type="button"
                 onClick={hook.run}
                 disabled={!hook.ready || hook.busy || !canAfford || autoplayRunning}
-                className="btn-primary h-[42px] min-w-[130px] shadow-volt"
+                className="btn-primary h-[46px] flex-1 shadow-volt lg:h-[42px] lg:min-w-[130px] lg:flex-none"
                 title="Spacebar also works"
               >
                 <IconPlay className="h-4 w-4" />
@@ -249,7 +254,7 @@ export default function BetSlipBar() {
         </div>
       </div>
 
-      {hook?.note && !autoplayRunning && (
+      {hook?.note && !autoplayRunning && open && (
         <p className="px-4 pb-2 text-center text-[11px] text-slate-500 lg:px-6 lg:text-left">{hook.note}</p>
       )}
     </div>
