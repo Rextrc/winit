@@ -2,13 +2,12 @@ import HeroCarousel from "@/components/HeroCarousel";
 import CategoryTabs from "@/components/CategoryTabs";
 import GameRow from "@/components/GameRow";
 import BetFeed from "@/components/BetFeed";
-import { GAMES, PLAYABLE, gamesByCategory } from "@/lib/games/registry";
+import { PLAYABLE, gamesByCategory } from "@/lib/games/registry";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
-  const fresh = GAMES.filter((g) => g.new);
 
   return (
     <>
@@ -22,7 +21,7 @@ export default function HomePage() {
        * "New" stays because it means something different: a short, curated
        * list of what actually shipped recently, not everything.
        */}
-      {fresh.length > 0 && <GameRow title="New" subtitle="Just added to the lobby" games={fresh} />}
+      <GameRow title="WinIt Games" subtitle="Every game in the lobby" games={PLAYABLE} />
       <GameRow title="Table Games" games={gamesByCategory("table")} href="/category/table" />
       <GameRow title="Originals" games={gamesByCategory("originals")} href="/category/originals" />
       <GameRow title="Live" subtitle="Simulated tables — nothing streams anywhere" games={gamesByCategory("live")} href="/category/live" />
