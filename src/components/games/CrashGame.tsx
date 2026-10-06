@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
+import CrashPlayers from "@/components/games/CrashPlayers";
 import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
@@ -83,6 +84,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
   const [settled, setSettled] = useState<{ netCents: number; cashedAt: number | null; crashPoint: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
+  const [roundKey, setRoundKey] = useState(0);
 
   const frame = useRef<number | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -157,6 +159,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
     setError(null);
     setSettled(null);
     setDisplay(1);
+    setRoundKey((k) => k + 1);
     stopLoops();
 
     try {
@@ -346,6 +349,12 @@ export default function CrashGame({ game }: { game: GameDef }) {
           {live && <p className="mt-1 text-[12px] text-slate-400">Cash out any time</p>}
         </div>
       </div>
+
+      <CrashPlayers
+        roundKey={roundKey}
+        display={display}
+        phase={settled ? (crashed ? "crashed" : "cashed") : live || busy ? "flying" : "idle"}
+      />
 
       {settled && (
         <div className="animate-pop-in mt-4 text-center">

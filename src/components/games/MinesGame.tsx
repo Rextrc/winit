@@ -11,6 +11,7 @@ import { formatCents, formatSignedCents } from "@/lib/money";
 import { GRID_SIZE, MAX_MINES, MIN_MINES, multiplierAt, validMinesCount } from "@/lib/games/mines";
 import type { ProgressUpdate } from "@/lib/ledger";
 import sfx from "@/lib/sound";
+import { Bomb, Gem } from "@/components/games/MinesArt";
 
 type View = {
   mines: number;
@@ -208,11 +209,19 @@ export default function MinesGame({ game }: { game: GameDef }) {
                   : isRevealed
                     ? "border-volt/60 bg-volt/10 text-volt animate-pop-in"
                     : settled
-                      ? "border-white/5 bg-white/[0.02] opacity-40"
+                      ? "border-white/5 bg-white/[0.02] opacity-60"
                       : "border-white/10 bg-white/[0.04] hover:border-volt/40 hover:bg-white/[0.08]"
               }`}
             >
-              {showMine ? "✸" : isRevealed ? "✓" : ""}
+              {showMine ? (
+                <span className="grid h-full w-full place-items-center animate-pop-in">
+                  <Bomb />
+                </span>
+              ) : isRevealed || (settled && !isMine) ? (
+                <span className={`grid h-full w-full place-items-center ${isRevealed ? "animate-pop-in" : "opacity-50"}`}>
+                  <Gem />
+                </span>
+              ) : null}
             </button>
           );
         })}
