@@ -9,6 +9,7 @@ import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { wait } from "@/lib/dealTiming";
+import sfx from "@/lib/sound";
 import {
   KENO_MAX_PICKS,
   KENO_POOL,
@@ -87,21 +88,24 @@ export default function KenoGame({ game }: { game: GameDef }) {
       if (busy) return;
       setLast(null);
       setRevealed([]);
+      if (picks.includes(n)) sfx.kenoPick(false);
+      else if (picks.length < KENO_MAX_PICKS) sfx.kenoPick(true);
       setPicks((p) => {
         if (p.includes(n)) return p.filter((x) => x !== n);
         if (p.length >= KENO_MAX_PICKS) return p;
         return [...p, n].sort((a, b) => a - b);
       });
     },
-    [busy],
+    [busy, picks],
   );
 
   const clear = useCallback(() => {
     if (busy) return;
+    if (picks.length) sfx.chipSweep();
     setPicks([]);
     setLast(null);
     setRevealed([]);
-  }, [busy]);
+  }, [busy, picks.length]);
 
   /** Fills the board to the maximum with numbers drawn uniformly at random. */
   const autoPick = useCallback(() => {
@@ -114,6 +118,7 @@ export default function KenoGame({ game }: { game: GameDef }) {
     setLast(null);
     setRevealed([]);
     setPicks(pool.slice(0, KENO_MAX_PICKS).sort((a, b) => a - b));
+    for (let i = 0; i < 5; i++) setTimeout(() => sfx.kenoPick(true), i * 45);
   }, [busy]);
 
   /** One round. Returns the settled net, or null if it did not resolve. */
@@ -136,8 +141,11 @@ export default function KenoGame({ game }: { game: GameDef }) {
     // are revealed one at a time here, on the client, before anything about
     // the result (the card, the hit count, the balance) is shown.
     setRevealed([]);
+    let hits = 0;
     for (const n of payload.drawn) {
       await wait(DRAW_STAGGER_MS);
+      if (picks.includes(n)) sfx.kenoHit(++hits);
+      else sfx.kenoDraw();
       setRevealed((r) => [...r, n]);
     }
     await wait(DRAW_STAGGER_MS * 2);

@@ -231,6 +231,23 @@ const sfx = {
     burst({ duration: 0.5, gain: 0.18, freq: 900, q: 0.4, type: "lowpass" });
     burst({ at: 0.02, duration: 0.18, gain: 0.08, freq: 2600, q: 0.5 });
   },
+  /** Selecting (or un-selecting) a Keno number. */
+  kenoPick: (on = true) => {
+    note(on ? 1180 : 780, { duration: 0.06, gain: 0.05, type: "triangle" });
+    burst({ duration: 0.02, gain: 0.05, freq: 5000, q: 2 });
+  },
+  /** A drawn Keno ball that isn't one of yours: a soft pop. */
+  kenoDraw: () => {
+    burst({ duration: 0.04, gain: 0.08, freq: 1500, q: 1.2 });
+    note(420, { duration: 0.08, gain: 0.04, type: "sine", sweep: -80 });
+  },
+  /** A drawn ball that hits one of your picks — brighter with every hit. */
+  kenoHit: (hits = 1) => {
+    const f = 784 * Math.pow(2, Math.min(hits - 1, 12) / 12);
+    note(f, { duration: 0.14, gain: 0.08, type: "triangle" });
+    note(f * 2, { at: 0.04, duration: 0.2, gain: 0.04, type: "sine" });
+    burst({ duration: 0.03, gain: 0.06, freq: 5200, q: 2 });
+  },
   /** The roulette ball, launch to landing: a rolling hiss that slows and
    * drops in pitch, a skitter of bounces over the frets, then a settling
    * clack into the pocket. Durations are fractions of RouletteWheel's own
