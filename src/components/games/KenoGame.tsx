@@ -257,26 +257,16 @@ export default function KenoGame({ game }: { game: GameDef }) {
                   hit
                     ? "bg-win/15 text-win shadow-[0_0_0_2px_rgba(46,230,184,0.55),0_0_22px_-4px_rgba(46,230,184,0.8)]"
                     : picked
-                      ? "bg-win/10 text-win shadow-[0_0_0_2px_rgba(46,230,184,0.4)]"
+                      ? "bg-volt/15 text-white shadow-[0_0_0_2px_rgba(143,92,255,0.65)]"
                       : missedDraw
                         ? "bg-base-900 text-loss/80"
                         : "bg-base-700/70 text-slate-500 hover:-translate-y-0.5 hover:bg-base-600/70 hover:text-slate-300"
                 }`}
               >
-                {picked ? (
+                {hit ? (
                   <>
-                    <KenoGem
-                      className={`h-[68%] w-[68%] ${hit ? "text-win" : "text-win/70"} ${
-                        hit ? "animate-pop-in" : ""
-                      }`}
-                    />
-                    <span
-                      className={`absolute inset-0 grid place-items-center ${
-                        hit ? "text-base-900" : "text-base-900/90"
-                      }`}
-                    >
-                      {n}
-                    </span>
+                    <KenoGem className="h-[72%] w-[72%] animate-pop-in text-win drop-shadow-[0_0_10px_rgba(46,230,184,0.7)]" />
+                    <span className="absolute inset-0 grid place-items-center text-base-900">{n}</span>
                   </>
                 ) : (
                   n
