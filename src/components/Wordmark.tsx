@@ -1,9 +1,14 @@
+import { useId } from "react";
+
 /** Original WinIt wordmark — pure SVG/CSS, no external assets. */
 export function Mark({ className = "h-9 w-9" }: { className?: string }) {
+  // Unique per instance: with a shared id, a hidden copy (the collapsed
+  // sidebar on phones) takes its gradient with it and the visible W vanishes.
+  const gid = `winit-mark-${useId().replace(/:/g, "")}`;
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
       <defs>
-        <linearGradient id="winit-mark" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#6fb1ff" />
           <stop offset="100%" stopColor="#0d6ef0" />
         </linearGradient>
@@ -13,7 +18,7 @@ export function Mark({ className = "h-9 w-9" }: { className?: string }) {
       <path
         d="M8 12.5 13.5 27 20 17.5 26.5 27 32 12.5"
         fill="none"
-        stroke="url(#winit-mark)"
+        stroke={`url(#${gid})`}
         strokeWidth="3.2"
         strokeLinecap="round"
         strokeLinejoin="round"

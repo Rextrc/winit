@@ -48,7 +48,18 @@ export async function POST(req: Request) {
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
-      data: { username, passwordHash, isGuest: false, referralCode: generateCode() },
+      data: {
+        username,
+        passwordHash,
+        isGuest: false,
+        referralCode: generateCode(),
+        // A guest who went broke comes back to life as a real account.
+        deathCause: null,
+        diedAt: null,
+        careerDays: 0,
+        comebacksUsed: 0,
+        careerStartedAt: new Date(),
+      },
     });
     const balance = await credit(tx, user.id, STARTING_BALANCE_CENTS);
     await writeTransaction(tx, {

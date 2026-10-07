@@ -19,7 +19,7 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
 
   const body = game.cover ? (
     <div
-      className={`relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black sm:rounded-2xl shadow-tile transition duration-300 ${
+      className={`relative aspect-[17/25] w-full overflow-hidden rounded-[10px] bg-transparent sm:rounded-[14px] shadow-tile transition duration-300 ${
         hover ? "-translate-y-1 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.9)]" : ""
       }`}
     >
@@ -27,7 +27,7 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
         src={game.cover}
         alt={game.name}
         loading="lazy"
-        className={`h-full w-full object-cover transition-transform duration-500 ${hover ? "scale-[1.08]" : "scale-[1.04]"}`}
+        className={`h-full w-full object-cover transition-transform duration-500 scale-100`}
       />
       {game.playable && (
         <span
@@ -41,7 +41,7 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
     </div>
   ) : (
     <div
-      className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-gradient-to-br ${game.art} shadow-tile ring-1 ring-white/10 transition duration-300 ${
+      className={`relative aspect-[17/25] w-full overflow-hidden rounded-[14px] bg-gradient-to-br ${game.art} shadow-tile ring-1 ring-white/10 transition duration-300 ${
         hover ? "-translate-y-1 ring-volt/60" : ""
       }`}
     >

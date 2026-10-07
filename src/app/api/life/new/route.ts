@@ -27,6 +27,7 @@ export const runtime = "nodejs";
 export async function POST() {
   const { user, response } = await requireUser();
   if (!user) return response;
+  if (user.progression.isGuest) return jsonError("Sign up to keep playing — guest runs can't be restarted.", 403);
 
   if (!user.career.over) {
     return jsonError("You are still alive. Play this career out first.", 409);

@@ -16,6 +16,10 @@ export default function GuestButton({ className = "btn-ghost", label = "Play as 
     try {
       const res = await fetch("/api/guest", { method: "POST" });
       const data = await res.json();
+      if (res.status === 403) {
+        router.push("/signup");
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Couldn't start a guest session.");
       const r = await signIn("credentials", {
         username: data.username,

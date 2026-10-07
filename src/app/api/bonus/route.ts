@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 export async function POST() {
   const { user, response } = await requireUser();
   if (!user) return response;
+  if (user.progression.isGuest) return jsonError("Save your account to claim this.", 403);
 
   try {
     const result = await prisma.$transaction(async (tx) => {

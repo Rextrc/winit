@@ -22,6 +22,14 @@ const GUESTS_PER_IP_PER_DAY = 3;
 export async function POST(req: Request) {
   const ip = clientIp(req);
   if (ip) {
+    // A guest run that ended (ruined, or broke) locks this connection out of
+    // further guest sessions — the next step is a real account.
+    const spent = await prisma.user.count({
+      where: { isGuest: true, signupIp: ip, OR: [{ deathCause: { not: null } }, { balanceCents: { lt: 10 } }] },
+    });
+    if (spent > 0) {
+      return jsonError("Your guest run is over on this connection — sign up free to keep playing.", 403);
+    }
     const recent = await prisma.user.count({
       where: { isGuest: true, signupIp: ip, createdAt: { gt: new Date(Date.now() - 86_400_000) } },
     });

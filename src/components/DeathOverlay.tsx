@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useWallet } from "@/components/WalletProvider";
 import { END_AGE } from "@/lib/life/career";
 
@@ -13,9 +14,36 @@ import { END_AGE } from "@/lib/life/career";
  * notification, not the mechanism.
  */
 export default function DeathOverlay() {
-  const { death, dismissDeath } = useWallet();
-  if (!death) return null;
+  const { death, dismissDeath, progression, career, balanceCents } = useWallet();
+  // A finished guest run stays locked behind this, even across reloads.
+  const pathname = usePathname();
+  const guestOver = pathname !== "/claim" && progression?.isGuest && (death || career?.over || (balanceCents !== null && balanceCents < 10));
+  if (progression?.isGuest && pathname === "/claim") return null;
+  if (!death && !guestOver) return null;
 
+  if (guestOver) {
+    return (
+      <div className="fixed inset-0 z-[120] grid place-items-center bg-black/90 p-4 backdrop-blur-sm">
+        <div className="animate-banner-in panel w-full max-w-md overflow-hidden border-white/10 text-center">
+          <div className="border-b border-white/5 bg-gradient-to-b from-loss/15 to-transparent p-8">
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500">Guest run over</p>
+            <h2 className="font-display mt-2 text-4xl font-black tracking-tight text-white">You&apos;re out of credits.</h2>
+            <p className="mt-3 text-[13px] leading-relaxed text-slate-300">
+              Guest play is one run per connection. Create a free account to keep going — it takes 10 seconds.
+            </p>
+          </div>
+          <div className="space-y-3 p-6">
+            <Link href="/claim" onClick={dismissDeath} className="btn-primary w-full py-3 shadow-volt">
+              Sign up &amp; get 100,000 credits
+            </Link>
+            <p className="text-[11px] text-slate-500">Keeps your level, achievements and history.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!death) return null;
   const ruin = death.cause === "RUIN";
 
   return (

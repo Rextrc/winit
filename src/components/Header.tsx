@@ -13,9 +13,11 @@ import SoundToggle from "@/components/SoundToggle";
 import LevelBar from "@/components/LevelBar";
 import Link from "next/link";
 import GuestButton from "@/components/GuestButton";
+import { useWallet } from "@/components/WalletProvider";
 
 export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { status } = useSession();
+  const { progression } = useWallet();
   const pathname = usePathname();
   const signedOut = status === "unauthenticated";
   const callbackUrl = pathname && pathname !== "/" ? `?callbackUrl=${encodeURIComponent(pathname)}` : "";
@@ -60,9 +62,11 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
             <>
               <LevelBar />
               <BalanceDisplay />
-              <span className="hidden sm:block">
-                <ClaimBonusButton />
-              </span>
+              {!progression?.isGuest && (
+                <span className="hidden sm:block">
+                  <ClaimBonusButton />
+                </span>
+              )}
               <span className="hidden sm:block">
                 <SoundToggle />
               </span>

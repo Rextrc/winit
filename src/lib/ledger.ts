@@ -181,6 +181,7 @@ export async function awardProgress(
       eventsToday: true,
       eventDayKey: true,
       unlimitedBets: true,
+      isGuest: true,
     },
   });
 
@@ -234,7 +235,9 @@ export async function awardProgress(
   const broke = balanceCents < MIN_BET_CENTS;
   let deathCause: DeathCause | null = null;
 
-  if (broke && comebacksUsed < Career.COMEBACKS_PER_LIFE) {
+  // Guests get no comebacks: going broke ends the trial, and the way back in
+  // is saving the account, not a free refill.
+  if (broke && !before.isGuest && comebacksUsed < Career.COMEBACKS_PER_LIFE) {
     comebacksUsed += 1;
     // Finding the money took three years you are not getting back.
     careerDays += Career.COMEBACK_DAYS;

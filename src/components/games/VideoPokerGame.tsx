@@ -163,7 +163,7 @@ export default function VideoPokerGame({ game }: { game: GameDef }) {
 
   const canvas = (
     <div className="mx-auto w-full max-w-lg text-center">
-      <div className="flex items-end justify-center gap-2 sm:gap-3">
+      <div className="flex origin-top scale-[0.8] items-end justify-center gap-2 min-[420px]:scale-100 sm:gap-3">
         {Array.from({ length: 5 }).map((_, i) => {
           const card = cards[i];
           const isHeld = held.includes(i);

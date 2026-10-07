@@ -9,6 +9,7 @@ import { useWallet } from "@/components/WalletProvider";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { IconPlay } from "@/components/Icons";
 import BetControls from "@/components/BetControls";
+import GuestButton from "@/components/GuestButton";
 import { PLAYABLE } from "@/lib/games/registry";
 
 const AUTOPLAY_COUNTS = [10, 25, 50, 100] as const;
@@ -194,12 +195,12 @@ export default function BetSlipBar() {
           </div>
 
           {hook && signedOut ? (
-            <Link
-              href={`/login?callbackUrl=${encodeURIComponent(pathname ?? "/")}`}
-              className="btn-primary h-[46px] min-w-[150px] justify-center shadow-volt max-lg:order-first lg:h-[42px]"
-            >
-              Sign in to {hook.actionLabel.toLowerCase()}
-            </Link>
+            <div className="flex flex-col max-lg:order-first">
+              <GuestButton
+                className="btn-primary h-[46px] min-w-[150px] justify-center shadow-volt lg:h-[42px]"
+                label="Play free as guest"
+              />
+            </div>
           ) : hook ? (
             <div className="flex items-stretch gap-1.5 max-lg:order-first">
               <button

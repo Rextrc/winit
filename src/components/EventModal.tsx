@@ -22,7 +22,7 @@ type Outcome = {
  * option but never a different result.
  */
 export default function EventModal() {
-  const { pendingEvent, clearPendingEvent, refresh } = useWallet();
+  const { pendingEvent, clearPendingEvent, refresh, progression } = useWallet();
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export default function EventModal() {
     clearPendingEvent();
   }, [clearPendingEvent]);
 
-  if (!pendingEvent) return null;
+  if (!pendingEvent || progression?.isGuest) return null;
 
   const colour = RARITY_COLOURS[pendingEvent.rarity];
 
