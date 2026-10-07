@@ -46,16 +46,19 @@ export async function GET() {
     endedCareers,
     betsForTrend,
     signupsForTrend,
+    guestsTotal,
+    guestsToday,
+    guestsActive,
   ] = await Promise.all([
-    prisma.user.count({ where: { deletedAt: null } }),
-    prisma.user.count({ where: { deletedAt: { not: null } } }),
-    prisma.user.count({ where: { suspendedAt: { not: null }, deletedAt: null } }),
-    prisma.user.count({ where: { adminRole: { not: null }, deletedAt: null } }),
-    prisma.user.count({ where: { deletedAt: null, lastSeenAt: { gte: online } } }),
-    prisma.user.count({ where: { deletedAt: null, lastSeenAt: { gte: dayAgo } } }),
-    prisma.user.count({ where: { deletedAt: null, lastSeenAt: { gte: weekAgo } } }),
-    prisma.user.count({ where: { createdAt: { gte: dayAgo } } }),
-    prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
+    prisma.user.count({ where: { isGuest: false, deletedAt: null } }),
+    prisma.user.count({ where: { isGuest: false, deletedAt: { not: null } } }),
+    prisma.user.count({ where: { isGuest: false, suspendedAt: { not: null }, deletedAt: null } }),
+    prisma.user.count({ where: { isGuest: false, adminRole: { not: null }, deletedAt: null } }),
+    prisma.user.count({ where: { isGuest: false, deletedAt: null, lastSeenAt: { gte: online } } }),
+    prisma.user.count({ where: { isGuest: false, deletedAt: null, lastSeenAt: { gte: dayAgo } } }),
+    prisma.user.count({ where: { isGuest: false, deletedAt: null, lastSeenAt: { gte: weekAgo } } }),
+    prisma.user.count({ where: { isGuest: false, createdAt: { gte: dayAgo } } }),
+    prisma.user.count({ where: { isGuest: false, createdAt: { gte: weekAgo } } }),
     prisma.user.aggregate({
       where: { deletedAt: null },
       _sum: { balanceCents: true },
@@ -75,6 +78,7 @@ export async function GET() {
       select: { id: true, game: true, payoutCents: true, betCents: true, summary: true, createdAt: true, user: { select: { username: true } } },
     }),
     prisma.user.findMany({
+      where: { isGuest: false },
       orderBy: { createdAt: "desc" },
       take: 10,
       select: { id: true, username: true, createdAt: true, level: true, deletedAt: true },
@@ -90,8 +94,8 @@ export async function GET() {
       take: 10,
       select: { id: true, actorUsername: true, action: true, targetUsername: true, reason: true, createdAt: true },
     }),
-    prisma.user.count({ where: { deletedAt: null, deathCause: null } }),
-    prisma.user.count({ where: { deletedAt: null, deathCause: { not: null } } }),
+    prisma.user.count({ where: { isGuest: false, deletedAt: null, deathCause: null } }),
+    prisma.user.count({ where: { isGuest: false, deletedAt: null, deathCause: { not: null } } }),
     // Bucketed in JS below rather than with a SQL date-trunc: SQLite has no
     // native one, and this stays portable if the database ever changes.
     prisma.transaction.findMany({
@@ -100,10 +104,13 @@ export async function GET() {
       take: 20_000,
     }),
     prisma.user.findMany({
-      where: { createdAt: { gte: dayAgo } },
+      where: { isGuest: false, createdAt: { gte: dayAgo } },
       select: { createdAt: true },
       take: 20_000,
     }),
+    prisma.user.count({ where: { isGuest: true, deletedAt: null } }),
+    prisma.user.count({ where: { isGuest: true, createdAt: { gte: dayAgo } } }),
+    prisma.user.count({ where: { isGuest: true, deletedAt: null, lastSeenAt: { gte: online } } }),
   ]);
 
   // 24 one-hour buckets, oldest first, ending in the one containing `now`.
@@ -134,6 +141,7 @@ export async function GET() {
 
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
+    guests: { total: guestsTotal, today: guestsToday, online: guestsActive },
     users: {
       total: totalUsers,
       deleted: deletedUsers,

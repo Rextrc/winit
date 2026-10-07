@@ -14,6 +14,7 @@ type Row = {
 export default function AccountSearch() {
   const [q, setQ] = useState("");
   const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [kind, setKind] = useState<"players" | "guests">("players");
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -22,7 +23,7 @@ export default function AccountSearch() {
 
   const load = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ q, ...(includeDeleted ? { deleted: "1" } : {}) });
+      const params = new URLSearchParams({ q, kind, ...(includeDeleted ? { deleted: "1" } : {}) });
       const res = await fetch(`/api/admin/accounts?${params}`, { cache: "no-store" });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -35,7 +36,7 @@ export default function AccountSearch() {
     } catch {
       setError("Network error.");
     }
-  }, [q, includeDeleted]);
+  }, [q, includeDeleted, kind]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 250);
@@ -70,6 +71,18 @@ export default function AccountSearch() {
 
   return (
     <div className="space-y-4">
+      <div className="seg w-full max-w-xs grid-cols-2">
+        {(["players", "guests"] as const).map((k) => (
+          <button key={k} type="button" onClick={() => setKind(k)} className={kind === k ? "seg-item-on" : "seg-item"}>
+            {k === "players" ? "Players" : "Guests"}
+          </button>
+        ))}
+      </div>
+      {kind === "guests" && (
+        <p className="text-[12px] text-slate-500">
+          Guest trial accounts — 1,000 credits, $300 max bet, one per connection. They move to Players once saved.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <input
           className="field max-w-sm"

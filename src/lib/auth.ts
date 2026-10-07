@@ -57,6 +57,18 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    // Never bounce a visitor to another host. If NEXTAUTH_URL is ever left
+    // pointing at a dev machine, any absolute redirect is reduced to its path
+    // so it lands on whatever site the visitor is actually on.
+    async redirect({ url }) {
+      if (url.startsWith("/")) return url;
+      try {
+        const u = new URL(url);
+        return `${u.pathname}${u.search}${u.hash}` || "/";
+      } catch {
+        return "/";
+      }
+    },
     async jwt({ token, user }) {
       if (user) {
         token.uid = user.id;

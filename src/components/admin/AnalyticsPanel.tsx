@@ -6,6 +6,7 @@ import Sparkline from "@/components/admin/Sparkline";
 
 type Analytics = {
   generatedAt: string;
+  guests: { total: number; today: number; online: number };
   users: {
     total: number; deleted: number; suspended: number; staff: number;
     onlineNow: number; activeToday: number; activeWeek: number; newToday: number; newWeek: number;
@@ -143,10 +144,11 @@ export default function AnalyticsPanel() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="Accounts" value={data.users.total.toLocaleString()} sub={`${data.users.staff} staff · ${data.users.suspended} suspended · ${data.users.deleted} deleted`} />
         <Stat label="Online now" value={data.users.onlineNow.toLocaleString()} sub={`${data.users.activeToday} today · ${data.users.activeWeek} this week`} tone="text-win" />
         <Stat label="New accounts" value={data.users.newToday.toLocaleString()} sub={`${data.users.newWeek} in the last 7 days`} />
+        <Stat label="Guests" value={data.guests.total.toLocaleString()} sub={`${data.guests.today} new today · ${data.guests.online} online`} />
         <Stat label="Rounds in play" value={data.progression.activeRounds.toLocaleString()} sub="Unsettled multi-step games" />
       </div>
 

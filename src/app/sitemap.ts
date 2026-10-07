@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { CATEGORY_LABELS, PLAYABLE } from "@/lib/games/registry";
 
 function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXTAUTH_URL ?? "https://winit.one").replace(/\/$/, "");
 }
 
 /**

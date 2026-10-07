@@ -107,7 +107,7 @@ export default function AvatarMenu() {
           <div className="my-1 border-t border-white/5" />
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => signOut({ redirect: false }).then(() => window.location.assign("/login"))}
             className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
           >
             <IconLogout className="h-4 w-4" />

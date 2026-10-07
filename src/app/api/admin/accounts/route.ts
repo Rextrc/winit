@@ -25,10 +25,12 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim();
   const includeDeleted = url.searchParams.get("deleted") === "1";
+  const guests = url.searchParams.get("kind") === "guests";
   const take = Math.min(Math.max(Number(url.searchParams.get("take") ?? 25), 1), 100);
 
   const rows = await prisma.user.findMany({
     where: {
+      isGuest: guests,
       ...(includeDeleted ? {} : { deletedAt: null }),
       ...(q
         ? { OR: [{ username: { contains: q } }, { email: { contains: q } }, { id: q }] }
