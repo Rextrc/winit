@@ -28,9 +28,7 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   if (!game) return { title: "Game not found" };
   return pageMetadata(
     game.name,
-    game.playable
-      ? `${game.tagline} ${game.rtp !== null ? `Published RTP ${(game.rtp * 100).toFixed(2)}%.` : game.rtpNote}`
-      : `${game.tagline} ${game.rtpNote}`,
+    game.tagline,
   );
 }
 

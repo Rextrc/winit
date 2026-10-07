@@ -325,7 +325,6 @@ export default function DiceGame({ game }: { game: GameDef }) {
         so the multiplier never explodes into something the ledger can't display cleanly, and never
         collapses to a coin-flip-or-worse edge case.
       </p>
-      <p className="text-[11px] text-slate-500">RTP is exactly 99.00% for every valid target — see `npm run rtp`.</p>
     </>
   );
 

@@ -58,7 +58,7 @@ export default function GameFrame({
                 <IconHistory className="h-4 w-4" />
               </Link>
               <span className="font-display text-lg font-black tracking-tight text-white/15">WinIt</span>
-              <span className="text-[12px] font-bold text-slate-500">Exact odds ✓</span>
+              <span className="w-8" />
             </div>
           </div>
         </div>

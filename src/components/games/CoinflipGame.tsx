@@ -239,7 +239,6 @@ export default function CoinflipGame({ game }: { game: GameDef }) {
         true 50/50 pays {COINFLIP_MULTIPLIER}× — the exact fair price for a 50% event at a 1% house
         edge — with no separate paytable to tune.
       </p>
-      <p className="text-[11px] text-slate-500">RTP is exactly 99.00% — see `npm run rtp`.</p>
     </>
   );
 

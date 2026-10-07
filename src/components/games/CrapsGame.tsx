@@ -132,7 +132,7 @@ export default function CrapsGame({ game }: { game: GameDef }) {
     ready: !betError && effectiveBet > 0,
     busy,
     run: play,
-    note: `${BET_LABELS[bet]} · RTP ${(exactRtp(bet) * 100).toFixed(3)}%`,
+    note: BET_LABELS[bet],
   });
 
   const current = shown[shown.length - 1];
@@ -205,9 +205,6 @@ export default function CrapsGame({ game }: { game: GameDef }) {
               }`}
             >
               <span className="text-[13px] font-bold text-slate-100">{BET_LABELS[b]}</span>
-              <span className="num text-[11px] font-bold text-volt">
-                {(exactRtp(b) * 100).toFixed(2)}%
-              </span>
             </button>
           ))}
         </div>

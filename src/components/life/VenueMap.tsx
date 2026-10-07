@@ -62,8 +62,7 @@ export default function VenueMap({
     <div className="panel p-6">
       <h3 className="text-[13px] font-black tracking-tight text-white">The circuit</h3>
       <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-        Every room deals the same games at the same published RTP — a bigger room does not pay
-        better and never will. What changes is the smallest bet the floor will take, which is the
+        Every room deals the same games — a bigger room does not pay better and never will. What changes is the smallest bet the floor will take, which is the
         real cost of moving up.
       </p>
 

@@ -4,7 +4,7 @@ import Providers from "@/components/Providers";
 
 const TITLE = "WinIt — play-money casino";
 const DESCRIPTION =
-  "A fully simulated casino and gambling-career sim. Play-money only: no deposits, no withdrawals, no real-money path — every game publishes its real return-to-player.";
+  "A fully simulated casino and gambling-career sim. Play-money only: no deposits, no withdrawals, no real-money path.";
 
 export const metadata: Metadata = {
   title: { default: TITLE, template: "%s · WinIt" },

@@ -109,11 +109,6 @@ export default function HeroCarousel() {
             </h1>
             <p className="mt-2.5 max-w-md text-sm text-slate-300/90 sm:text-[15px]">{game.tagline}</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {game.rtp !== null && (
-                <span className="num rounded-lg border border-volt/30 bg-volt/10 px-2.5 py-1 text-xs font-bold text-volt">
-                  RTP {(game.rtp * 100).toFixed(2)}%
-                </span>
-              )}
               {game.tags.map((t) => (
                 <span key={t} className="rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-slate-200">
                   {t}

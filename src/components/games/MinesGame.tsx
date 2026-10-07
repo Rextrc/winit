@@ -321,7 +321,6 @@ export default function MinesGame({ game }: { game: GameDef }) {
         <code className="text-volt">0.99 / P(survive r)</code>, so the return is exactly 99% for
         whichever reveal count you stop at.
       </p>
-      <p className="text-[11px] text-slate-500">RTP is exactly 99.00% at every cash-out point — see `npm run rtp`.</p>
     </>
   );
 

@@ -10,7 +10,7 @@ import { IconPlay } from "@/components/Icons";
  * Hover-preview tile. A colour ribbon names the category the way a provider
  * badge does on a real lobby, the game's own name sits directly on the art in
  * a bold wordmark rather than in a caption underneath, and the art itself
- * lifts and darkens toward the bottom on hover to reveal the RTP and a play
+ * lifts and darkens toward the bottom on hover to reveal a play
  * affordance — all still original generated art, no external assets.
  */
 export default function GameTile({ game, wide = false }: { game: GameDef; wide?: boolean }) {
@@ -87,15 +87,13 @@ export default function GameTile({ game, wide = false }: { game: GameDef; wide?:
           {game.name}
         </p>
 
-        {/* Preview overlay: RTP + play affordance, revealed on hover. */}
+        {/* Preview overlay: play affordance, revealed on hover. */}
         <div
           className={`mt-1.5 flex items-center justify-between gap-2 overflow-hidden transition-all duration-300 ${
             hover ? "max-h-8 opacity-100" : "max-h-0 opacity-0"
           }`}
         >
-          <span className="num rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-bold text-volt">
-            {game.rtp === null ? "RTP —" : `RTP ${(game.rtp * 100).toFixed(2)}%`}
-          </span>
+          <span className="text-[10px] font-bold uppercase tracking-wide text-white/80">Play</span>
           {game.playable && (
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-volt text-base-900">
               <IconPlay className="h-3 w-3" />

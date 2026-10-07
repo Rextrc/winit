@@ -15,7 +15,6 @@ import {
   KENO_POOL,
   KENO_RISKS,
   type KenoRisk,
-  kenoExactRtp,
   kenoPaytable,
 } from "@/lib/games/originals";
 
@@ -225,7 +224,7 @@ export default function KenoGame({ game }: { game: GameDef }) {
     run: play,
     note:
       picks.length > 0
-        ? `${picks.length} picks · ${RISK_LABEL[risk]} · ${(kenoExactRtp(picks.length, risk) * 100).toFixed(2)}% RTP`
+        ? `${picks.length} picks · ${RISK_LABEL[risk]}`
         : "Pick numbers on the board.",
   });
 
@@ -475,7 +474,6 @@ export default function KenoGame({ game }: { game: GameDef }) {
 
       <p className="num text-center text-[11px] text-slate-500">
         {picks.length}/{KENO_MAX_PICKS} picked
-        {picks.length > 0 && ` · ${(kenoExactRtp(picks.length, risk) * 100).toFixed(2)}% RTP`}
       </p>
     </div>
   );

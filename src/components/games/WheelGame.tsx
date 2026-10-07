@@ -159,7 +159,7 @@ export default function WheelGame({ game }: { game: GameDef }) {
     ready: !betError && effectiveBet > 0,
     busy,
     run: spin,
-    note: `${risk[0].toUpperCase()}${risk.slice(1)} risk · ${(wheelExactRtp(risk) * 100).toFixed(2)}% RTP`,
+    note: `${risk[0].toUpperCase()}${risk.slice(1)} risk`,
   });
 
   const canvas = (

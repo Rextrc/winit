@@ -401,7 +401,6 @@ export default function HiloGame({ game }: { game: GameDef }) {
         what has actually been dealt. A direction with zero winning cards left is disabled rather than
         offered at odds that can't pay.
       </p>
-      <p className="text-[11px] text-slate-500">RTP is exactly 99.00% on every correct guess — see `npm run rtp`.</p>
     </>
   );
 

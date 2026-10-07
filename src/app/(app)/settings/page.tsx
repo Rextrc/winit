@@ -78,22 +78,6 @@ export default async function SettingsPage() {
             ))}
           </dl>
 
-          <h3 className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-            Published RTP
-          </h3>
-          <ul className="mt-2 space-y-2">
-            {PLAYABLE.map((g) => (
-              <li key={g.slug} className="rounded-xl border border-white/5 p-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-[13px] font-bold text-slate-100">{g.name}</span>
-                  <span className="num text-sm font-black text-volt">
-                    {g.rtp === null ? "—" : `${(g.rtp * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{g.rtpNote}</p>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
 

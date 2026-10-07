@@ -187,7 +187,6 @@ export default function LimboGame({ game }: { game: GameDef }) {
         The draw is made in full before the countdown animation runs — the animation renders a result
         that already exists, the same way the other instant games do.
       </p>
-      <p className="text-[11px] text-slate-500">RTP is exactly 99.00% for every target — see `npm run rtp`.</p>
     </>
   );
 

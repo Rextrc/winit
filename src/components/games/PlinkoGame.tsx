@@ -273,7 +273,7 @@ export default function PlinkoGame({ game }: { game: GameDef }) {
     ready: !betError && effectiveBet > 0,
     busy: running,
     run: drop,
-    note: `${risk[0].toUpperCase()}${risk.slice(1)} · ${rows} rows · ${(plinkoExactRtp(risk, rows) * 100).toFixed(2)}% RTP`,
+    note: `${risk[0].toUpperCase()}${risk.slice(1)} · ${rows} rows`,
   });
 
   const pegRows = useMemo(() => Array.from({ length: rows }, (_, r) => r), [rows]);

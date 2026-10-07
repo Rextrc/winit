@@ -32,7 +32,6 @@ export default async function HistoryPage() {
   const staked = fromDb(aggregate._sum.betCents ?? BigInt(0));
   const returned = fromDb(aggregate._sum.payoutCents ?? BigInt(0));
   const net = fromDb(aggregate._sum.netCents ?? BigInt(0));
-  const actualRtp = staked > 0 ? returned / staked : null;
 
   const stats = [
     { label: "Bets placed", value: aggregate._count.toLocaleString(), tone: "" },
@@ -42,11 +41,6 @@ export default async function HistoryPage() {
       label: "Net",
       value: formatSignedCents(net),
       tone: net > 0 ? "text-win" : net < 0 ? "text-loss" : "",
-    },
-    {
-      label: "Your realised RTP",
-      value: actualRtp === null ? "—" : `${(actualRtp * 100).toFixed(2)}%`,
-      tone: "text-volt",
     },
   ];
 
@@ -83,10 +77,6 @@ export default async function HistoryPage() {
         }))}
       />
 
-      <p className="mt-4 text-[11px] leading-relaxed text-slate-600">
-        Your realised RTP is returned ÷ staked across every settled bet. Over a short session it will
-        swing a long way from the published figures — that is variance, not a different game.
-      </p>
     </>
   );
 }
