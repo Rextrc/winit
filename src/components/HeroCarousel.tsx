@@ -54,14 +54,18 @@ export default function HeroCarousel() {
       aria-roledescription="carousel"
       aria-label="Featured games"
     >
-      <div className={`relative bg-gradient-to-br ${game.art}`}>
+      <div className={`relative overflow-hidden bg-base-900 ${game.cover ? "" : `bg-gradient-to-br ${game.art}`}`}>
         {game.cover ? (
+          // The cover is portrait tile art, so stretching it across a wide
+          // banner just blurs it and exposes its frame. Instead it's used
+          // twice: heavily blurred as an ambient colour wash, and crisp as
+          // a tilted card on the right.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`bg-${game.slug}`}
             src={game.cover}
             alt=""
-            className="absolute inset-0 h-full w-full animate-pop-in object-cover object-[50%_18%]"
+            className="absolute inset-0 h-full w-full scale-125 object-cover opacity-60 blur-3xl saturate-150"
             aria-hidden="true"
           />
         ) : (
@@ -74,23 +78,44 @@ export default function HeroCarousel() {
             }}
           />
         )}
-        {/* Dark toward the text, transparent toward the art — keeps the
-            banner's own name/title legible over whatever cover is behind it. */}
-        <div className="absolute inset-0 bg-gradient-to-r from-base-900 via-base-900/75 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-base-900/90 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-base-900 via-base-900/80 to-base-900/20" />
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.9) 1px, transparent 0)",
+            backgroundSize: "22px 22px",
+          }}
+        />
 
-        <div className="relative flex flex-col gap-6 px-6 pb-4 pt-6 sm:px-9 sm:pt-9 lg:flex-row lg:items-center lg:justify-between">
+        {game.cover && (
+          <div className="pointer-events-none absolute inset-y-0 right-24 hidden items-center sm:flex lg:right-36">
+            <div className="absolute right-0 h-72 w-72 rounded-full bg-volt/25 blur-[90px]" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={`card-${game.slug}`}
+              src={game.cover}
+              alt=""
+              aria-hidden="true"
+              className="relative h-[230px] w-auto translate-y-3 rotate-[6deg] animate-pop-in rounded-2xl shadow-[0_30px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/15 lg:h-[270px]"
+            />
+          </div>
+        )}
+
+        <div className="relative flex min-h-[200px] flex-col gap-6 px-6 pb-4 pt-6 sm:min-h-[250px] sm:px-9 sm:pt-10 lg:flex-row lg:items-center lg:justify-between">
           <div key={game.slug} className="max-w-xl animate-pop-in">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-volt">Featured</p>
+            <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-volt/30 bg-volt/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-volt"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-volt" />Featured today</p>
             <h1 className="font-display text-3xl font-black leading-none tracking-tight text-white sm:text-5xl [text-shadow:0_2px_16px_rgba(0,0,0,0.6)]">
               {game.name}
             </h1>
+            <p className="mt-2.5 max-w-md text-sm text-slate-300/90 sm:text-[15px]">{game.tagline}</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="num rounded-lg bg-black/50 px-2.5 py-1 text-xs font-bold text-volt backdrop-blur-sm">
-                RTP {game.rtp === null ? "—" : `${(game.rtp * 100).toFixed(2)}%`}
-              </span>
+              {game.rtp !== null && (
+                <span className="num rounded-lg border border-volt/30 bg-volt/10 px-2.5 py-1 text-xs font-bold text-volt">
+                  RTP {(game.rtp * 100).toFixed(2)}%
+                </span>
+              )}
               {game.tags.map((t) => (
-                <span key={t} className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold text-slate-200 backdrop-blur-sm">
+                <span key={t} className="rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-slate-200">
                   {t}
                 </span>
               ))}
@@ -101,7 +126,7 @@ export default function HeroCarousel() {
                 <IconPlay className="h-4 w-4" />
                 Play now
               </Link>
-              <Link href="/rewards" className="btn-ghost hidden sm:inline-flex">
+              <Link href="/rewards" className="btn-ghost hidden backdrop-blur-sm sm:inline-flex">
                 Claim daily bonus
               </Link>
             </div>
