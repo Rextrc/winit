@@ -173,6 +173,7 @@ export type Progression = {
    * rebirth actually multiplies. */
   tableLimitCents: number;
   unlimitedBets: boolean;
+  isGuest: boolean;
   rebirthMultiplier: number;
   xpMultiplier: number;
   canRebirth: boolean;
@@ -183,6 +184,9 @@ export type Progression = {
   bestMultiplier: number;
 };
 
+/** Guests play a short, low-stakes trial: a hard per-bet cap. */
+export const GUEST_MAX_BET_CENTS = 30_000;
+
 export type ProgressionSource = {
   level: number;
   xp: number;
@@ -192,6 +196,7 @@ export type ProgressionSource = {
   biggestWinCents: number;
   bestMultiplierX100: number;
   unlimitedBets: boolean;
+  isGuest?: boolean;
 };
 
 export function describeProgression(u: ProgressionSource): Progression {
@@ -208,9 +213,10 @@ export function describeProgression(u: ProgressionSource): Progression {
     rebirths: u.rebirths,
     stage,
     nextStage,
-    maxBetCents: u.unlimitedBets ? NO_LIMIT_CENTS : tableLimit,
+    maxBetCents: u.isGuest ? GUEST_MAX_BET_CENTS : u.unlimitedBets ? NO_LIMIT_CENTS : tableLimit,
     tableLimitCents: tableLimit,
     unlimitedBets: u.unlimitedBets,
+    isGuest: u.isGuest ?? false,
     rebirthMultiplier: rebirthMultiplier(u.rebirths),
     xpMultiplier: xpMultiplier(u.rebirths),
     canRebirth: u.level >= MAX_LEVEL && u.rebirths < MAX_REBIRTHS,

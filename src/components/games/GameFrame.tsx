@@ -7,6 +7,8 @@ import type { GameDef } from "@/lib/games/registry";
 import BetFeed from "@/components/BetFeed";
 import BalanceDisplay from "@/components/BalanceDisplay";
 import { IconHistory, IconLock } from "@/components/Icons";
+import GuestButton from "@/components/GuestButton";
+import ClipButton from "@/components/ClipButton";
 
 /**
  * Shared game page frame: canvas centred, control panel docked to the side on
@@ -58,7 +60,7 @@ export default function GameFrame({
                 <IconHistory className="h-4 w-4" />
               </Link>
               <span className="font-display text-lg font-black tracking-tight text-white/15">WinIt</span>
-              <span className="w-8" />
+              <ClipButton />
             </div>
           </div>
         </div>
@@ -75,13 +77,14 @@ export default function GameFrame({
                   <IconLock className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-black text-white">Sign in to place a bet</p>
+                  <p className="text-[14px] font-black text-white">Play instantly</p>
                   <p className="mt-1 max-w-[220px] text-[12px] leading-snug text-slate-400">
-                    Everything else on this page is free to look at — no account needed to browse.
+                    Jump in as a guest with 1,000 credits — no signup needed.
                   </p>
                 </div>
                 <div className="flex w-full max-w-[220px] flex-col gap-2">
-                  <Link href={`/signup${callbackUrl}`} className="btn-primary w-full py-2 text-sm">
+                  <GuestButton className="btn-primary w-full py-2 text-sm shadow-volt" label="Play now as guest" />
+                  <Link href={`/signup${callbackUrl}`} className="btn-ghost w-full py-2 text-sm">
                     Sign up — it&apos;s free
                   </Link>
                   <Link href={`/login${callbackUrl}`} className="btn-ghost w-full py-2 text-sm">

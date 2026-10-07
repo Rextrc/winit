@@ -37,6 +37,7 @@ const CATEGORIES: NavItem[] = [
 
 const ACCOUNT: NavItem[] = [
   { href: "/life", label: "Life", Icon: IconLife },
+  { href: "/leaderboard", label: "Leaderboard", Icon: IconRewards },
   { href: "/achievements", label: "Achievements", Icon: IconRewards },
   { href: "/rewards", label: "Rewards", Icon: IconRewards },
   { href: "/history", label: "History", Icon: IconHistory },

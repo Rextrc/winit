@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { IconChat, IconClose } from "@/components/Icons";
+import { useWallet } from "@/components/WalletProvider";
 import sfx from "@/lib/sound";
 
 type Message = {
@@ -25,6 +27,7 @@ function timeOf(iso: string): string {
  * lobby chat has no latency requirement a few seconds of polling can't meet.
  */
 export default function Chat() {
+  const { progression } = useWallet();
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -181,7 +184,11 @@ export default function Chat() {
           </div>
 
           <div className="border-t border-white/5 p-2.5">
-            {status === "authenticated" ? (
+            {progression?.isGuest ? (
+              <p className="text-center text-[12px] text-slate-500">
+                <Link href="/claim" className="font-bold text-volt hover:underline">Save your account</Link> to chat.
+              </p>
+            ) : status === "authenticated" ? (
               <form onSubmit={send} className="flex gap-1.5">
                 <input
                   className="field flex-1 py-2 text-[13px]"

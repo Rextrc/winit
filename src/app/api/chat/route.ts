@@ -43,6 +43,7 @@ const schema = z.object({ text: z.string().min(1).max(MAX_LEN) });
 export async function POST(req: Request) {
   const { user, response } = await requireUser();
   if (!user) return response;
+  if (user.progression.isGuest) return jsonError("Save your account to chat.", 403);
 
   if (user.suspended) {
     return jsonError(

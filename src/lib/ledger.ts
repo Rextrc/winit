@@ -389,6 +389,7 @@ export async function awardProgress(
       reputation: true,
       deathCause: true,
       unlimitedBets: true,
+      isGuest: true,
     },
   });
 
@@ -401,6 +402,7 @@ export async function awardProgress(
     biggestWinCents: fromDb(after.biggestWinCents),
     bestMultiplierX100: after.bestMultiplierX100,
     unlimitedBets: after.unlimitedBets,
+    isGuest: after.isGuest,
   });
 
   return {

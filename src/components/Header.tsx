@@ -12,6 +12,7 @@ import Inbox from "@/components/Inbox";
 import SoundToggle from "@/components/SoundToggle";
 import LevelBar from "@/components/LevelBar";
 import Link from "next/link";
+import GuestButton from "@/components/GuestButton";
 
 export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { status } = useSession();
@@ -44,6 +45,9 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
             <>
               <span className="hidden sm:block">
                 <SoundToggle />
+              </span>
+              <span className="hidden md:block">
+                <GuestButton className="btn-ghost px-4 py-2 text-sm" />
               </span>
               <Link href={`/login${callbackUrl}`} className="btn-ghost px-3 py-2 text-sm sm:px-4">
                 Log in

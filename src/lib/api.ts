@@ -62,6 +62,7 @@ export async function requireUser(): Promise<
     biggestWinCents: fromDb(row.biggestWinCents),
     bestMultiplierX100: row.bestMultiplierX100,
     unlimitedBets: row.unlimitedBets,
+    isGuest: row.isGuest,
   });
 
   // Presence, throttled: a write only when the stamp is missing or stale, so
