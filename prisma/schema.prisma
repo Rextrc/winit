@@ -533,3 +533,39 @@ model ChatMessage {
 
   @@index([createdAt])
 }
+
+// --- Multiplayer crash -----------------------------------------------------
+// One shared round at a time, scheduled lazily by whichever request notices
+// the previous one has finished. The crash point is drawn when the round is
+// created and is never sent to a client before the curve reaches it.
+model CrashRound {
+  id         Int      @id
+  startsAt   DateTime
+  crashPoint Float
+  crashAt    DateTime
+  settled    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  bets       CrashBet[]
+}
+
+model CrashBet {
+  id          String     @id @default(cuid())
+  roundId     Int
+  round       CrashRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  userId      String
+  username    String
+  betCents    BigInt
+  autoTarget  Float?
+  // "ACTIVE" | "CASHED" | "LOST"
+  status      String     @default("ACTIVE")
+  cashedAt    Float?
+  payoutCents BigInt     @default(0)
+  // The progression update from settling this bet, handed to its owner once
+  // on their next poll when someone else's request did the settling.
+  progressJson String?
+  progressSeen Boolean   @default(false)
+  createdAt   DateTime   @default(now())
+
+  @@unique([roundId, userId])
+  @@index([userId, createdAt])
+}

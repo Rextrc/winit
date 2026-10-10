@@ -1,81 +1,115 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
-import { validateBet, formatCents } from "@/lib/money";
-import { awardProgress, credit, debit, writeTransaction } from "@/lib/ledger";
+import { currentUserId } from "@/lib/auth";
+import { validateBet } from "@/lib/money";
+import { debit } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
-import {
-  cashoutMultiplier,
-  hasBusted,
-  newRound,
-  toView,
-  validTarget,
-  type CrashState,
-} from "@/lib/games/crash";
+import { validTarget } from "@/lib/games/crash";
+import { cashOut, currentRound, phaseOf, settleAutoCashouts, settleRound } from "@/lib/games/crashLive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.union([
-  z.object({
-    action: z.literal("start"),
-    betCents: z.number().int(),
-    autoTarget: z.number().nullable().optional(),
-  }),
-  z.object({ action: z.literal("cashout"), roundId: z.string().min(1) }),
+  z.object({ action: z.literal("bet"), betCents: z.number().int(), autoTarget: z.number().nullable().optional() }),
+  z.object({ action: z.literal("cashout") }),
 ]);
 
-function parseState(raw: string): CrashState {
-  return JSON.parse(raw) as CrashState;
-}
-
 /**
- * Settles a round whose curve has already passed its crash point. Called
- * before anything else touches a live round, so a round abandoned mid-flight
- * can never sit ACTIVE forever, and can never be cashed out after the fact.
+ * The shared room, polled by every viewer — signed in or not. Doing the
+ * settlement work here is what keeps the round moving without a worker.
  */
-async function settleIfBusted(tx: Prisma.TransactionClient, userId: string, roundId: string, state: CrashState) {
-  state.status = "BUSTED";
-  const balanceCents = fromDb(
-    (await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { balanceCents: true } })).balanceCents,
-  );
-  await tx.round.update({ where: { id: roundId }, data: { status: "SETTLED", state: JSON.stringify(state) } });
-  await writeTransaction(tx, {
-    userId,
-    game: "crash",
-    kind: "BET",
-    betCents: state.betCents,
-    payoutCents: 0,
-    outcome: "LOSS",
-    summary: `Crashed at ${state.crashPoint.toFixed(2)}x — no cash-out`,
-    balanceAfterCents: balanceCents,
-    detail: { crashPoint: state.crashPoint, autoTarget: state.autoTarget },
-  });
-  const progress = await awardProgress(tx, userId, "crash", state.betCents, 0);
-  return { view: toView(state), balanceCents, progress };
-}
-
 export async function GET() {
-  const { user, response } = await requireUser();
-  if (!user) return response;
+  try {
+    const now = Date.now();
+    let round = await currentRound(now);
+    const phase = phaseOf(round, now);
+    if (phase === "flight") await settleAutoCashouts(round, now);
+    if (phase === "crashed" && !round.settled) {
+      await settleRound(round.id);
+      round = (await prisma.crashRound.findUnique({ where: { id: round.id } })) ?? round;
+    }
 
-  const round = await prisma.round.findFirst({
-    where: { userId: user.id, game: "crash", status: "ACTIVE" },
-  });
-  if (!round) return NextResponse.json({ round: null, balanceCents: user.balanceCents });
+    const [bets, history, userId] = await Promise.all([
+      prisma.crashBet.findMany({
+        where: { roundId: round.id },
+        orderBy: { betCents: "desc" },
+        take: 50,
+        select: { userId: true, username: true, betCents: true, status: true, cashedAt: true, payoutCents: true },
+      }),
+      prisma.crashRound.findMany({
+        where: { crashAt: { lte: new Date(now) } },
+        orderBy: { id: "desc" },
+        take: 14,
+        select: { id: true, crashPoint: true },
+      }),
+      currentUserId(),
+    ]);
 
-  const state = parseState(round.state);
-  if (hasBusted(state)) {
-    const settled = await prisma.$transaction((tx) => settleIfBusted(tx, user.id, round.id, state));
-    return NextResponse.json({ round: { id: round.id, ...settled }, balanceCents: settled.balanceCents });
+    let me = null;
+    if (userId) {
+      const mine = await prisma.crashBet.findUnique({ where: { roundId_userId: { roundId: round.id, userId } } });
+      // The newest settled bet whose progress this user hasn't picked up yet —
+      // settled by someone else's request, so it reaches its owner here.
+      const unseen = await prisma.crashBet.findFirst({
+        where: { userId, status: { not: "ACTIVE" }, progressSeen: false, progressJson: { not: null } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (unseen) {
+        await prisma.crashBet.updateMany({ where: { userId, progressSeen: false, status: { not: "ACTIVE" } }, data: { progressSeen: true } });
+      }
+      const { balanceCents } = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { balanceCents: true } });
+      me = {
+        balanceCents: fromDb(balanceCents),
+        bet: mine
+          ? {
+              roundId: mine.roundId,
+              betCents: fromDb(mine.betCents),
+              autoTarget: mine.autoTarget,
+              status: mine.status,
+              cashedAt: mine.cashedAt,
+              payoutCents: fromDb(mine.payoutCents),
+            }
+          : null,
+        settled: unseen
+          ? {
+              roundId: unseen.roundId,
+              betCents: fromDb(unseen.betCents),
+              status: unseen.status,
+              cashedAt: unseen.cashedAt,
+              payoutCents: fromDb(unseen.payoutCents),
+              progress: JSON.parse(unseen.progressJson!),
+            }
+          : null,
+      };
+    }
+
+    const crashed = phaseOf(round, now) === "crashed";
+    return NextResponse.json({
+      serverNow: now,
+      round: {
+        id: round.id,
+        phase: phaseOf(round, now),
+        startsAt: round.startsAt.getTime(),
+        // Only once the curve has got there — never before.
+        crashPoint: crashed ? round.crashPoint : null,
+      },
+      players: bets.map((b) => ({
+        username: b.username,
+        betCents: fromDb(b.betCents),
+        status: b.status,
+        cashedAt: b.cashedAt,
+        payoutCents: fromDb(b.payoutCents),
+        isMe: b.userId === userId,
+      })),
+      history: history.map((h) => h.crashPoint),
+      me,
+    });
+  } catch (err) {
+    return handleError(err);
   }
-
-  return NextResponse.json({
-    round: { id: round.id, view: toView(state) },
-    balanceCents: user.balanceCents,
-  });
 }
 
 export async function POST(req: Request) {
@@ -88,129 +122,37 @@ export async function POST(req: Request) {
   } catch {
     return jsonError("Invalid request body.");
   }
-
   const parsed = schema.safeParse(body);
   if (!parsed.success) return jsonError("Invalid action.");
 
   try {
-    if (parsed.data.action === "start") {
-      const autoTarget = parsed.data.autoTarget ?? null;
-      if (autoTarget !== null && !validTarget(autoTarget)) {
-        return jsonError("That auto cash-out target is out of range.");
-      }
-
-      const bet = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
-      if (!bet.ok) return jsonError(bet.error, 409);
-      const gate = await assertBettable(user, bet.cents, "crash");
-      if (gate) return gate;
-
-      const existing = await prisma.round.findFirst({
-        where: { userId: user.id, game: "crash", status: "ACTIVE" },
-      });
-      if (existing) {
-        const state = parseState(existing.state);
-        if (!hasBusted(state)) return jsonError("You already have a round in the air.", 409);
-        await prisma.$transaction((tx) => settleIfBusted(tx, user.id, existing.id, state));
-      }
-
-      const result = await prisma.$transaction(async (tx) => {
-        const balanceCents = await debit(tx, user.id, bet.cents);
-        const state = newRound(bet.cents, autoTarget);
-
-        // An auto target is settled here and now: the crash point is already
-        // drawn, so the answer is deterministic and reaction time cannot enter
-        // into it. The client animates a result that already exists.
-        if (autoTarget !== null) {
-          const reached = state.crashPoint >= autoTarget;
-          const payoutCents = reached ? Math.round(bet.cents * autoTarget) : 0;
-          state.status = reached ? "CASHED_OUT" : "BUSTED";
-          state.cashedAt = reached ? autoTarget : null;
-
-          const after = reached ? await credit(tx, user.id, payoutCents) : balanceCents;
-          const round = await tx.round.create({
-            data: {
-              userId: user.id,
-              game: "crash",
-              status: "SETTLED",
-              betCents: bet.cents,
-              state: JSON.stringify(state),
-            },
-          });
-          await writeTransaction(tx, {
-            userId: user.id,
-            game: "crash",
-            kind: "BET",
-            betCents: bet.cents,
-            payoutCents,
-            outcome: reached ? "WIN" : "LOSS",
-            summary: reached
-              ? `Auto cashed at ${autoTarget}x (crashed ${state.crashPoint.toFixed(2)}x) — paid ${formatCents(payoutCents)}`
-              : `Crashed at ${state.crashPoint.toFixed(2)}x before ${autoTarget}x`,
-            balanceAfterCents: after,
-            detail: { crashPoint: state.crashPoint, autoTarget },
-          });
-          const progress = await awardProgress(tx, user.id, "crash", bet.cents, payoutCents);
-          return { roundId: round.id, view: toView(state), balanceCents: after, progress };
-        }
-
-        const round = await tx.round.create({
-          data: {
-            userId: user.id,
-            game: "crash",
-            status: "ACTIVE",
-            betCents: bet.cents,
-            state: JSON.stringify(state),
-          },
-        });
-        return { roundId: round.id, view: toView(state), balanceCents, progress: null };
-      });
-
+    if (parsed.data.action === "cashout") {
+      const result = await cashOut(user.id);
       return NextResponse.json({ ok: true, ...result });
     }
 
-    const { roundId } = parsed.data;
+    const autoTarget = parsed.data.autoTarget ?? null;
+    if (autoTarget !== null && !validTarget(autoTarget)) return jsonError("That auto cash-out target is out of range.");
+
+    const bet = validateBet(parsed.data.betCents, user.balanceCents, user.progression.maxBetCents);
+    if (!bet.ok) return jsonError(bet.error, 409);
+    const gate = await assertBettable(user, bet.cents, "crash");
+    if (gate) return gate;
+
+    const now = Date.now();
+    const round = await currentRound(now);
+    if (phaseOf(round, now) !== "countdown") return jsonError("Bets are closed — you're in on the next round.", 409);
 
     const result = await prisma.$transaction(async (tx) => {
-      const round = await tx.round.findFirst({
-        where: { id: roundId, userId: user.id, game: "crash", status: "ACTIVE" },
+      const existing = await tx.crashBet.findUnique({ where: { roundId_userId: { roundId: round.id, userId: user.id } } });
+      if (existing) throw new Error("You already have a bet on this round.");
+      const balanceCents = await debit(tx, user.id, bet.cents);
+      await tx.crashBet.create({
+        data: { roundId: round.id, userId: user.id, username: user.username, betCents: BigInt(bet.cents), autoTarget },
       });
-      if (!round) throw new Error("That round is no longer in play.");
-
-      const state = parseState(round.state);
-
-      // The multiplier comes from the SERVER's clock, never from the client.
-      const now = Date.now();
-      if (hasBusted(state, now)) {
-        const settled = await settleIfBusted(tx, user.id, round.id, state);
-        return { ...settled, roundId: round.id };
-      }
-
-      const multiplier = cashoutMultiplier(now - state.startedAt);
-      const payoutCents = Math.round(state.betCents * multiplier);
-      state.status = "CASHED_OUT";
-      state.cashedAt = multiplier;
-
-      const balanceCents = await credit(tx, user.id, payoutCents);
-      await tx.round.update({
-        where: { id: round.id },
-        data: { status: "SETTLED", state: JSON.stringify(state) },
-      });
-      await writeTransaction(tx, {
-        userId: user.id,
-        game: "crash",
-        kind: "BET",
-        betCents: state.betCents,
-        payoutCents,
-        outcome: payoutCents > state.betCents ? "WIN" : payoutCents === state.betCents ? "PUSH" : "LOSS",
-        summary: `Cashed at ${multiplier.toFixed(2)}x (crashed ${state.crashPoint.toFixed(2)}x) — paid ${formatCents(payoutCents)}`,
-        balanceAfterCents: balanceCents,
-        detail: { crashPoint: state.crashPoint, cashedAt: multiplier },
-      });
-      const progress = await awardProgress(tx, user.id, "crash", state.betCents, payoutCents);
-      return { view: toView(state), balanceCents, progress, roundId: round.id };
+      return { balanceCents };
     });
-
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, roundId: round.id, ...result });
   } catch (err) {
     return handleError(err);
   }

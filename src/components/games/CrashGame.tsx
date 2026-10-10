@@ -3,34 +3,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
-import CrashPlayers from "@/components/games/CrashPlayers";
+import CrashPlayers, { type LivePlayer } from "@/components/games/CrashPlayers";
 import BetControls from "@/components/BetControls";
 import { useBet, useBetSlipHook } from "@/components/BetProvider";
 import { useWallet } from "@/components/WalletProvider";
+import { useSession } from "next-auth/react";
 import { formatCents, formatSignedCents } from "@/lib/money";
-import {
-  MAX_TARGET,
-  MIN_TARGET,
-  chanceOfReaching,
-  multiplierAt,
-  timeToReach,
-  validTarget,
-} from "@/lib/games/crash";
+import type { ProgressUpdate } from "@/lib/ledger";
+import { MAX_TARGET, MIN_TARGET, multiplierAt, timeToReach, validTarget } from "@/lib/games/crash";
+import sfx from "@/lib/sound";
 
-type View = {
-  status: "RUNNING" | "CASHED_OUT" | "BUSTED";
+type MyBet = {
+  roundId: number;
   betCents: number;
-  startedAt: number;
   autoTarget: number | null;
+  status: "ACTIVE" | "CASHED" | "LOST";
   cashedAt: number | null;
-  crashPoint: number | null;
+  payoutCents: number;
 };
 
-type Resp = {
-  roundId: string;
-  view: View;
-  balanceCents: number;
-  progress: import("@/lib/ledger").ProgressUpdate | null;
+type Live = {
+  serverNow: number;
+  round: { id: number; phase: "countdown" | "flight" | "crashed"; startsAt: number; crashPoint: number | null };
+  players: LivePlayer[];
+  history: number[];
+  me: {
+    balanceCents: number;
+    bet: MyBet | null;
+    settled: (Omit<MyBet, "autoTarget"> & { progress: ProgressUpdate }) | null;
+  } | null;
 };
 
 /** Fixed starfield — positions only, so it can be generated once. */
@@ -67,298 +68,237 @@ function Rocket({ angle, flying }: { angle: number; flying: boolean }) {
   );
 }
 
-/** The always-on room: a round launches every few seconds whether or not
- * you've bet, so you can watch, then jump into the next one. */
-const COUNTDOWN_MS = 5_000;
-const CRASHED_HOLD_MS = 2_500;
-/** Time a finished bet's result stays up before the room moves on. */
-const RESULT_HOLD_MS = 3_000;
 
-/** Same 0.99/u shape as the real draw, capped so a watched round never drags. */
-function ambientCrashPoint(): number {
-  const u = 1 - Math.random();
-  return Math.min(40, Math.max(1, Math.floor((0.99 / u) * 100) / 100));
-}
-
-type Ambient = { phase: "countdown" | "flying" | "crashed"; until: number; crashPoint: number };
-
-/** How often a live manual round asks the server whether it has crashed. */
-const POLL_MS = 700;
+/** Faster while the rocket is up, so a crash shows up within a beat. */
+const POLL_FLIGHT_MS = 350;
+const POLL_IDLE_MS = 900;
 
 export default function CrashGame({ game }: { game: GameDef }) {
   const { effectiveBet, betError, pushFlash } = useBet();
   const { applyResult, applyProgress } = useWallet();
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
 
-  const [auto, setAuto] = useState(true);
+  const [live, setLive] = useState<Live | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [autoOn, setAutoOn] = useState(false);
   const [targetText, setTargetText] = useState("2.00");
   const [busy, setBusy] = useState(false);
-  const [roundId, setRoundId] = useState<string | null>(null);
-  const [view, setView] = useState<View | null>(null);
-  /** The multiplier the curve is showing right now. */
-  const [display, setDisplay] = useState(1);
-  const [settled, setSettled] = useState<{ netCents: number; cashedAt: number | null; crashPoint: number } | null>(null);
+  const [queued, setQueued] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
-  const [roundKey, setRoundKey] = useState(0);
-  const [ambient, setAmbient] = useState<Ambient | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  /** Launch pressed mid-flight: you're in on the next round. */
-  const [queued, setQueued] = useState(false);
-  const startRef = useRef<() => void>(() => {});
-  const launchRef = useRef<() => void>(() => {});
+  const [myResult, setMyResult] = useState<{ roundId: number; netCents: number; cashedAt: number | null } | null>(null);
 
-  const frame = useRef<number | null>(null);
-  const poll = useRef<ReturnType<typeof setInterval> | null>(null);
-  /** For an auto round the whole thing is already decided; this is the replay. */
-  const replayStop = useRef<number | null>(null);
+  /** serverNow − Date.now() at the last poll: the client's clock skew. */
+  const offset = useRef(0);
+  /** Rounds whose result this tab has already shown, so none shows twice. */
+  const handled = useRef(new Set<number>());
 
   const target = Number(targetText);
   const targetOk = validTarget(target);
 
-  const stopLoops = useCallback(() => {
-    if (frame.current) cancelAnimationFrame(frame.current);
-    if (poll.current) clearInterval(poll.current);
-    frame.current = null;
-    poll.current = null;
+  const poll = useCallback(async () => {
+    try {
+      const res = await fetch("/api/games/crash", { cache: "no-store" });
+      if (!res.ok) return null;
+      const data = (await res.json()) as Live;
+      offset.current = data.serverNow - Date.now();
+      setLive(data);
+      return data;
+    } catch {
+      return null;
+    }
   }, []);
 
-  useEffect(() => () => stopLoops(), [stopLoops]);
-
-  /** Runs the rising curve until `stopAt` (auto replay) or forever (manual). */
-  const animate = useCallback((startedAt: number, stopAt: number | null, onDone?: () => void) => {
-    const tick = () => {
-      const elapsed = Date.now() - startedAt;
-      const m = multiplierAt(elapsed);
-      if (stopAt !== null && m >= stopAt) {
-        setDisplay(stopAt);
-        onDone?.();
-        return;
-      }
-      setDisplay(m);
-      frame.current = requestAnimationFrame(tick);
-    };
-    frame.current = requestAnimationFrame(tick);
-  }, []);
-
-  const finish = useCallback(
-    (payload: Resp, netCents: number) => {
-      const v = payload.view;
-      setSettled({
-        netCents,
-        cashedAt: v.cashedAt,
-        crashPoint: v.crashPoint ?? 0,
-      });
-      setRoundId(null);
-      setView(v);
-      applyResult(payload.balanceCents, netCents);
-      if (payload.progress) applyProgress(payload.progress);
-      pushFlash(
-        game.name,
-        netCents,
-        v.status === "CASHED_OUT"
-          ? `Cashed at ${v.cashedAt?.toFixed(2)}x`
-          : `Crashed at ${v.crashPoint?.toFixed(2)}x`,
-      );
-      setFeedVersion((f) => f + 1);
-      setBusy(false);
-    },
-    [applyResult, applyProgress, pushFlash, game.name],
-  );
-
-  const start = useCallback(async () => {
-    if (busy || roundId) return;
-    if (betError || effectiveBet <= 0) {
-      setError(betError ?? "Set a stake first.");
-      return;
-    }
-    if (auto && !targetOk) {
-      setError(`Auto cash-out must be between ${MIN_TARGET} and ${MAX_TARGET}.`);
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-    setSettled(null);
-    setDisplay(1);
-    setRoundKey((k) => k + 1);
-    stopLoops();
-
-    try {
-      const res = await fetch("/api/games/crash", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "start",
-          betCents: effectiveBet,
-          autoTarget: auto ? target : null,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Couldn't start that round.");
-        setBusy(false);
-        return;
-      }
-
-      const payload = data as Resp;
-      setView(payload.view);
-
-      if (auto) {
-        // Already settled server-side. Replay the curve up to whatever happened.
-        const v = payload.view;
-        const stopAt = v.status === "CASHED_OUT" ? v.cashedAt! : v.crashPoint!;
-        replayStop.current = stopAt;
-        const replayStart = Date.now();
-        animate(replayStart, stopAt, () => {
-          const won = v.status === "CASHED_OUT";
-          const netCents = won ? Math.round(v.betCents * v.cashedAt!) - v.betCents : -v.betCents;
-          finish(payload, netCents);
-        });
-        return;
-      }
-
-      // Manual: the curve runs off the server's own start time, and we ask the
-      // server whether it has crashed rather than guessing locally.
-      setRoundId(payload.roundId);
-      animate(payload.view.startedAt, null);
-      poll.current = setInterval(async () => {
-        try {
-          const r = await fetch("/api/games/crash", { cache: "no-store" });
-          const d = await r.json();
-          if (!d.round) return;
-          if (d.round.view && d.round.view.status !== "RUNNING") {
-            stopLoops();
-            const v = d.round.view as View;
-            setDisplay(v.crashPoint ?? display);
-            finish({ roundId: d.round.id, view: v, balanceCents: d.balanceCents, progress: d.round.progress ?? null }, -v.betCents);
-          }
-        } catch {
-          /* a dropped poll is harmless — the next one will catch it */
-        }
-      }, POLL_MS);
-      setBusy(false);
-    } catch {
-      setError("Network error — the round was not started.");
-      setBusy(false);
-    }
-  }, [busy, roundId, betError, effectiveBet, auto, target, targetOk, animate, finish, stopLoops, display]);
-
-  const cashout = useCallback(async () => {
-    if (!roundId) return;
-    stopLoops();
-    try {
-      const res = await fetch("/api/games/crash", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cashout", roundId }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Couldn't cash out.");
-        setRoundId(null);
-        setBusy(false);
-        return;
-      }
-      const payload = data as Resp;
-      const v = payload.view;
-      const won = v.status === "CASHED_OUT";
-      const netCents = won ? Math.round(v.betCents * v.cashedAt!) - v.betCents : -v.betCents;
-      if (v.cashedAt) setDisplay(v.cashedAt);
-      finish(payload, netCents);
-    } catch {
-      setError("Network error — could not cash out.");
-    }
-  }, [roundId, stopLoops, finish]);
-
-  useBetSlipHook({
-    slug: game.slug,
-    name: game.name,
-    actionLabel: roundId ? "Cash out" : queued ? "Cancel" : "Launch",
-    ready: roundId ? true : !betError && effectiveBet > 0 && (!auto || targetOk),
-    busy: busy && !roundId,
-    run: roundId ? cashout : () => launchRef.current(),
-    note: auto
-      ? `Auto cash-out at ${targetOk ? target.toFixed(2) : "—"}x · ${targetOk ? (chanceOfReaching(target) * 100).toFixed(2) : "—"}% chance`
-      : "Manual — cash out before it breaks.",
-    autoplay: false,
-  });
-
-  const live = roundId !== null;
-  const crashed = settled !== null && settled.cashedAt === null;
-
-  const playerActive = live || busy;
-
-  // The room loop. Pauses while your own round is in the air, holds your
-  // result for a beat afterwards, then carries on: countdown, flight, crash.
+  // The polling loop: quick in flight, relaxed otherwise.
   useEffect(() => {
-    if (playerActive) {
-      setAmbient(null);
-      return;
-    }
-    let raf = 0;
-    let timer: ReturnType<typeof setTimeout>;
-    const countdown = () => {
-      setSettled(null);
-      setDisplay(1);
-      setRoundKey((k) => k + 1);
-      setAmbient({ phase: "countdown", until: Date.now() + COUNTDOWN_MS, crashPoint: ambientCrashPoint() });
+    let stop = false;
+    let t: ReturnType<typeof setTimeout>;
+    const loop = async () => {
+      const data = await poll();
+      if (stop) return;
+      const flying = data?.round.phase === "flight" || (data?.round.phase === "countdown" && data.round.startsAt - data.serverNow < 600);
+      t = setTimeout(loop, flying ? POLL_FLIGHT_MS : POLL_IDLE_MS);
     };
-    timer = setTimeout(countdown, settled ? RESULT_HOLD_MS : 0);
+    void loop();
+    return () => {
+      stop = true;
+      clearTimeout(t);
+    };
+  }, [poll]);
+
+  // Frame clock for the curve and countdown.
+  useEffect(() => {
+    let raf = 0;
     const tick = () => {
       setNow(Date.now());
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => {
-      clearTimeout(timer);
-      cancelAnimationFrame(raf);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerActive]);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
+  const showResult = useCallback(
+    (roundId: number, betCents: number, payoutCents: number, cashedAt: number | null, balanceCents: number, progress: ProgressUpdate | null) => {
+      if (handled.current.has(roundId)) return;
+      handled.current.add(roundId);
+      const net = payoutCents - betCents;
+      applyResult(balanceCents, net);
+      if (progress) applyProgress(progress);
+      pushFlash(game.name, net, cashedAt ? `Cashed at ${cashedAt.toFixed(2)}x` : "Crashed");
+      setMyResult({ roundId, netCents: net, cashedAt });
+      setFeedVersion((v) => v + 1);
+      if (net > 0) sfx.win();
+      else sfx.lose();
+    },
+    [applyResult, applyProgress, pushFlash, game.name],
+  );
+
+  // Results settled by the server on its own (auto cash-outs, crashes).
   useEffect(() => {
-    if (!ambient || playerActive) return;
-    if (ambient.phase === "countdown") {
-      if (queued) {
-        setQueued(false);
-        setAmbient(null);
-        startRef.current();
-        return;
+    const s = live?.me?.settled;
+    if (s && live?.me) showResult(s.roundId, s.betCents, s.payoutCents, s.cashedAt, live.me.balanceCents, s.progress);
+  }, [live, showResult]);
+
+  const placeBet = useCallback(async () => {
+    if (busy) return;
+    if (betError || effectiveBet <= 0) {
+      setError(betError ?? "Set a stake first.");
+      return;
+    }
+    if (autoOn && !targetOk) {
+      setError(`Auto cash-out must be between ${MIN_TARGET} and ${MAX_TARGET}.`);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/games/crash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bet", betCents: effectiveBet, autoTarget: autoOn ? target : null }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Couldn't place that bet.");
+      else {
+        applyResult(data.balanceCents);
+        sfx.chipPlace();
+        setMyResult(null);
       }
-      if (now >= ambient.until) setAmbient({ ...ambient, phase: "flying", until: now });
-    } else if (ambient.phase === "flying") {
-      const m = multiplierAt(now - ambient.until);
-      if (m >= ambient.crashPoint) {
-        setDisplay(ambient.crashPoint);
-        setAmbient({ ...ambient, phase: "crashed", until: now + CRASHED_HOLD_MS });
-      } else setDisplay(m);
-    } else if (now >= ambient.until) {
-      setDisplay(1);
-      setRoundKey((k) => k + 1);
-      setAmbient({ phase: "countdown", until: now + COUNTDOWN_MS, crashPoint: ambientCrashPoint() });
+      await poll();
+    } catch {
+      setError("Network error — the bet was not placed.");
+    } finally {
+      setBusy(false);
     }
-  }, [now, ambient, playerActive, queued]);
+  }, [busy, betError, effectiveBet, autoOn, targetOk, target, applyResult, poll]);
 
-  const launch = useCallback(() => {
-    if (ambient && ambient.phase !== "countdown") setQueued((q) => !q);
-    else {
-      setAmbient(null);
-      start();
+  const cashout = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/games/crash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cashout" }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Couldn't cash out.");
+      else {
+        const bet = live?.me?.bet;
+        showResult(data.roundId, bet?.betCents ?? 0, data.payoutCents, data.multiplier, data.balanceCents, data.progress);
+      }
+      await poll();
+    } catch {
+      setError("Network error — could not cash out.");
+    } finally {
+      setBusy(false);
     }
-  }, [ambient, start]);
-  startRef.current = start;
-  launchRef.current = launch;
+  }, [busy, live, showResult, poll]);
 
-  const watching = !playerActive && ambient !== null;
-  const roomCrashed = watching && ambient.phase === "crashed";
-  const roomFlying = watching && ambient.phase === "flying";
-  const countdownLeft = watching && ambient.phase === "countdown" ? Math.max(0, ambient.until - now) : null;
-  const shownCrashed = crashed || roomCrashed;
+  // ---- derived state -------------------------------------------------------
+  const serverNow = now + offset.current;
+  const round = live?.round ?? null;
+  const phase: "countdown" | "flight" | "crashed" | null = !round
+    ? null
+    : round.phase === "countdown" && serverNow >= round.startsAt
+      ? "flight"
+      : round.phase;
+  const display =
+    !round || phase === "countdown"
+      ? 1
+      : phase === "crashed"
+        ? (round.crashPoint ?? 1)
+        : multiplierAt(serverNow - round.startsAt);
+  const countdownLeft = round && phase === "countdown" ? Math.max(0, round.startsAt - serverNow) : null;
+
+  const myBet = live?.me?.bet && live.me.bet.roundId === round?.id ? live.me.bet : null;
+  const inPlay = myBet?.status === "ACTIVE" && !handled.current.has(myBet.roundId);
+  const canBetNow = phase === "countdown" && !myBet;
+
+  // A queued bet goes in the moment the next countdown opens.
+  useEffect(() => {
+    if (queued && canBetNow && !busy) {
+      setQueued(false);
+      void placeBet();
+    }
+  }, [queued, canBetNow, busy, placeBet]);
+
+  const mainAction = useCallback(() => {
+    if (inPlay && phase === "flight") return void cashout();
+    if (canBetNow) return void placeBet();
+    if (!myBet || phase !== "countdown") setQueued((q) => !q);
+  }, [inPlay, phase, canBetNow, myBet, cashout, placeBet]);
+
+  const mainActionRef = useRef(mainAction);
+  mainActionRef.current = mainAction;
+  const runAction = useCallback(() => mainActionRef.current(), []);
+
+  const label =
+    inPlay && phase === "flight"
+      ? `Cash out ${formatCents(Math.floor(myBet!.betCents * display))}`
+      : canBetNow
+        ? `Bet ${formatCents(effectiveBet)}`
+        : myBet && phase === "countdown"
+          ? "Bet placed — get ready"
+          : queued
+            ? "In next round — tap to cancel"
+            : `Bet next round`;
+
+  useBetSlipHook({
+    slug: game.slug,
+    name: game.name,
+    actionLabel:
+      inPlay && phase === "flight" ? "Cash out" : canBetNow ? "Bet" : myBet && phase === "countdown" ? "Bet placed" : queued ? "Cancel" : "Bet next round",
+    ready: inPlay && phase === "flight" ? true : !(myBet && phase === "countdown") && !betError && effectiveBet > 0 && (!autoOn || targetOk),
+    busy,
+    run: runAction,
+    note: autoOn ? `Auto cash-out at ${targetOk ? target.toFixed(2) : "—"}x` : "Live room — cash out before it crashes.",
+    autoplay: false,
+  });
+
+  const flying = phase === "flight";
+  const crashed = phase === "crashed";
 
   const canvas = (
     <div className="mx-auto w-full max-w-2xl">
+      {live && live.history.length > 0 && (
+        <div className="mb-3 flex gap-1.5 overflow-hidden">
+          {live.history.map((c, i) => (
+            <span
+              key={i}
+              className={`num shrink-0 rounded-md px-2 py-0.5 text-[11px] font-black ${
+                c >= 10 ? "bg-amber-400/15 text-amber-300" : c >= 2 ? "bg-win/15 text-win" : "bg-white/5 text-slate-400"
+              }`}
+            >
+              {c.toFixed(2)}x
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="relative h-80 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0a1226] via-[#070c1b] to-[#03060e]">
-        <div className={`absolute inset-0 ${live || roomFlying ? "animate-star-drift" : ""}`}>
+        <div className={`absolute inset-0 ${flying ? "animate-star-drift" : ""}`}>
           {STARS.map((st, i) => (
             <span
               key={i}
@@ -369,8 +309,6 @@ export default function CrashGame({ game }: { game: GameDef }) {
         </div>
 
         {(() => {
-          // The curve is the same exponential the server prices against, drawn
-          // across whatever span keeps the head on screen — now the rocket's trail.
           const span = Math.max(4000, timeToReach(display) * 1.15);
           const pts: [number, number][] = [];
           for (let i = 0; i <= 60; i++) {
@@ -383,27 +321,26 @@ export default function CrashGame({ game }: { game: GameDef }) {
           }
           const head = pts[pts.length - 1] ?? [12, 190];
           const prev = pts[Math.max(0, pts.length - 3)] ?? [0, 190];
-          const dx = head[0] - prev[0];
-          const dy = head[1] - prev[1];
-          const angle = pts.length < 3 ? -18 : Math.max(-70, Math.min(-8, (Math.atan2(dy * 1.25, dx) * 180) / Math.PI));
+          const angle =
+            pts.length < 3 ? -18 : Math.max(-70, Math.min(-8, (Math.atan2((head[1] - prev[1]) * 1.25, head[0] - prev[0]) * 180) / Math.PI));
           const line = pts.map((q) => q.join(",")).join(" ");
-          const color = shownCrashed ? "#ff5a6e" : settled ? "#22c55e" : "#8f5cff";
-          const left = `${(head[0] / 400) * 100}%`;
-          const top = `${(head[1] / 200) * 100}%`;
+          const color = crashed ? "#ff5a6e" : "#8f5cff";
           return (
             <>
-              <svg viewBox="0 0 400 200" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="crash-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-                    <stop offset="100%" stopColor={color} stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <polyline points={`12,200 ${line} ${head[0]},200`} fill="url(#crash-fill)" />
-                <polyline points={line} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />
-              </svg>
-              <div className="absolute" style={{ left, top }}>
-                {shownCrashed ? (
+              {phase !== "countdown" && (
+                <svg viewBox="0 0 400 200" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="crash-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                      <stop offset="100%" stopColor={color} stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <polyline points={`12,200 ${line} ${head[0]},200`} fill="url(#crash-fill)" />
+                  <polyline points={line} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" />
+                </svg>
+              )}
+              <div className="absolute" style={{ left: `${(head[0] / 400) * 100}%`, top: `${(head[1] / 200) * 100}%` }}>
+                {crashed ? (
                   <>
                     <span className="absolute h-24 w-24 animate-boom rounded-full bg-[radial-gradient(circle,#fff5d6_0%,#ffb347_35%,#ff5a6e_60%,transparent_72%)]" />
                     {SHARDS.map((sh, i) => (
@@ -415,7 +352,7 @@ export default function CrashGame({ game }: { game: GameDef }) {
                     ))}
                   </>
                 ) : (
-                  <Rocket angle={angle} flying={live || roomFlying || (busy && !settled)} />
+                  <Rocket angle={angle} flying={flying} />
                 )}
               </div>
             </>
@@ -424,41 +361,31 @@ export default function CrashGame({ game }: { game: GameDef }) {
 
         <div className="pointer-events-none absolute inset-x-0 top-6 text-center">
           <p
-            className={`num text-6xl font-black tabular-nums drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] transition-colors ${
-              shownCrashed ? "text-loss" : settled ? "text-win" : "text-white"
+            className={`num text-6xl font-black tabular-nums drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] ${
+              crashed ? "text-loss" : "text-white"
             }`}
           >
-            {countdownLeft !== null ? `${(countdownLeft / 1000).toFixed(1)}s` : `${display.toFixed(2)}x`}
+            {!round ? "…" : countdownLeft !== null ? `${(countdownLeft / 1000).toFixed(1)}s` : `${display.toFixed(2)}x`}
           </p>
           {countdownLeft !== null && (
-            <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-slate-300">Next round starting</p>
+            <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-slate-300">Bets open · round #{round!.id}</p>
           )}
-          {shownCrashed && <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-loss">Crashed</p>}
-          {settled && !crashed && (
+          {crashed && <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-loss">Crashed</p>}
+          {flying && myBet?.status === "CASHED" && (
             <p className="mt-1 text-[13px] font-black uppercase tracking-[0.2em] text-win">
-              Cashed at {settled.cashedAt?.toFixed(2)}x
+              You cashed at {myBet.cashedAt?.toFixed(2)}x
             </p>
           )}
-          {live && <p className="mt-1 text-[12px] text-slate-400">Cash out any time</p>}
         </div>
       </div>
 
-      <CrashPlayers
-        roundKey={roundKey}
-        display={display}
-        phase={settled ? (crashed ? "crashed" : "cashed") : live || busy || roomFlying ? "flying" : roomCrashed ? "crashed" : "idle"}
-      />
-
-      {settled && (
+      {myResult && myResult.roundId === round?.id && (
         <div className="animate-pop-in mt-4 text-center">
-          <p className={settled.netCents > 0 ? "num-win text-3xl" : "num-loss text-3xl"}>
-            {formatSignedCents(settled.netCents)}
-          </p>
-          <p className="num mt-1 text-[12px] text-slate-500">
-            It went to {settled.crashPoint.toFixed(2)}x
-          </p>
+          <p className={myResult.netCents > 0 ? "num-win text-3xl" : "num-loss text-3xl"}>{formatSignedCents(myResult.netCents)}</p>
         </div>
       )}
+
+      <CrashPlayers players={live?.players ?? []} flying={flying} />
 
       {error && <p className="mt-3 text-center text-sm font-semibold text-loss">{error}</p>}
     </div>
@@ -466,92 +393,51 @@ export default function CrashGame({ game }: { game: GameDef }) {
 
   const panel = (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { key: true, label: "Auto" },
-          { key: false, label: "Manual" },
-        ].map((m) => (
-          <button
-            key={String(m.key)}
-            type="button"
-            onClick={() => setAuto(m.key)}
-            disabled={busy || live}
-            className={`rounded-xl border py-2.5 text-[12px] font-black uppercase tracking-wide transition-all duration-200 disabled:opacity-50 ${
-              auto === m.key ? "border-transparent bg-base-500 text-white" : "border-transparent bg-base-900 text-slate-400 hover:text-white"
-            }`}
-          >
-            {m.label}
+      <div>
+        <p className="label">Auto cash-out</p>
+        <div className="seg grid-cols-2">
+          <button type="button" onClick={() => setAutoOn(false)} disabled={!!myBet && inPlay} className={!autoOn ? "seg-item-on" : "seg-item"}>
+            Off
           </button>
-        ))}
-      </div>
-
-      {auto && (
-        <div>
-          <label className="label" htmlFor="crash-target">
-            Auto cash-out
-          </label>
+          <button type="button" onClick={() => setAutoOn(true)} disabled={!!myBet && inPlay} className={autoOn ? "seg-item-on" : "seg-item"}>
+            On
+          </button>
+        </div>
+        {autoOn && (
           <input
             id="crash-target"
-            className="field num"
+            className="field num mt-2"
             value={targetText}
             onChange={(e) => setTargetText(e.target.value)}
-            disabled={busy || live}
+            disabled={inPlay}
             inputMode="decimal"
+            aria-label="Auto cash-out multiplier"
           />
-          {targetOk && (
-            <p className="num mt-1.5 text-[11px] text-slate-500">
-              {(chanceOfReaching(target) * 100).toFixed(2)}% chance · pays {target.toFixed(2)}x
-            </p>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
-      <BetControls disabled={busy || live} />
+      <BetControls disabled={busy || inPlay} />
 
-      {live ? (
-        <button type="button" onClick={cashout} className="btn-primary w-full py-3 text-base shadow-volt">
-          Cash out at {display.toFixed(2)}x
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={launch}
-          disabled={busy || (auto && !targetOk)}
-          className="btn-primary w-full py-3 text-base shadow-volt"
-        >
-          {busy ? "In the air…" : queued ? "Joined next round — tap to cancel" : watching && ambient.phase !== "countdown" ? `Bet next round ${formatCents(effectiveBet)}` : `Launch ${formatCents(effectiveBet)}`}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={mainAction}
+        disabled={!signedIn || busy || (!!myBet && phase === "countdown")}
+        className={`w-full py-3 text-base ${inPlay && flying ? "btn-primary bg-win text-base-900 hover:bg-win" : "btn-primary shadow-volt"}`}
+      >
+        {busy ? "…" : label}
+      </button>
 
       <p className="text-center text-[11px] leading-relaxed text-slate-500">
-        {auto
-          ? "Auto is settled server-side the instant you launch, so reaction time cannot cost you anything."
-          : "Manual pays whatever the server's clock reads when your cash-out lands."}
+        Everyone plays the same round. Bets open during the countdown; cash out any time before it crashes.
       </p>
     </div>
   );
 
   const rules = (
-    <>
-      <p>
-        The crash point is drawn once, when the round starts, and stored server-side before your
-        browser is told anything. It is the same draw Limbo uses: with u uniform on (0,1], the crash
-        point is 0.99 / u, so the chance of reaching any multiplier M is exactly 0.99 / M. Cash out
-        at M and you are paid M for an event of probability 0.99 / M — a return of exactly 99% at
-        every point on the curve. There is no safe end and no greedy end; they are priced identically.
-      </p>
-      <p>
-        <span className="font-bold text-slate-200">Auto</span> names your multiplier up front and is
-        settled at once, server-side, by comparing it to the drawn crash point. Reaction time cannot
-        enter into it, so the 99% is exact.
-      </p>
-      <p>
-        <span className="font-bold text-slate-200">Manual</span> is honest but not exactly 99% for
-        you personally: the multiplier is read from the server&apos;s own clock, never from a number
-        your browser sends, and your reaction time plus the network round trip can only ever land you
-        lower than you aimed, never higher. Auto is the mode with no such drag.
-      </p>
-    </>
+    <p>
+      One shared round at a time. The crash point is drawn by the server when the round is created and is never sent to
+      anyone until the rocket gets there. Cash-outs are priced from the server&apos;s clock.
+    </p>
   );
 
   return <GameFrame game={game} engineKey="crash" feedVersion={feedVersion} canvas={canvas} panel={panel} rules={rules} />;
