@@ -1,12 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import { siteUrl } from "@/lib/site";
 
 const TITLE = "WinIt — play-money casino";
 const DESCRIPTION =
   "A fully simulated casino and gambling-career sim. Play-money only: no deposits, no withdrawals, no real-money path.";
 
 export const metadata: Metadata = {
+  // Every relative URL in metadata — the generated OG image above all — is
+  // resolved against this, so previews never point at localhost.
+  metadataBase: new URL(siteUrl()),
   title: { default: TITLE, template: "%s · WinIt" },
   description: DESCRIPTION,
   openGraph: {
@@ -14,6 +18,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     siteName: "WinIt",
     type: "website",
+    url: "/",
   },
   twitter: {
     card: "summary_large_image",

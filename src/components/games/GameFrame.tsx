@@ -42,7 +42,7 @@ export default function GameFrame({
         <h1 className="font-display text-2xl font-black tracking-tight text-white">{game.name}</h1>
         {/* Balance is repeated here so it is on screen even when the header
             scrolls — but there is none to show until you have an account. */}
-        {!signedOut && <BalanceDisplay size="sm" />}
+        <BalanceDisplay size="sm" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">

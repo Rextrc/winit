@@ -17,9 +17,11 @@ export default function SearchBox({ autoFocus = false }: { autoFocus?: boolean }
     if (!needle) return [];
     return GAMES.filter(
       (g) =>
+        g.playable &&
+        (
         g.name.toLowerCase().includes(needle) ||
         g.tagline.toLowerCase().includes(needle) ||
-        g.tags.some((t) => t.toLowerCase().includes(needle)),
+        g.tags.some((t) => t.toLowerCase().includes(needle))),
     ).slice(0, 6);
   }, [q]);
 

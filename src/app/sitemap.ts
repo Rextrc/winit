@@ -1,9 +1,7 @@
+import { siteUrl } from "@/lib/site";
 import type { MetadataRoute } from "next";
 import { CATEGORY_LABELS, PLAYABLE } from "@/lib/games/registry";
 
-function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXTAUTH_URL ?? "https://winit.one").replace(/\/$/, "");
-}
 
 /**
  * Every URL here is genuinely public and content-bearing: the lobby, each

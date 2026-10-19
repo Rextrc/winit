@@ -33,7 +33,7 @@ export async function GET(req: Request) {
       isGuest: guests,
       ...(includeDeleted ? {} : { deletedAt: null }),
       ...(q
-        ? { OR: [{ username: { contains: q } }, { email: { contains: q } }, { id: q }] }
+        ? { OR: [{ username: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }, { id: q }] }
         : {}),
     },
     orderBy: { createdAt: "desc" },

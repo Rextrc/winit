@@ -298,7 +298,8 @@ export function gameBySlug(slug: string): GameDef | undefined {
 }
 
 export function gamesByCategory(category: Category): GameDef[] {
-  return GAMES.filter((g) => g.category === category);
+  // Unbuilt games stay in the registry for the workshop but never ship to a page.
+  return GAMES.filter((g) => g.category === category && g.playable);
 }
 
 export const PLAYABLE = GAMES.filter((g) => g.playable);

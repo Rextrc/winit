@@ -85,7 +85,7 @@ export default async function SettingsPage() {
         <h2 className="text-[13px] font-black tracking-tight text-white">About this build</h2>
         <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-slate-400">
           WinIt is a portfolio project that simulates a casino end to end. Balances are integers in a
-          local SQLite database and mean nothing outside this app. There is no payment processing, no
+          site database and mean nothing outside this app. There is no payment processing, no
           deposit path, no withdrawal path and no conversion to real money anywhere in the codebase.
           Credit enters an account in exactly two ways — the sign-up grant and the daily bonus —
           and both are hard-coded constants the app mints for itself. Leveling and rebirth raise

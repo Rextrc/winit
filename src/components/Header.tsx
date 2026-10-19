@@ -19,7 +19,9 @@ export default function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { status } = useSession();
   const { progression } = useWallet();
   const pathname = usePathname();
-  const signedOut = status === "unauthenticated";
+  // Anything short of a confirmed session gets the visitor CTAs, never a
+  // half-rendered balance.
+  const signedOut = status !== "authenticated";
   const callbackUrl = pathname && pathname !== "/" ? `?callbackUrl=${encodeURIComponent(pathname)}` : "";
 
   return (

@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { formatCents, formatSignedCents } from "@/lib/money";
 import { useWallet } from "@/components/WalletProvider";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 /**
  * The always-visible balance. Counts up/down to the new figure and flashes the
@@ -10,6 +13,8 @@ import { useWallet } from "@/components/WalletProvider";
  */
 export default function BalanceDisplay({ size = "md" }: { size?: "sm" | "md" }) {
   const { balanceCents, lastDelta, loading } = useWallet();
+  const { status } = useSession();
+  const pathname = usePathname();
   const [shown, setShown] = useState<number | null>(balanceCents);
   const [flash, setFlash] = useState<{ id: number; netCents: number } | null>(null);
 
@@ -50,6 +55,17 @@ export default function BalanceDisplay({ size = "md" }: { size?: "sm" | "md" }) 
   }, [lastDelta]);
 
   const won = (flash?.netCents ?? 0) > 0;
+
+  // No account, no balance to show — give the visitor somewhere to go instead
+  // of a dash.
+  if (status !== "authenticated") {
+    const cb = pathname && pathname !== "/" ? `?callbackUrl=${encodeURIComponent(pathname)}` : "";
+    return (
+      <Link href={`/signup${cb}`} className="btn-primary px-3 py-1.5 text-xs shadow-volt">
+        Sign up — 100,000 free
+      </Link>
+    );
+  }
 
   return (
     <div className="relative flex flex-col items-end leading-none">

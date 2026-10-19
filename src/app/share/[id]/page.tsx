@@ -17,6 +17,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   return pageMetadata(
     `${win.username} won ${formatCents(win.netCents)} on ${label}`,
     `${win.summary} — played on WinIt, a play-money casino. No deposits, no withdrawals, just the games.`,
+    { ownImage: true },
   );
 }
 

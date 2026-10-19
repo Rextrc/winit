@@ -12,15 +12,23 @@ import type { Metadata } from "next";
  * site-wide card regardless of which page was actually shared. Use this
  * wherever a page sets a custom title, not just `{ title }`.
  */
-export function pageMetadata(title: string, description?: string): Metadata {
+export function pageMetadata(
+  title: string,
+  description?: string,
+  /** Set for a route with its own opengraph-image file, so that one is used. */
+  { ownImage = false }: { ownImage?: boolean } = {},
+): Metadata {
+  const images = ownImage ? {} : { images: [{ url: "/opengraph-image", width: 1200, height: 630 }] };
   return {
     title,
     description,
-    openGraph: { title, description },
+    // The child object replaces the root one wholesale, so the site's share
+    // image has to be named again or the preview loses its picture.
+    openGraph: { title, description, ...images },
     // `card` is repeated here for the same reason `title`/`description` are:
     // a child page's `twitter` object replaces the root's whole one rather
     // than merging into it, so leaving `card` out would silently downgrade
     // every page's preview from a large image card to a small "summary" one.
-    twitter: { card: "summary_large_image", title, description },
+    twitter: { card: "summary_large_image", title, description, ...(ownImage ? {} : { images: ["/opengraph-image"] }) },
   };
 }

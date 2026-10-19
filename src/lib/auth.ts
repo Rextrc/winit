@@ -57,17 +57,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // Never bounce a visitor to another host. If NEXTAUTH_URL is ever left
-    // pointing at a dev machine, any absolute redirect is reduced to its path
-    // so it lands on whatever site the visitor is actually on.
-    async redirect({ url }) {
-      if (url.startsWith("/")) return url;
+    // next-auth's client parses whatever this returns with `new URL()`, so it
+    // must stay absolute. Every client call here uses `redirect: false` and
+    // navigates with relative paths itself, so this URL is never followed —
+    // which is what keeps a stale NEXTAUTH_URL from ever sending anyone to
+    // localhost.
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
       try {
-        const u = new URL(url);
-        return `${u.pathname}${u.search}${u.hash}` || "/";
+        if (new URL(url).origin === new URL(baseUrl).origin) return url;
       } catch {
-        return "/";
+        /* fall through */
       }
+      return baseUrl;
     },
     async jwt({ token, user }) {
       if (user) {

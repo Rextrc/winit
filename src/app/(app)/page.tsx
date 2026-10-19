@@ -22,8 +22,6 @@ export default function HomePage() {
        */}
       <GameRow title="WinIt Games" games={PLAYABLE.filter((g) => g.category !== "table")} />
       <GameRow title="Table Games" games={gamesByCategory("table")} href="/category/table" />
-      <GameRow title="Originals" games={gamesByCategory("originals")} href="/category/originals" />
-      <GameRow title="Live" subtitle="Simulated tables — nothing streams anywhere" games={gamesByCategory("live")} href="/category/live" />
 
       <div className="mt-2">
         <BetFeed title="Your recent bets" take={10} />
