@@ -65,6 +65,10 @@ model User {
   // A no-signup trial account: small balance, small bet cap, no chat and no
   // leaderboard. Claiming it (picking a username + password) clears this.
   isGuest       Boolean @default(false)
+  // The connection this guest was minted for. UNIQUE, so two concurrent guest
+  // requests can't both win: the database refuses the second. Never cleared,
+  // so saving the account doesn't free the connection for another guest.
+  guestKey      String? @unique
 
   // Career totals, kept across rebirths. BigInt because a long-lived account
   // can wager far past 2^31 cents.
