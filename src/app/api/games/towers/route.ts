@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
-import { awardProgress, credit, debit, writeTransaction } from "@/lib/ledger";
+import { awardProgress, credit, debit, writeTransaction, lockUser } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import {
   SHAPES,
@@ -67,12 +67,12 @@ export async function POST(req: Request) {
       const gate = await assertBettable(user, bet.cents, "towers");
       if (gate) return gate;
 
-      const existing = await prisma.round.findFirst({
+      const result = await prisma.$transaction(async (tx) => {
+        await lockUser(tx, user.id);
+        const existing = await tx.round.findFirst({
         where: { userId: user.id, game: "towers", status: "ACTIVE" },
       });
-      if (existing) return jsonError("Finish or cash out your current climb first.", 409);
-
-      const result = await prisma.$transaction(async (tx) => {
+        if (existing) throw new Error("Finish or cash out your current climb first.");
         const balanceCents = await debit(tx, user.id, bet.cents);
         const state = newRound(bet.cents, difficulty);
         const round = await tx.round.create({
@@ -93,6 +93,7 @@ export async function POST(req: Request) {
     const { action, roundId } = parsed.data;
 
     const result = await prisma.$transaction(async (tx) => {
+      await lockUser(tx, user.id);
       const round = await tx.round.findFirst({
         where: { id: roundId, userId: user.id, game: "towers", status: "ACTIVE" },
       });

@@ -60,6 +60,17 @@ async function readBalance(tx: Tx, userId: string): Promise<number> {
 }
 
 /**
+ * Takes the account's row lock for the rest of the transaction. Anything that
+ * reads "is there an open round?" and then acts on the answer must call this
+ * first: without it, N concurrent requests all read ACTIVE, all pass, and all
+ * pay out (or all open a round). With it they queue, and each one re-reads the
+ * state the previous one left behind.
+ */
+export async function lockUser(tx: Tx, userId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+}
+
+/**
  * Atomically removes `cents` from the balance, failing if the player cannot
  * cover it. Returns the balance after the debit.
  */
