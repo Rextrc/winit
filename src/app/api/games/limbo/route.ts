@@ -6,6 +6,7 @@ import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
 import { randomFloat } from "@/lib/rng";
 import { limboResultFromUniform, limboValidTarget, payoutFor, roundMultiplier } from "@/lib/games/originals";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
     const u = 1 - randomFloat();
     const result = limboResultFromUniform(u);
     const won = result >= target;
-    const payoutCents = won ? payoutFor(bet.cents, target) : 0;
+    const payoutCents = won ? settlePayout(bet.cents, target) : 0;
 
     const settled = await settleOneShotBet({
       userId: user.id,

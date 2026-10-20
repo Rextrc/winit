@@ -14,6 +14,7 @@ import {
   toView,
   type TowersState,
 } from "@/lib/games/towers";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
         const floors = state.picks.length;
         if (floors === 0) throw new Error("Climb at least one floor before cashing out.");
 
-        const payoutCents = Math.round(state.betCents * multiplierAt(state.difficulty, floors));
+        const payoutCents = settlePayout(state.betCents, multiplierAt(state.difficulty, floors));
         state.status = "CASHED_OUT";
         const balanceCents = await credit(tx, user.id, payoutCents);
         await tx.round.update({
@@ -164,7 +165,7 @@ export async function POST(req: Request) {
 
       // Topped the tower out — it pays automatically at the highest floor.
       if (state.picks.length >= shape.floors) {
-        const payoutCents = Math.round(state.betCents * multiplierAt(state.difficulty, shape.floors));
+        const payoutCents = settlePayout(state.betCents, multiplierAt(state.difficulty, shape.floors));
         state.status = "CASHED_OUT";
         const balanceCents = await credit(tx, user.id, payoutCents);
         await tx.round.update({

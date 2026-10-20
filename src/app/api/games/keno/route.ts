@@ -13,6 +13,7 @@ import {
   kenoPaytable,
   payoutFor,
 } from "@/lib/games/originals";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
 
     const table = kenoPaytable(picks.length, parsed.data.risk);
     const multiplier = table[hits] ?? 0;
-    const payoutCents = payoutFor(bet.cents, multiplier);
+    const payoutCents = settlePayout(bet.cents, multiplier);
 
     const settled = await settleOneShotBet({
       userId: user.id,

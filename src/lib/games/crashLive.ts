@@ -4,6 +4,7 @@ import { awardProgress, credit, writeTransaction, type ProgressUpdate } from "@/
 import { formatCents } from "@/lib/money";
 import { fromDb } from "@/lib/bigmoney";
 import { cashoutMultiplier, drawCrashPoint, timeToReach } from "@/lib/games/crash";
+import { settlePayout } from "@/lib/payout";
 
 /**
  * WINIT CRASH — MULTIPLAYER
@@ -72,7 +73,7 @@ async function payOut(
 ): Promise<{ balanceCents: number; payoutCents: number; progress: ProgressUpdate } | null> {
   // The conditional update is the lock against paying a bet twice.
   const stake = fromDb(bet.betCents);
-  const payoutCents = Math.round(stake * multiplier);
+  const payoutCents = settlePayout(stake, multiplier);
   const claimed = await tx.crashBet.updateMany({
     where: { id: bet.id, status: "ACTIVE" },
     data: { status: "CASHED", cashedAt: multiplier, payoutCents: BigInt(payoutCents) },

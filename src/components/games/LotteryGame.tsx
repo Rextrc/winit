@@ -14,8 +14,8 @@ import {
   exactRtp,
   hitProbability,
   paytable,
-  quickPick,
 } from "@/lib/games/lottery";
+import { browserQuickPick } from "@/lib/games/lotteryClient";
 
 type Resp = {
   result: {
@@ -196,7 +196,7 @@ export default function LotteryGame({ game }: { game: GameDef }) {
           onClick={() => {
             setLast(null);
             setDrawnSoFar([]);
-            setTicket(quickPick());
+            setTicket(browserQuickPick());
           }}
           disabled={busy}
           className="btn-ghost flex-1 py-2 text-xs"

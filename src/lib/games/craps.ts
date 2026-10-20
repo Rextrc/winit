@@ -1,4 +1,5 @@
 import { randomRange } from "@/lib/rng";
+import { settlePayout } from "@/lib/payout";
 
 /**
  * WINIT CRAPS — pass, don't pass, field
@@ -117,7 +118,7 @@ export function play(bet: CrapsBet, betCents: number): CrapsResult {
     point,
     outcome,
     multiplier,
-    payoutCents: Math.round(betCents * multiplier),
+    payoutCents: settlePayout(betCents, multiplier),
     summary,
   });
 

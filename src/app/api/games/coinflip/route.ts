@@ -6,6 +6,7 @@ import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
 import { randomInt } from "@/lib/rng";
 import { COINFLIP_MULTIPLIER, payoutFor, type CoinSide } from "@/lib/games/originals";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
   try {
     const result: CoinSide = randomInt(2) === 0 ? "heads" : "tails";
     const won = result === parsed.data.side;
-    const payoutCents = won ? payoutFor(bet.cents, COINFLIP_MULTIPLIER) : 0;
+    const payoutCents = won ? settlePayout(bet.cents, COINFLIP_MULTIPLIER) : 0;
 
     const settled = await settleOneShotBet({
       userId: user.id,

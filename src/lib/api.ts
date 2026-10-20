@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { currentUserId } from "@/lib/auth";
@@ -178,6 +179,11 @@ export async function assertBettable(
 
 /** Maps thrown errors onto sensible API responses. */
 export function handleError(err: unknown) {
+  // A unique-constraint race (two concurrent requests for the same slot):
+  // never leak the raw database message to the player.
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    return jsonError("That is already in progress — try again in a moment.", 409);
+  }
   if (err instanceof InsufficientBalanceError) return jsonError("Not enough balance for that bet.", 409);
   if (err instanceof Error) return jsonError(err.message, 400);
   return jsonError("Something went wrong.", 500);

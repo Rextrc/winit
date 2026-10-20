@@ -1,4 +1,5 @@
 import { randomInt } from "@/lib/rng";
+import { settlePayout } from "@/lib/payout";
 import { RANKS, SUITS, type Card } from "@/lib/games/blackjack";
 
 /**
@@ -136,7 +137,7 @@ export function playHand(): HandResult {
 }
 
 export function payoutFor(bet: BetType, stakeCents: number, winner: HandResult["winner"]): number {
-  if (bet === winner) return Math.round(stakeCents * PAYOUT[bet]);
+  if (bet === winner) return settlePayout(stakeCents, PAYOUT[bet]);
   // A tie pushes any Player or Banker bet — the stake is returned, not lost.
   if (winner === "tie" && bet !== "tie") return stakeCents;
   return 0;

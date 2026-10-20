@@ -13,6 +13,7 @@ import {
   toView,
   type VideoPokerState,
 } from "@/lib/games/videopoker";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
       const drawn = drawTo(state, uniqueHeld);
       const hand = drawn.result!;
       const multiplier = payoutMultiplier(hand);
-      const payoutCents = Math.round(state.betCents * multiplier);
+      const payoutCents = settlePayout(state.betCents, multiplier);
 
       const balanceCents =
         payoutCents > 0

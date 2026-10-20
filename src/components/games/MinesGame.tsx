@@ -166,7 +166,7 @@ export default function MinesGame({ game }: { game: GameDef }) {
     slug: game.slug,
     name: game.name,
     actionLabel: inPlay ? "Cash Out" : "Start",
-    ready: inPlay ? true : !betError && effectiveBet > 0,
+    ready: inPlay ? (view?.revealed.length ?? 0) > 0 : !betError && effectiveBet > 0,
     busy,
     run: inPlay ? cashOut : start,
     note: inPlay
@@ -276,7 +276,7 @@ export default function MinesGame({ game }: { game: GameDef }) {
       <BetControls disabled={busy || inPlay} />
 
       {inPlay ? (
-        <button type="button" onClick={cashOut} disabled={busy} className="btn-primary w-full py-3 text-base shadow-volt">
+        <button type="button" onClick={cashOut} disabled={busy || (view?.revealed.length ?? 0) === 0} className="btn-primary w-full py-3 text-base shadow-volt">
           {busy ? "Working…" : `Cash Out ${formatCents(Math.round((view?.betCents ?? 0) * (view?.currentMultiplier ?? 1)))}`}
         </button>
       ) : (

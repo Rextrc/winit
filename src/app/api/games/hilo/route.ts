@@ -6,6 +6,7 @@ import { validateBet, formatCents } from "@/lib/money";
 import { awardProgress, credit, debit, writeTransaction, lockUser } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import { RANK_VALUE, directionAvailable, winsGuess, multiplierFor, newRound, toView, type Direction, type HiloState } from "@/lib/games/hilo";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,7 +82,10 @@ export async function POST(req: Request) {
       const state = parseState(round.state);
 
       if (action === "cashout") {
-        const payoutCents = Math.round(state.betCents * state.streakMultiplier);
+        // A zero-step cash-out would refund the stake for free while still
+        // counting as a wager for XP and career progress.
+        if (state.steps === 0) throw new Error("Make at least one guess before cashing out.");
+        const payoutCents = settlePayout(state.betCents, state.streakMultiplier);
         state.status = "CASHED_OUT";
         const balanceCents = await credit(tx, user.id, payoutCents);
         await tx.round.update({ where: { id: round.id }, data: { status: "SETTLED", state: JSON.stringify(state) } });
@@ -156,7 +160,7 @@ export async function POST(req: Request) {
       if (state.deck.length === 0) {
         // Ran the whole deck down correctly — auto-cash at the final multiplier.
         state.status = "WON_OUT";
-        const payoutCents = Math.round(state.betCents * state.streakMultiplier);
+        const payoutCents = settlePayout(state.betCents, state.streakMultiplier);
         const balanceCents = await credit(tx, user.id, payoutCents);
         await tx.round.update({ where: { id: round.id }, data: { status: "SETTLED", state: JSON.stringify(state) } });
         await writeTransaction(tx, {

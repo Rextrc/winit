@@ -6,6 +6,7 @@ import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
 import { randomInt } from "@/lib/rng";
 import { WHEEL_SEGMENTS, payoutFor, type WheelRisk } from "@/lib/games/originals";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     const segments = WHEEL_SEGMENTS[risk];
     const index = randomInt(segments.length);
     const multiplier = segments[index];
-    const payoutCents = payoutFor(bet.cents, multiplier);
+    const payoutCents = settlePayout(bet.cents, multiplier);
     const won = payoutCents > bet.cents;
 
     const settled = await settleOneShotBet({

@@ -14,6 +14,7 @@ import {
   payoutFor,
   type DiceDirection,
 } from "@/lib/games/originals";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     const roll = randomInt(DICE_OUTCOMES);
     const won = diceWins(direction, target, roll);
     const multiplier = diceMultiplier(direction, target);
-    const payoutCents = won ? payoutFor(bet.cents, multiplier) : 0;
+    const payoutCents = won ? settlePayout(bet.cents, multiplier) : 0;
 
     const settled = await settleOneShotBet({
       userId: user.id,

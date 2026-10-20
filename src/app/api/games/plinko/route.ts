@@ -6,6 +6,7 @@ import { settleOneShotBet } from "@/lib/ledger";
 import { bonusStatus } from "@/lib/bonus";
 import { randomInt } from "@/lib/rng";
 import { PLINKO_ROWS, PLINKO_TABLES, payoutFor, type PlinkoRisk, type PlinkoRows } from "@/lib/games/originals";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
 
     const table = PLINKO_TABLES[risk][rows];
     const multiplier = table[bucket];
-    const payoutCents = payoutFor(bet.cents, multiplier);
+    const payoutCents = settlePayout(bet.cents, multiplier);
 
     const settled = await settleOneShotBet({
       userId: user.id,

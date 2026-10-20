@@ -92,7 +92,18 @@ export const authOptions: NextAuthOptions = {
 /** Returns the signed-in user's id, or null. */
 export async function currentUserId(): Promise<string | null> {
   const session = await getServerSession(authOptions);
-  return session?.user?.id ?? null;
+  const id = session?.user?.id;
+  if (!id) return null;
+
+  // The session is a stateless, sliding JWT: nothing about it changes when an
+  // account is deleted or banned, so a cookie issued yesterday would keep
+  // working for as long as it keeps being used. The database is the only
+  // thing that knows — ask it, on every request, through the one function
+  // every API route and page identifies the caller with. (Suspended accounts
+  // are deliberately let through: they need to sign in to read why.)
+  const row = await prisma.user.findUnique({ where: { id }, select: { deletedAt: true, bannedAt: true } });
+  if (!row || row.deletedAt || row.bannedAt) return null;
+  return id;
 }
 
 /** Loads the signed-in user row, or null. */

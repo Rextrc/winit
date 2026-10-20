@@ -1,4 +1,5 @@
 import { shuffle } from "@/lib/rng";
+import { settlePayout } from "@/lib/payout";
 import { TARGET_RTP, roundMultiplier } from "@/lib/games/originals";
 
 /**
@@ -89,6 +90,6 @@ export function draw(ticket: number[], betCents: number): LotteryResult {
     matched,
     hits,
     multiplier,
-    payoutCents: Math.round(betCents * multiplier),
+    payoutCents: settlePayout(betCents, multiplier),
   };
 }

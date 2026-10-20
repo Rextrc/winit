@@ -14,6 +14,7 @@ import {
   validMinesCount,
   type MinesState,
 } from "@/lib/games/mines";
+import { settlePayout } from "@/lib/payout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,7 +98,10 @@ export async function POST(req: Request) {
       const state = parseState(round.state);
 
       if (action === "cashout") {
-        const payoutCents = Math.round(state.betCents * multiplierAt(state.mines, state.revealed.length));
+        // A zero-reveal cash-out would refund the stake for free while still
+        // counting as a wager for XP and career progress.
+        if (state.revealed.length === 0) throw new Error("Reveal at least one cell before cashing out.");
+        const payoutCents = settlePayout(state.betCents, multiplierAt(state.mines, state.revealed.length));
         state.status = "CASHED_OUT";
         const balanceCents = await credit(tx, user.id, payoutCents);
         await tx.round.update({ where: { id: round.id }, data: { status: "SETTLED", state: JSON.stringify(state) } });
@@ -147,7 +151,7 @@ export async function POST(req: Request) {
 
       // Revealed every safe cell — the board auto-cashes at the top multiplier.
       if (state.revealed.length >= maxSafeReveals(state.mines)) {
-        const payoutCents = Math.round(state.betCents * multiplierAt(state.mines, state.revealed.length));
+        const payoutCents = settlePayout(state.betCents, multiplierAt(state.mines, state.revealed.length));
         state.status = "WON";
         const balanceCents = await credit(tx, user.id, payoutCents);
         await tx.round.update({ where: { id: round.id }, data: { status: "SETTLED", state: JSON.stringify(state) } });
