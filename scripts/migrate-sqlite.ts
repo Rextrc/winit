@@ -19,26 +19,64 @@
  * Needs Node 22+ (built-in node:sqlite).
  */
 import { Prisma, PrismaClient } from "@prisma/client";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 type Row = Record<string, unknown>;
 
-const from = process.env.MIGRATE_SQLITE_FROM?.trim();
+const configured = process.env.MIGRATE_SQLITE_FROM?.trim();
+
+const isDbFile = (n: string) => /\.(db|sqlite|sqlite3)$/i.test(n);
+
+/**
+ * Resolves what the variable points at. A file is used as is. A directory
+ * (e.g. the volume's mount path, /data) is searched for a single database
+ * file. Anything else logs what IS there, so a wrong guess is one deploy
+ * away from fixed instead of a dead end.
+ */
+function resolveSource(p: string): string | null {
+  const list = (dir: string) => {
+    try {
+      return readdirSync(dir).map((n) => `${n} (${statSync(join(dir, n)).size} bytes)`);
+    } catch {
+      return [];
+    }
+  };
+  if (existsSync(p) && statSync(p).isFile()) return p;
+  if (existsSync(p) && statSync(p).isDirectory()) {
+    const files = readdirSync(p).filter(isDbFile);
+    if (files.length === 1) return join(p, files[0]);
+    console.log(
+      files.length === 0
+        ? `[migrate-sqlite] No .db file in ${p}. It contains: ${list(p).join(", ") || "(empty)"}`
+        : `[migrate-sqlite] Several database files in ${p}: ${files.join(", ")}. Set MIGRATE_SQLITE_FROM to the exact one.`,
+    );
+    return null;
+  }
+  console.log(`[migrate-sqlite] ${p} not found. ${dirname(p)} contains: ${list(dirname(p)).join(", ") || "(empty or missing)"}`);
+  return null;
+}
 
 async function main() {
-  if (!from) {
+  if (!configured) {
     console.log("[migrate-sqlite] MIGRATE_SQLITE_FROM not set — nothing to do.");
     return;
   }
-  if (!existsSync(from)) {
-    console.log(`[migrate-sqlite] ${from} not found — nothing to copy.`);
-    return;
-  }
+  const from = resolveSource(configured);
+  if (!from) return;
+  console.log(`[migrate-sqlite] Reading ${from}`);
 
-  // node:sqlite arrived in Node 22.5; import lazily so older Nodes get a clear message.
-  let DatabaseSync: typeof import("node:sqlite").DatabaseSync;
+  // node:sqlite arrived in Node 22.5. It's loaded by a computed name so neither
+  // the type checker (older @types/node lack it) nor the bundler tries to
+  // resolve it, and older Nodes get a clear message instead of a stack trace.
+  type Stmt = { all: () => unknown[] };
+  type Sqlite = { prepare: (sql: string) => Stmt };
+  let openDb: (path: string) => Sqlite;
   try {
-    ({ DatabaseSync } = await import("node:sqlite"));
+    const mod = (await import(/* webpackIgnore: true */ ["node", "sqlite"].join(":"))) as {
+      DatabaseSync: new (path: string, opts: { readOnly: boolean }) => Sqlite;
+    };
+    openDb = (path) => new mod.DatabaseSync(path, { readOnly: true });
   } catch {
     throw new Error(`Node ${process.version} has no node:sqlite. Use Node 22 or newer to run this migration.`);
   }
@@ -51,7 +89,7 @@ async function main() {
       return;
     }
 
-    const db = new DatabaseSync(from, { readOnly: true });
+    const db = openDb(from);
     const tables = new Set(
       (db.prepare("select name from sqlite_master where type='table'").all() as Row[]).map((r) => String(r.name)),
     );
@@ -59,7 +97,7 @@ async function main() {
     // Parents before children, from the schema's own foreign keys.
     const models = Prisma.dmmf.datamodel.models;
     const byName = new Map(models.map((m) => [m.name, m]));
-    const ordered: typeof models = [];
+    const ordered: Array<(typeof models)[number]> = [];
     const seen = new Set<string>();
     const visit = (name: string) => {
       if (seen.has(name)) return;
