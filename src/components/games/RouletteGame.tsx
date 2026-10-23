@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GameDef } from "@/lib/games/registry";
 import GameFrame from "@/components/games/GameFrame";
 import RouletteWheel, { BALL_MS } from "@/components/games/RouletteWheel";
@@ -83,6 +83,11 @@ export default function RouletteGame({ game }: { game: GameDef }) {
   const [error, setError] = useState<string | null>(null);
   const [feedVersion, setFeedVersion] = useState(0);
   const [recent, setRecent] = useState<number[]>([]);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+  }, []);
 
   /**
    * Which bet the felt is currently explaining. Hovering a region previews it;
@@ -184,15 +189,21 @@ export default function RouletteGame({ game }: { game: GameDef }) {
     setHovered(null);
     setFocused(null);
 
+    // A stalled request must never leave the table locked.
+    const abort = new AbortController();
+    const abortTimer = setTimeout(() => abort.abort(), 15_000);
+
     try {
       const res = await fetch("/api/games/roulette", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abort.signal,
         body: JSON.stringify({
           bets: placed.map(({ type, number, amountCents }) => ({ type, number, amountCents })),
         }),
       });
       const data = await res.json();
+      clearTimeout(abortTimer);
 
       if (!res.ok) {
         setError(data.error ?? "Couldn't place those bets.");
@@ -205,17 +216,25 @@ export default function RouletteGame({ game }: { game: GameDef }) {
       setLaunchKey((k) => k + 1);
 
       // Hold the result back until the ball has come to rest.
-      setTimeout(() => {
-        setLast(payload);
-        setRecent((r) => [payload.result.pocket, ...r].slice(0, 12));
-        applyResult(payload.balanceCents, payload.netCents);
-        applyProgress(payload.progress);
-        pushFlash(game.name, payload.netCents, payload.result.summary);
-        setFeedVersion((v) => v + 1);
-        setBusy(false);
+      settleTimer.current = setTimeout(() => {
+        try {
+          setLast(payload);
+          setRecent((r) => [payload.result.pocket, ...r].slice(0, 12));
+          applyResult(payload.balanceCents, payload.netCents);
+          applyProgress(payload.progress);
+          pushFlash(game.name, payload.netCents, payload.result.summary);
+          setFeedVersion((v) => v + 1);
+        } finally {
+          setBusy(false);
+        }
       }, BALL_MS + 400);
     } catch {
-      setError("Network error — the bet was not placed.");
+      clearTimeout(abortTimer);
+      setError(
+        abort.signal.aborted
+          ? "The request timed out. Check your balance before spinning again."
+          : "Network error — the bet was not placed.",
+      );
       setBusy(false);
     }
   }, [busy, placed, applyResult, applyProgress, pushFlash, game.name]);
