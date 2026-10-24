@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { currentUserId } from "@/lib/auth";
-import { InsufficientBalanceError } from "@/lib/ledger";
+import { GuestBetLimitError, InsufficientBalanceError } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import { describeProgression, type Progression } from "@/lib/progression";
 import { describeCareer, type CareerState } from "@/lib/life/career";
@@ -64,6 +64,7 @@ export async function requireUser(): Promise<
     bestMultiplierX100: row.bestMultiplierX100,
     unlimitedBets: row.unlimitedBets,
     isGuest: row.isGuest,
+    guestBets: row.guestBets,
   });
 
   // Presence, throttled: a write only when the stamp is missing or stale, so
@@ -184,6 +185,7 @@ export function handleError(err: unknown) {
   if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
     return jsonError("That is already in progress — try again in a moment.", 409);
   }
+  if (err instanceof GuestBetLimitError) return NextResponse.json({ error: err.message, guestLimit: true }, { status: 403 });
   if (err instanceof InsufficientBalanceError) return jsonError("Not enough balance for that bet.", 409);
   if (err instanceof Error) return jsonError(err.message, 400);
   return jsonError("Something went wrong.", 500);

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
-import { awardProgress, credit, debit, writeTransaction, lockUser } from "@/lib/ledger";
+import { awardProgress, credit, debit, writeTransaction, lockUser, takeGuestBet } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import {
   SHAPES,
@@ -74,6 +74,7 @@ export async function POST(req: Request) {
         where: { userId: user.id, game: "towers", status: "ACTIVE" },
       });
         if (existing) throw new Error("Finish or cash out your current climb first.");
+        await takeGuestBet(tx, user.id);
         const balanceCents = await debit(tx, user.id, bet.cents);
         const state = newRound(bet.cents, difficulty);
         const round = await tx.round.create({

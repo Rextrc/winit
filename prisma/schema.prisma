@@ -65,6 +65,8 @@ model User {
   // A no-signup trial account: small balance, small bet cap, no chat and no
   // leaderboard. Claiming it (picking a username + password) clears this.
   isGuest       Boolean @default(false)
+  // Bets a guest has started. Capped at GUEST_MAX_BETS, then it takes an account.
+  guestBets     Int     @default(0)
   // The connection this guest was minted for. UNIQUE, so two concurrent guest
   // requests can't both win: the database refuses the second. Never cleared,
   // so saving the account doesn't free the connection for another guest.

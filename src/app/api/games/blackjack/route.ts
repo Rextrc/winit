@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet } from "@/lib/money";
-import { awardProgress, credit, debit, writeTransaction, type ProgressUpdate, lockUser } from "@/lib/ledger";
+import { awardProgress, credit, debit, writeTransaction, type ProgressUpdate, lockUser, takeGuestBet } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import {
   applyAction,
@@ -113,6 +113,7 @@ export async function POST(req: Request) {
         where: { userId: user.id, game: "blackjack", status: "ACTIVE" },
       });
         if (existing) throw new Error("Finish the hand you're already playing.");
+        await takeGuestBet(tx, user.id);
         let balanceCents = await debit(tx, user.id, bet.cents);
         const state = deal(bet.cents);
 

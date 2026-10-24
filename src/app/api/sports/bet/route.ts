@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet } from "@/lib/money";
-import { debit } from "@/lib/ledger";
+import { debit, takeGuestBet } from "@/lib/ledger";
 import { fromDb, toDb } from "@/lib/bigmoney";
 import { getLeague, isStarted } from "@/lib/sports/feed";
 import { findOutcome } from "@/lib/sports/normalize";
@@ -164,6 +164,7 @@ export async function POST(req: Request) {
       let balanceCents = user.balanceCents;
       const ids: string[] = [];
       for (const s of slips) {
+        await takeGuestBet(tx, user.id);
         balanceCents = await debit(tx, user.id, s.stakeCents);
         const row = await tx.sportsBet.create({
           data: {

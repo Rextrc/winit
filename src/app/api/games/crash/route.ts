@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { currentUserId } from "@/lib/auth";
 import { validateBet } from "@/lib/money";
-import { debit } from "@/lib/ledger";
+import { debit, takeGuestBet } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import { validTarget } from "@/lib/games/crash";
 import { cashOut, currentRound, phaseOf, settleAutoCashouts, settleRound } from "@/lib/games/crashLive";
@@ -146,6 +146,7 @@ export async function POST(req: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.crashBet.findUnique({ where: { roundId_userId: { roundId: round.id, userId: user.id } } });
       if (existing) throw new Error("You already have a bet on this round.");
+      await takeGuestBet(tx, user.id);
       const balanceCents = await debit(tx, user.id, bet.cents);
       await tx.crashBet.create({
         data: { roundId: round.id, userId: user.id, username: user.username, betCents: BigInt(bet.cents), autoTarget },

@@ -6,6 +6,7 @@ import * as Career from "@/lib/life/career";
 import { applyProgression, type ProgressionExtras } from "@/lib/life/advance";
 import type { CareerState, DeathCause } from "@/lib/life/career";
 import {
+  GUEST_MAX_BETS,
   applyXp,
   describeProgression,
   xpForWager,
@@ -52,7 +53,29 @@ export class InsufficientBalanceError extends Error {
   }
 }
 
+export class GuestBetLimitError extends Error {
+  constructor() {
+    super("That was your last guest bet — create a free account to keep playing.");
+    this.name = "GuestBetLimitError";
+  }
+}
+
 type Tx = Prisma.TransactionClient;
+
+/**
+ * Counts one started bet against a guest's allowance. The conditional update
+ * is the guard, so concurrent requests cannot slip past the cap. A no-op for
+ * real accounts. Call it wherever a new wager is opened.
+ */
+export async function takeGuestBet(tx: Tx, userId: string): Promise<void> {
+  const taken = await tx.user.updateMany({
+    where: { id: userId, isGuest: true, guestBets: { lt: GUEST_MAX_BETS } },
+    data: { guestBets: { increment: 1 } },
+  });
+  if (taken.count > 0) return;
+  const u = await tx.user.findUnique({ where: { id: userId }, select: { isGuest: true } });
+  if (u?.isGuest) throw new GuestBetLimitError();
+}
 
 async function readBalance(tx: Tx, userId: string): Promise<number> {
   const u = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { balanceCents: true } });
@@ -404,6 +427,7 @@ export async function awardProgress(
       deathCause: true,
       unlimitedBets: true,
       isGuest: true,
+      guestBets: true,
     },
   });
 
@@ -417,6 +441,7 @@ export async function awardProgress(
     bestMultiplierX100: after.bestMultiplierX100,
     unlimitedBets: after.unlimitedBets,
     isGuest: after.isGuest,
+    guestBets: after.guestBets,
   });
 
   return {
@@ -463,6 +488,7 @@ export async function settleOneShotBet(args: {
   detail?: unknown;
 }): Promise<SettledBet> {
   return prisma.$transaction(async (tx) => {
+    await takeGuestBet(tx, args.userId);
     await debit(tx, args.userId, args.betCents);
     const balanceCents = await credit(tx, args.userId, args.payoutCents);
     const row = await writeTransaction(tx, {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
-import { awardProgress, credit, debit, writeTransaction, lockUser } from "@/lib/ledger";
+import { awardProgress, credit, debit, writeTransaction, lockUser, takeGuestBet } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import {
   GRID_SIZE,
@@ -74,6 +74,7 @@ export async function POST(req: Request) {
         where: { userId: user.id, game: "mines", status: "ACTIVE" },
       });
         if (existing) throw new Error("Cash out or lose your current round before starting another.");
+        await takeGuestBet(tx, user.id);
         const balanceCents = await debit(tx, user.id, bet.cents);
         const state = newRound(bet.cents, minesCount);
         const round = await tx.round.create({

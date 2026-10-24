@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertBettable, handleError, jsonError, requireUser } from "@/lib/api";
 import { validateBet, formatCents } from "@/lib/money";
-import { awardProgress, credit, debit, writeTransaction, lockUser } from "@/lib/ledger";
+import { awardProgress, credit, debit, writeTransaction, lockUser, takeGuestBet } from "@/lib/ledger";
 import { fromDb } from "@/lib/bigmoney";
 import {
   HAND_LABELS,
@@ -73,6 +73,7 @@ export async function POST(req: Request) {
         where: { userId: user.id, game: "videopoker", status: "ACTIVE" },
       });
         if (existing) throw new Error("Finish the hand you are holding first.");
+        await takeGuestBet(tx, user.id);
         const balanceCents = await debit(tx, user.id, bet.cents);
         // The whole deck is shuffled and stored now, so the replacement cards
         // are fixed before any hold is chosen — the draw cannot react to it.
