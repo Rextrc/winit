@@ -52,6 +52,7 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("reputation.set"), points: z.number().int().min(0), reason: z.string().optional() }),
   z.object({ action: z.literal("vip.set"), level: z.number().int().min(0).max(VIP_TIERS.length - 1), reason: z.string().optional() }),
   z.object({ action: z.literal("prestige.set"), rebirths: z.number().int().min(0).max(MAX_REBIRTHS), reason: z.string().optional() }),
+  z.object({ action: z.literal("betlimit.set"), unlimited: z.boolean(), reason: z.string().optional() }),
   z.object({ action: z.literal("progression.reset"), reason: z.string().optional(), confirm: z.boolean() }),
   z.object({ action: z.literal("achievement.grant"), key: z.string(), reason: z.string().optional() }),
   z.object({ action: z.literal("achievement.revoke"), key: z.string(), reason: z.string().optional() }),
@@ -80,6 +81,7 @@ const NEEDS: Record<string, Capability> = {
   "reputation.set": "accounts.progression",
   "vip.set": "accounts.progression",
   "prestige.set": "accounts.progression",
+  "betlimit.set": "accounts.progression",
   "progression.reset": "accounts.progression",
   "achievement.grant": "accounts.unlocks",
   "achievement.revoke": "accounts.unlocks",
@@ -268,6 +270,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             tx,
           );
           return { rebirths: input.rebirths };
+        }
+
+        case "betlimit.set": {
+          // Free betting (no table limit) versus leveled betting, where the
+          // ceiling rises with level and rebirths. Display and cap both read
+          // this one column, so nothing else needs to change.
+          if (before.unlimitedBets === input.unlimited) {
+            return { error: `Already on ${input.unlimited ? "free" : "leveled"} betting.` as const };
+          }
+          await tx.user.update({ where: { id: target.id }, data: { unlimitedBets: input.unlimited } });
+          await writeAudit(
+            { actor: staff, action: "account.betlimit.set", target: auditTarget, field: "unlimitedBets", oldValue: before.unlimitedBets, newValue: input.unlimited, reason },
+            tx,
+          );
+          return { unlimitedBets: input.unlimited };
         }
 
         case "progression.reset": {

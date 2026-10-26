@@ -15,7 +15,7 @@ type Detail = {
     strikeLog: { id: string; kind: string; reason: string; outcome: string; detail: string | null; createdAt: string }[];
     balanceCents: number; peakBalanceCents: number; lifetimeWageredCents: number;
     lifetimeWonCents: number; biggestWinCents: number; bestMultiplier: number;
-    progression: { level: number; xp: number; xpToNext: number; rebirths: number; maxBetCents: number; stage: { title: string } };
+    progression: { level: number; xp: number; xpToNext: number; rebirths: number; maxBetCents: number; tableLimitCents: number; unlimitedBets: boolean; stage: { title: string } };
     career: { age: number; over: boolean; deathCause: string | null; venueName: string; betsThisLife: number; comebacksLeft: number; livesLived: number };
     reputation: { points: number; tier: { name: string } };
     vip: { tier: { name: string; level: number } };
@@ -251,6 +251,23 @@ export default function AccountDetail({ id, role, viewerId }: { id: string; role
                 onRun={(v) => act({ action: "vip.set", level: Math.round(v) })} />
               <AmountAction label="Set prestige" placeholder="0-10" busy={busy} integer
                 onRun={(v) => act({ action: "prestige.set", rebirths: Math.round(v) })} />
+              <div className="rounded-lg border border-white/10 p-2.5">
+                <p className="text-[11px] text-slate-400">
+                  Betting mode:{" "}
+                  <span className="font-bold text-slate-100">
+                    {a.progression.unlimitedBets ? "Free (no limit)" : `Leveled (max ${formatCents(a.progression.tableLimitCents)})`}
+                  </span>
+                </p>
+                <button type="button" disabled={busy} className="btn-ghost mt-2 w-full py-1.5 text-[11px]"
+                  onClick={() => act(
+                    { action: "betlimit.set", unlimited: !a.progression.unlimitedBets },
+                    a.progression.unlimitedBets
+                      ? `Switch ${a.username} to leveled betting? Their max bet will follow their level.`
+                      : `Switch ${a.username} to free betting? Their bet limit is removed.`,
+                  )}>
+                  {a.progression.unlimitedBets ? "Switch to leveled betting" : "Switch to free betting"}
+                </button>
+              </div>
               <button type="button" disabled={busy} className="btn-ghost w-full py-2 text-xs text-loss"
                 onClick={() => act({ action: "progression.reset", confirm: true }, `Wipe ${a.username}'s progression? Money is not touched.`)}>
                 Reset progression
