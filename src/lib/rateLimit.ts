@@ -44,6 +44,8 @@ export function limitFor(method: string, path: string): Limit | null {
     // Live views (crash, chat) poll several times a second.
     return { name: "read", max: 900, windowMs: MIN };
   }
-  if (path.startsWith("/api/games/")) return { name: "bet", max: 150, windowMs: MIN };
+  // Plinko sends one request per ball, and 200-ball drops, turbo and autoplay
+  // are normal play — so this is a ceiling against scripts, not a pace.
+  if (path.startsWith("/api/games/")) return { name: "bet", max: 1_500, windowMs: MIN };
   return { name: "write", max: 60, windowMs: MIN };
 }
